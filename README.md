@@ -1,32 +1,23 @@
-# Trade Scheme FX — clean Next.js starter
+# Trade Scheme FX — static clean deployment
 
-This is a clean, minimal Next.js project intended to replace the earlier broken starter. The project has a single app at the repository root and does not import Supabase or require environment variables, so it avoids the missing `lib/supabase/server` build error.
-
-## Included
-- Free membership messaging ($0/month; no subscription checkout).
-- Blue AI-brain background image supplied for this website.
-- Animated glow/orbit effects and responsive layout.
-- Homepage and an `/admin` preview page.
-- Root-level `package.json`, `app/`, `public/`, and Next.js configuration.
-
-## Important limitations
-This is a front-end starter, not a production trading service. It does not authenticate customers or administrators, connect Deriv, execute trades, store broker tokens, or process payments. The `/admin` page is explicitly a preview and is NOT password protected. Do not enter real credentials there. Before launch, implement secure authentication, authorization, encrypted token storage, audit logging, trading risk controls, and test thoroughly with demo accounts. Never collect customers' Deriv passwords. No profits are promised.
+This package intentionally removes Next.js, TypeScript, Supabase, server actions, authentication imports, and build scripts. It is a static HTML/CSS website so the previous missing-module/build errors cannot occur.
 
 ## Deploy to Vercel
-1. Create a NEW GitHub repository (recommended) and extract this ZIP on your computer.
-2. Upload the CONTENTS of this folder to the repository root. Do not upload the ZIP itself and do not create an extra nested project folder.
-3. In Vercel, choose Add New → Project and import that new repository.
-4. Framework preset: Next.js. Root Directory: leave blank (repository root).
-5. Build command: `npm run build`. Install command: `npm install`.
-6. Deploy. No environment variables are required for this starter.
-7. Test the generated Vercel URL before connecting the custom domain.
+1. Extract this ZIP.
+2. Upload `index.html` and the `assets` folder directly into the root of a NEW GitHub repository.
+3. In Vercel, import that repository.
+4. Framework Preset: **Other**.
+5. Build Command: leave blank.
+6. Output Directory: leave blank (or `.` if Vercel requires a value).
+7. Deploy.
 
-## Local development
-Requires Node.js 20.9 or later.
+No npm install, build command, environment variables, or Supabase setup are needed.
 
-```bash
-npm install
-npm run dev
-```
+## Included
+- Free membership messaging; no subscription checkout.
+- User-provided blue AI-brain background image.
+- CSS glow/orbit animations with reduced-motion support.
+- Responsive landing page.
 
-Open http://localhost:3000.
+## Limitations
+This is a static marketing website only. It does not provide real customer accounts, protected admin access, Deriv OAuth, automated trading, billing, or secure account management. Do not enter passwords or broker credentials. Those features require a separately built and security-tested backend.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#030817">
+<meta name="description" content="Trade Scheme FX — trading technology, customer control and free membership.">
+<title>Trade Scheme FX | Trade smarter. Stay in control.</title>
+<style>
+:root{--bg:#030817;--panel:rgba(7,19,43,.78);--line:rgba(91,164,255,.22);--blue:#38a9ff;--cyan:#67f0ff;--white:#f4f8ff;--muted:#a9bad3}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Arial,sans-serif;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;background:linear-gradient(90deg,rgba(1,5,16,.92),rgba(1,8,24,.68)),url("assets/ai-brain-blue.jpg") center/cover no-repeat;z-index:-3;animation:backglow 12s ease-in-out infinite alternate}
+body:after{content:"";position:fixed;inset:-30%;z-index:-2;pointer-events:none;background:radial-gradient(circle at 25% 35%,rgba(0,120,255,.16),transparent 28%),radial-gradient(circle at 75% 65%,rgba(0,220,255,.10),transparent 26%);animation:drift 18s ease-in-out infinite alternate}
+@keyframes backglow{from{filter:brightness(.72) saturate(1.05)}to{filter:brightness(1.02) saturate(1.3)}}@keyframes drift{to{transform:translate(4%, -3%) rotate(5deg)}}
+.wrap{width:min(1120px,92%);margin:auto}.nav{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:white;font-weight:850;letter-spacing:.08em}.mark{display:grid;place-items:center;width:42px;height:42px;border:1px solid #3caaff;border-radius:13px;color:var(--cyan);font-size:24px;box-shadow:0 0 24px #168bff55}.brand small{display:block;font-size:9px;color:#9eb6d6;letter-spacing:.18em;margin-top:4px}
+nav{display:flex;gap:26px}nav a{color:#c8d7ed;text-decoration:none;font-size:14px}nav a:hover{color:var(--cyan)}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 19px;border-radius:11px;text-decoration:none;color:#001225;font-weight:800;background:linear-gradient(100deg,#55c6ff,#70f4ff);box-shadow:0 8px 30px #159dff38;transition:.25s}.btn:hover{transform:translateY(-3px);box-shadow:0 12px 34px #159dff66}.btn.ghost{background:transparent;color:white;border:1px solid #5bbcff88;box-shadow:none}
+.hero{min-height:650px;display:grid;grid-template-columns:1.1fr .9fr;gap:55px;align-items:center;padding-top:65px;padding-bottom:70px}.eyebrow{color:var(--cyan);font-size:11px;font-weight:850;letter-spacing:.2em}.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5df5ff;box-shadow:0 0 12px #5df5ff;margin-right:8px}
+h1{font-size:clamp(44px,6vw,76px);line-height:1.02;letter-spacing:-.055em;margin:22px 0}h1 span,.heading span{color:var(--cyan);text-shadow:0 0 28px #18aaff66}.lead{font-size:18px;line-height:1.7;color:#c2d0e5;max-width:590px}.actions{display:flex;gap:13px;flex-wrap:wrap;margin-top:28px}.note{font-size:12px;color:#9eb3d0;margin-top:22px}
+.glass{border:1px solid #5dbaff55;background:linear-gradient(145deg,rgba(7,23,52,.88),rgba(3,10,27,.72));backdrop-filter:blur(14px);border-radius:24px;box-shadow:0 25px 90px #001a3f99, inset 0 1px #ffffff12}.visual{padding:25px;animation:float 6s ease-in-out infinite}.visual-top{display:flex;justify-content:space-between;color:#b9d9f8;font-size:10px;letter-spacing:.14em}.orb{height:280px;display:grid;place-items:center;position:relative}.orb:before,.orb:after{content:"";position:absolute;width:220px;height:220px;border:1px solid #38b9ff77;border-radius:50%;box-shadow:0 0 35px #168dff33;animation:spin 15s linear infinite}.orb:after{width:175px;height:245px;transform:rotate(60deg);border-color:#60efff77;animation:spin 18s linear infinite reverse}.core{width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#1b8bff,#071a45 70%);border:1px solid #7beaff;box-shadow:0 0 55px #078dff99;font-size:28px;font-weight:900;color:white;z-index:1}.core small{font-size:10px;letter-spacing:.2em}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{padding:15px;border:1px solid var(--line);border-radius:13px;background:#07152c99}.stat small{display:block;color:#9bb3d2;font-size:10px;letter-spacing:.12em}.stat strong{display:block;margin-top:8px;color:#72eaff;font-size:19px}
+@keyframes spin{to{rotate:360deg}}@keyframes float{50%{transform:translateY(-9px)}}
+.strip{border-block:1px solid var(--line);background:#04132b99;padding:19px 0}.stripin{display:flex;justify-content:space-around;gap:16px;flex-wrap:wrap;color:#c5eaff;font-size:11px;font-weight:800;letter-spacing:.14em}
+section.content{padding:90px 0}.heading{text-align:center;max-width:740px;margin:0 auto 38px}.heading h2{font-size:clamp(30px,4vw,46px);margin:15px 0}.heading p{color:var(--muted);line-height:1.7}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{padding:25px;border-radius:18px;border:1px solid var(--line);background:var(--panel);transition:.25s}.card:hover{transform:translateY(-6px);border-color:#54c9ff88;box-shadow:0 18px 45px #007bff22}.num{color:var(--cyan);font-weight:900;font-size:12px}.card h3{font-size:19px}.card p{color:#adbed5;line-height:1.65;font-size:14px}
+.membership{text-align:center;padding:38px;border-radius:22px}.free{font-size:62px;font-weight:900;color:var(--cyan);text-shadow:0 0 30px #19aaff55}.membership p{color:#bdcde2}.disclaimer{font-size:12px;color:#91a8c6;line-height:1.6;max-width:850px;margin:25px auto 0}
+footer{border-top:1px solid var(--line);padding:30px 0;color:#91a8c6;font-size:12px}.footerin{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+@media(max-width:800px){nav{gap:12px}nav a{font-size:12px}.hero{grid-template-columns:1fr;padding-top:55px;gap:35px}.visual{max-width:560px;width:100%;margin:auto}.cards{grid-template-columns:1fr}.nav{height:auto;padding:18px 0;gap:15px;flex-wrap:wrap}.nav .btn{padding:10px 13px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="nav wrap">
+<a class="brand" href="#"><span class="mark">↗</span><span>TRADE SCHEME<small>FX TECHNOLOGY</small></span></a>
+<nav><a href="#how">How it works</a><a href="#membership">Membership</a><a href="#about">About</a></nav>
+<a class="btn" href="#membership">Join for free</a>
+</header>
+<main>
+<section class="hero wrap">
+<div><div class="eyebrow"><span class="pulse"></span> AUTOMATED TRADING TECHNOLOGY</div>
+<h1>Trade smarter.<br><span>Stay in control.</span></h1>
+<p class="lead">A modern home for trading tools, strategy insights and customer-controlled account connections.</p>
+<div class="actions"><a class="btn" href="#membership">Join for free ↗</a><a class="btn ghost" href="#how">Explore the platform</a></div>
+<p class="note">Free membership. No monthly subscription fee.</p></div>
+<div class="glass visual"><div class="visual-top"><span>PLATFORM OVERVIEW</span><span>CONCEPT PREVIEW</span></div><div class="orb"><div class="core">TS<small>FX</small></div></div><div class="stats"><div class="stat"><small>MEMBERSHIP</small><strong>FREE</strong></div><div class="stat"><small>ACCOUNT CONTROL</small><strong>Customer-led</strong></div></div></div>
+</section>
+<div class="strip"><div class="wrap stripin"><span>FREE TO JOIN</span><span>NO MONTHLY MEMBERSHIP FEE</span><span>RISK-AWARE DESIGN</span></div></div>
+<section class="content wrap" id="how"><div class="heading"><div class="eyebrow">A CLEAR CUSTOMER JOURNEY</div><h2>Technology built around <span>your control.</span></h2><p>Trade Scheme FX is being developed to make trading tools easier to understand and manage.</p></div>
+<div class="cards"><article class="card"><span class="num">01</span><h3>Connect your own broker account</h3><p>The intended platform model keeps customer funds in each customer's own broker account.</p></article><article class="card"><span class="num">02</span><h3>Choose your trading settings</h3><p>Review strategy information and risk controls before deciding whether to use any trading tool.</p></article><article class="card"><span class="num">03</span><h3>Stay in control</h3><p>A clear workspace is planned for account connections, strategy settings and activity history.</p></article></div></section>
+<section class="content wrap" id="membership"><div class="glass membership"><div class="eyebrow">MEMBERSHIP</div><div class="free">FREE</div><h2>No subscription. No monthly fee.</h2><p>Join Trade Scheme FX at no membership cost.</p><a class="btn" href="mailto:support@tradesche.com?subject=Trade%20Scheme%20FX%20interest">Contact us</a></div></section>
+<section class="content wrap" id="about"><div class="heading"><div class="eyebrow">IMPORTANT INFORMATION</div><h2>Understand the risks.</h2><p>Trading involves substantial risk and may not be suitable for everyone. No trading strategy or software can guarantee profits. This website is an informational preview, not a broker or investment adviser.</p></div></section>
+</main>
+<footer><div class="wrap footerin"><span>© 2026 Trade Scheme FX. Trade smarter. Stay in control.</span><span>Free membership · Trading involves risk.</span></div></footer>
+</body></html>
