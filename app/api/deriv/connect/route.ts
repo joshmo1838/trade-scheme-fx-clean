@@ -3,14 +3,15 @@ import { NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 
 const REDIRECT_URI = "https://tradesche.com/api/deriv/callback";
-const b64url = (value: Buffer) => value.toString("base64").replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
+const b64url = (value: Buffer) => value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(new URL("/login?next=/dashboard", "https://tradesche.com"));
 
-  const clientId = process.env.DERIV_CLIENT_ID;\n  if (process.env.DERIV_OAUTH_ENABLED !== "true") return NextResponse.redirect(new URL("/dashboard?deriv=awaiting_approval", "https://tradesche.com"));
+  const clientId = process.env.DERIV_CLIENT_ID;
+  if (process.env.DERIV_OAUTH_ENABLED !== "true") return NextResponse.redirect(new URL("/dashboard?deriv=awaiting_approval", "https://tradesche.com"));
   if (!clientId) return NextResponse.redirect(new URL("/dashboard?deriv=not_configured", "https://tradesche.com"));
 
   const verifier = b64url(randomBytes(48));

@@ -1,0 +1,32 @@
+TRADE SCHEME FX — DERIV OAUTH INFRASTRUCTURE
+
+Included:
+- /api/deriv/connect starts Deriv OAuth 2.0 Authorization Code + PKCE.
+- /api/deriv/callback validates state, exchanges the code server-side, encrypts the access token with AES-256-GCM, and stores it using the Supabase service role.
+- Customer dashboard shows a disabled "awaiting approval" button until DERIV_OAUTH_ENABLED=true.
+- No live trade execution is included.
+
+Before enabling:
+1. Deriv must approve/verify your OAuth application.
+2. Register this exact redirect URL in Deriv:
+   https://tradesche.com/api/deriv/callback
+3. Set the Website URL:
+   https://tradesche.com
+4. In Vercel Project Settings > Environment Variables add:
+   DERIV_CLIENT_ID = your Deriv App ID
+   DERIV_OAUTH_ENABLED = false (keep false until Deriv approval)
+   DERIV_TOKEN_ENCRYPTION_KEY = 64 hexadecimal characters (generate a random 32-byte key)
+   SUPABASE_SERVICE_ROLE_KEY = Supabase service_role secret (server-only; never NEXT_PUBLIC)
+5. Run supabase/deriv-connections.sql in Supabase SQL Editor.
+6. Redeploy Vercel after adding environment variables.
+
+Security:
+- Never put service-role keys or encryption keys in GitHub.
+- Never send Deriv passwords or access tokens in chat.
+- Do not set DERIV_OAUTH_ENABLED=true until Deriv approves the app and redirect URL.
+- OAuth access tokens expire; the customer must re-authorize after expiry. No refresh token is issued.
+- This package does not submit trades or implement bot execution.
+
+Generate encryption key locally with:
+  openssl rand -hex 32
+Keep the output private and add it only as a Vercel environment variable.

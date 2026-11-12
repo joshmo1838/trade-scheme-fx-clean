@@ -1,0 +1,30 @@
+TRADE SCHEME FX — EXPANDED WORKSPACE
+
+IMPORTANT: This archive is the project root. When uploading to GitHub, upload the CONTENTS of this folder, not the ZIP file and not the enclosing folder.
+
+At the GitHub repository root, the structure must look like this:
+  app/
+  lib/
+  public/
+  supabase/
+  package.json
+  proxy.ts
+  next.config.ts
+  tsconfig.json
+
+Do not create a nested structure such as:
+  trade-scheme-fx-clean/Trade-Scheme-FX-Expanded-Workspace/app/
+
+New pages included:
+  /builder
+  /bulk-trader
+  /manual-trader
+  /copy-trading
+  /digit-tools
+  /charts
+  /ai-scanner
+  /history
+
+After the GitHub commit, check Vercel Deployments and confirm the deployment source commit matches the latest GitHub commit.
+
+The added feature pages are prototype interfaces only. They do not connect to Deriv, place trades, copy trades, or generate live signals. Existing Supabase environment variables must remain configured in Vercel. Never upload .env.local, service-role keys, Deriv secrets, or passwords.
