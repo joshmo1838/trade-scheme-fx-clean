@@ -37,3 +37,12 @@ After you create your own user account, copy your user UUID from Supabase Authen
 - Never put Supabase service-role keys or Deriv API secrets in browser code or GitHub.
 - Bot execution must have explicit user consent, risk limits, stop controls, and server-side credential handling before it is enabled.
 - Trading can result in loss. No profits are guaranteed.
+
+
+## Admin customer email contact
+1. Run `supabase/admin-customer-email.sql` in Supabase SQL Editor.
+2. Deploy this updated project to Vercel.
+3. Sign in with the administrator account and open `/admin`.
+4. The customer list shows names and email addresses. “Email customer” opens the device's email app with a draft addressed to that customer. Review and send it yourself.
+
+This first version uses `mailto:`; it does not send mail from the website. Sending directly from the dashboard later requires a transactional email provider (for example, Resend), verified sender domain, and server-side API key.
