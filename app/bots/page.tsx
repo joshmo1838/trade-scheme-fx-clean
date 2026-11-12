@@ -43,7 +43,7 @@ export default function CustomerBotsPage(){
   }
 
   return <main className="appShell"><header className="dashNav"><Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link><Link className="button secondary small" href="/dashboard">Customer dashboard</Link></header>
-    <section className="dashContent"><p className="eyebrow">YOUR BOT WORKSPACE</p><h1>Trading bots</h1>
+    <section className="dashContent"><p className="eyebrow">YOUR BOT WORKSPACE</p><h1>Trading bots</h1><p><Link className="button secondary small" href="/bot-settings">Bot settings</Link></p>
       <div className="notice"><strong>Demo controls only:</strong> Selecting, pausing, or stopping a bot here does not start or stop live trades. Deriv authorization and a tested execution service must be added first.</div>
       {message&&<p className="notice">{message}</p>}
       {bots.length===0?<div className="panel"><p className="muted">No bots are published yet. Check back when the platform administrator publishes a bot.</p></div>:

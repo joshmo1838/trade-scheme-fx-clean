@@ -64,3 +64,8 @@ The homepage now welcomes visitors with “WELCOME TO TRADE SCHEME FX”, moving
 3. Admins open `/admin/bots` to add and publish bot profiles.
 4. Customers open `/bots` to select, pause, or stop their bot preference.
 5. These are catalogue and preference controls only. They do not execute live trades. Deriv OAuth, server-side token storage, trading execution, explicit risk controls, and end-to-end testing must be implemented before live trading is enabled.
+
+
+## Customer bot settings update
+
+After deploying this version, run `supabase/bot-settings.sql` in Supabase SQL Editor. Customers can open `/bot-settings` or use the Bot settings links on their dashboard and bot workspace. Demo preferences allow a $10–$100 stake and display a $100 virtual starting balance. Real preferences require at least $10 and have no additional platform maximum; Deriv contract and available-balance limits still apply. These are saved preferences only and do not execute or enforce trades until a separately implemented and tested Deriv execution service exists.
