@@ -69,3 +69,18 @@ The homepage now welcomes visitors with “WELCOME TO TRADE SCHEME FX”, moving
 ## Customer bot settings update
 
 After deploying this version, run `supabase/bot-settings.sql` in Supabase SQL Editor. Customers can open `/bot-settings` or use the Bot settings links on their dashboard and bot workspace. Demo preferences allow a $10–$100 stake and display a $100 virtual starting balance. Real preferences require at least $10 and have no additional platform maximum; Deriv contract and available-balance limits still apply. These are saved preferences only and do not execute or enforce trades until a separately implemented and tested Deriv execution service exists.
+
+## Expanded trading workspace prototype
+This update adds navigation and prototype workspaces for:
+- Visual Bot Builder (`/builder`)
+- Bulk Trader (`/bulk-trader`)
+- Manual Trader (`/manual-trader`)
+- Copy Trading (`/copy-trading`)
+- Digit Tools (`/digit-tools`)
+- Charts (`/charts`)
+- AI Market Scanner (`/ai-scanner`)
+- Trading History (`/history`)
+
+Important: these are prototype interfaces. They do not connect to Deriv, execute orders, mirror provider trades, retrieve live market data, or generate AI trading signals. The bulk planner and digit frequency counter perform local illustrative calculations only. Do not represent any prototype feature as live or operational.
+
+The existing authentication, admin, messaging, bot catalogue, and bot preference code is retained from the supplied project ZIP. Existing Supabase migrations remain in `supabase/`. No new SQL migration is required for these prototype-only pages.
