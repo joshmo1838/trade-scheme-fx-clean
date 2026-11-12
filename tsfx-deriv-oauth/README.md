@@ -84,3 +84,4 @@ This update adds navigation and prototype workspaces for:
 Important: these are prototype interfaces. They do not connect to Deriv, execute orders, mirror provider trades, retrieve live market data, or generate AI trading signals. The bulk planner and digit frequency counter perform local illustrative calculations only. Do not represent any prototype feature as live or operational.
 
 The existing authentication, admin, messaging, bot catalogue, and bot preference code is retained from the supplied project ZIP. Existing Supabase migrations remain in `supabase/`. No new SQL migration is required for these prototype-only pages.
+\n\n## Global market ticker and market watch\nSee `MARKET-UPGRADE-SETUP.txt`. Live quotes require a server-side `TWELVEDATA_API_KEY`. No prices are invented and no trades are executed.\n

@@ -1,0 +1,23 @@
+TRADE SCHEME FX — ALL-IN-ONE MARKET VISUAL UPGRADE
+
+Included:
+- Existing Trade Scheme FX Deriv OAuth project bundle.
+- Global scrolling ticker visible at the top of every page.
+- Markets page at /markets with forex, metals, crypto, indices and Deriv synthetic categories.
+- Server-side quote endpoint at /api/markets.
+- Twelve Data integration for EUR/USD, GBP/USD, USD/JPY, AUD/USD, XAU/USD and XAG/USD.
+
+REAL DATA STATUS
+The ticker and market page are implemented. Real prices require a valid Twelve Data API key and provider-plan support for each symbol. Without a key, the website clearly shows FEED OFF / DATA FEED NOT CONNECTED. No fake prices are displayed.
+Crypto, indices and Deriv synthetic cards are category placeholders until separate compatible data feeds are connected. Deriv synthetic indices need an authorized Deriv market-data connection. No trading execution is implemented.
+
+DEPLOY
+1. Extract this ZIP.
+2. Upload/merge the contents of tsfx-deriv-oauth into the existing GitHub repository, preserving folders.
+3. Commit changes and wait for Vercel deployment.
+4. Vercel > Project > Settings > Environment Variables: add TWELVEDATA_API_KEY from your Twelve Data account.
+5. Redeploy and open https://tradesche.com/markets. The scrolling ticker appears globally.
+
+SECURITY
+Keep TWELVEDATA_API_KEY server-side; do not use NEXT_PUBLIC_ and do not paste the key into public source or chat.
+Keep DERIV_OAUTH_ENABLED disabled until Deriv approval and the previously discussed encryption-key rotation are complete.
