@@ -1,0 +1,20 @@
+TRADE SCHEME FX — T&J HOMEPAGE UPGRADE
+
+This update adds the generated T&J AI trading assistant artwork to the homepage and redesigns the hero around the headline:
+LET T&J ANALYZE YOUR MARKET.
+
+Includes:
+- Your supplied couple photo incorporated into the generated artwork.
+- T&J AI assistant branding and market-analysis visual.
+- Responsive homepage layout for desktop and mobile.
+- Get started, login, and Markets navigation.
+- Clear wording that analysis tools do not guarantee profits.
+- Preserves the existing app routes and the market ticker/Markets page from the included all-in-one package.
+
+DEPLOY:
+1. Extract this ZIP.
+2. Upload/merge the contents of the tsfx-deriv-oauth folder into the existing GitHub repository, preserving paths.
+3. Commit the changes and wait for Vercel deployment.
+4. Open https://tradesche.com to review the new homepage.
+
+This ZIP prepares the update; it does not deploy it. Live market feeds and real trading execution remain separate integrations and are not enabled by this homepage design.

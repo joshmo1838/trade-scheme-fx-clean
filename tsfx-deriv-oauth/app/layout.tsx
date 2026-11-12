@@ -3,8 +3,8 @@ import "./globals.css";
 import MarketTicker from "../components/MarketTicker";
 
 export const metadata: Metadata = {
-  title: "Trade Scheme FX | Trade smarter. Stay in control.",
-  description: "A customer-first trading tools platform. Connect your own Deriv account and stay in control.",
+  title: "Trade Scheme FX | T&J AI Market Assistant",
+  description: "Meet T&J, the Trade Scheme FX AI market-analysis assistant. Explore forex, gold, indices and trading tools while staying in control.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

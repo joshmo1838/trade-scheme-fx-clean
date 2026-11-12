@@ -2,46 +2,43 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="hero">
+    <main className="tjHome">
       <div className="derivRibbon">INDEPENDENT TRADING TOOLS FOR DERIV TRADERS</div>
-      <nav className="nav wrap">
+      <nav className="nav wrap tjNav">
         <Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link>
-        <div className="navlinks"><Link href="/login">Log in</Link><Link className="button small" href="/signup">Create free account</Link></div>
+        <div className="navlinks">
+          <Link href="/markets">Markets</Link>
+          <Link href="/login">Log in</Link>
+          <Link className="button small" href="/signup">Create free account</Link>
+        </div>
       </nav>
-      <div className="marketMotion" aria-hidden="true">
-        <div className="chartPanel"><span className="chartLabel">MARKET MOVEMENT</span><div className="candles">
-          <i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/>
-        </div><div className="chartLine"/></div>
-        <div className="signal signalA">BUY SIGNAL <b>●</b></div>
-        <div className="signal signalB">SELL SIGNAL <b>●</b></div>
-        <div className="signal signalC">AI BOT ACTIVE <b>✦</b></div>
-      </div>
-      <div className="orbitWords" aria-hidden="true">
-        <span className="floatWord w1">AI TRADING</span>
-        <span className="floatWord w2">SYNTHETIC INDICES</span>
-        <span className="floatWord w3">SMART BOTS</span>
-        <span className="floatWord w4">DERIV</span>
-        <span className="floatWord w5">MARKET ANALYSIS</span>
-        <span className="floatWord w6">BUY · SELL</span>
-        <span className="floatWord w7">AUTOMATION</span>
-        <span className="floatWord w8">TRADE SMARTER</span>
-        <span className="orbitDot d1"></span><span className="orbitDot d2"></span>
-        <span className="orbitDot d3"></span><span className="orbitDot d4"></span>
-      </div>
-      <section className="heroContent wrap">
-        <p className="eyebrow">SMARTER TOOLS. YOUR ACCOUNT. YOUR CONTROL.</p>
-        <h1 className="welcomeTitle">WELCOME TO<br/><span>TRADE SCHEME FX</span></h1>
-        <p className="heroSubhead">Trade smarter. Stay in control.</p>
-        <p className="lead">A home for your trading tools, bot settings, and Deriv account connection — designed around your control.</p>
-        <div className="actions"><Link className="button" href="/signup">Get started — free</Link><Link className="button secondary" href="/login">Customer login</Link></div>
-        <div className="trustline"><span>✓ No platform membership fee</span><span>✓ Your Deriv account stays yours</span><span>✓ You control your bot settings</span></div>
+
+      <section className="tjHero wrap">
+        <div className="tjHeroCopy">
+          <p className="eyebrow">MEET YOUR AI MARKET ASSISTANT</p>
+          <h1>LET <span>T&amp;J</span><br/>ANALYZE YOUR MARKET.</h1>
+          <p className="tjLead">A smarter view of forex, gold, indices and Deriv markets — with tools designed to help you analyze, plan and stay in control.</p>
+          <div className="actions">
+            <Link className="button" href="/signup">Get started — free</Link>
+            <Link className="button secondary" href="/markets">Explore markets</Link>
+          </div>
+          <div className="tjTrust"><span>✓ Your Deriv account stays yours</span><span>✓ You control your bot settings</span><span>✓ No platform membership fee</span></div>
+        </div>
+        <div className="tjArtworkFrame">
+          <img className="tjArtwork" src="/assets/tj-ai-trading-hero.png" alt="Trade Scheme FX T&J AI trading assistant with market analysis, forex, gold and trading tools" />
+          <div className="tjArtworkGlow" aria-hidden="true"/>
+        </div>
       </section>
-      <section className="featureGrid wrap">
-        <article className="feature"><div className="featureIcon">◈</div><h3>Your dashboard</h3><p>Keep your account connection and trading tools in one place.</p></article>
-        <article className="feature"><div className="featureIcon">⌘</div><h3>Bot controls</h3><p>Manage your preferred bot settings. Live execution is enabled only after integration and testing.</p></article>
-        <article className="feature"><div className="featureIcon">⛨</div><h3>Account security</h3><p>Your funds remain in your own Deriv account. Never share your Deriv password.</p></article>
+
+      <section className="tjCapabilities wrap">
+        <div className="tjSectionTitle"><p className="eyebrow">ONE WORKSPACE. MULTIPLE MARKETS.</p><h2>Meet the T&amp;J toolkit</h2></div>
+        <div className="featureGrid tjFeatureGrid">
+          <article className="feature"><div className="featureIcon">⌁</div><h3>Market analysis</h3><p>Review market information and chart context before making your own trading decisions.</p></article>
+          <article className="feature"><div className="featureIcon">◈</div><h3>Trading tools</h3><p>Explore bot settings and trading utilities while keeping control of your own account.</p></article>
+          <article className="feature"><div className="featureIcon">⛨</div><h3>Risk awareness</h3><p>Keep risk in view. Trading involves losses and no strategy or signal guarantees profit.</p></article>
+        </div>
       </section>
-      <footer className="footer wrap">© {new Date().getFullYear()} Trade Scheme FX. Trade responsibly. Trading involves risk and losses are possible. No profits are guaranteed. Trade Scheme FX is an independent platform and is not endorsed by Deriv.</footer>
+      <footer className="footer wrap">© {new Date().getFullYear()} Trade Scheme FX. T&amp;J provides market-analysis tools, not guaranteed trading outcomes. Trading involves risk and losses are possible. Trade Scheme FX is independent and is not endorsed by Deriv. Live trading execution and some market feeds require separate integration and testing.</footer>
     </main>
   );
 }
