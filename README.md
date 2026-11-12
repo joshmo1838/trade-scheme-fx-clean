@@ -56,3 +56,11 @@ This first version uses `mailto:`; it does not send mail from the website. Sendi
 5. Messages update in real time when Supabase Realtime is enabled for the `messages` table.
 
 The homepage now welcomes visitors with “WELCOME TO TRADE SCHEME FX”, moving market/candlestick visuals, floating trading labels, and a responsible-trading notice. The upper-left label says “Independent trading tools for Deriv traders” rather than “Powered by Deriv” because Trade Scheme FX should not imply official Deriv endorsement or partnership unless that has been authorized. If written approval is obtained, the wording can be updated.
+
+
+## Trading Bot Management Center
+1. Run `supabase/bot-center.sql` in Supabase SQL Editor after the existing migrations.
+2. Deploy the updated project to Vercel.
+3. Admins open `/admin/bots` to add and publish bot profiles.
+4. Customers open `/bots` to select, pause, or stop their bot preference.
+5. These are catalogue and preference controls only. They do not execute live trades. Deriv OAuth, server-side token storage, trading execution, explicit risk controls, and end-to-end testing must be implemented before live trading is enabled.

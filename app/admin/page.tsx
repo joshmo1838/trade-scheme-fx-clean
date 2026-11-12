@@ -33,6 +33,7 @@ export default async function AdminPage() {
           <h2>Admin access verified</h2>
           <p className="muted">You are signed in as an administrator. View customers and message them privately inside the platform.</p>
         </div>
+        <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link></div>
         <div className="adminSectionHead">
           <div><p className="eyebrow">CUSTOMER MANAGEMENT</p><h2>Registered customers</h2></div>
           <span className="customerCount">{customers?.length ?? 0} accounts</span>
