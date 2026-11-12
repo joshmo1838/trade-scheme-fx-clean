@@ -31,7 +31,7 @@ export default async function AdminPage() {
         <h1>Platform administration</h1>
         <div className="panel adminIntro">
           <h2>Admin access verified</h2>
-          <p className="muted">You are signed in as an administrator. Contact customers directly by email using the buttons below.</p>
+          <p className="muted">You are signed in as an administrator. View customers and message them privately inside the platform.</p>
         </div>
         <div className="adminSectionHead">
           <div><p className="eyebrow">CUSTOMER MANAGEMENT</p><h2>Registered customers</h2></div>
@@ -59,7 +59,7 @@ export default async function AdminPage() {
                     <small>Role: {customer.role}</small>
                   </div>
                   {href ? (
-                    <a className="button small" href={href}>Email customer</a>
+                    <div className="customerActions"><Link className="button small" href={`/admin/messages/${customer.id}`}>Message customer</Link>{href && <a className="button secondary small" href={href}>Email customer</a>}</div>
                   ) : (
                     <span className="muted smallText">No email address</span>
                   )}

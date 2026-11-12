@@ -15,3 +15,32 @@
 @media(prefers-reduced-motion:reduce){.floatWord,.orbitDot,.hero:after{animation:none!important}}
 
 .adminIntro{margin:22px 0 34px}.adminSectionHead{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:20px 0}.adminSectionHead h2{font:600 25px 'Space Grotesk',sans-serif;margin:8px 0}.customerCount{color:#a9dfff;font-size:12px;border:1px solid var(--line);padding:8px 12px;border-radius:999px}.customerList{display:grid;gap:10px}.customerRow{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;background:rgba(5,24,47,.78);border:1px solid var(--line);border-radius:12px}.customerDetails{display:grid;gap:5px;min-width:0}.customerDetails strong{font-family:'Space Grotesk',sans-serif}.customerDetails span{color:#a9d5f2;font-size:13px;overflow-wrap:anywhere}.customerDetails small,.smallText{font-size:11px;color:#91a9c4}.customerRow .button{flex-shrink:0}.adminSectionHead .eyebrow{margin:0}@media(max-width:600px){.customerRow{align-items:flex-start;flex-direction:column}.customerRow .button{width:100%}.adminSectionHead{align-items:flex-start;flex-direction:column}}
+
+/* Welcome screen and market-motion treatment */
+.derivRibbon{position:absolute;z-index:3;top:13px;left:max(20px,calc((100% - 1120px)/2));font:700 9px 'Space Grotesk',sans-serif;letter-spacing:.16em;color:#9bdcff;border-left:2px solid #4dc7ff;padding:5px 9px;text-shadow:0 0 12px #2b9cff}
+.welcomeTitle{font-size:clamp(38px,6vw,68px)!important;line-height:1.08!important}.heroSubhead{font:600 20px 'Space Grotesk',sans-serif;color:#c2eaff;letter-spacing:.03em;margin-top:-5px}
+.marketMotion{position:absolute;z-index:0;inset:100px 0 100px;pointer-events:none;overflow:hidden;opacity:.82}
+.chartPanel{position:absolute;right:7%;top:22%;width:250px;height:145px;border:1px solid rgba(103,197,255,.2);border-radius:12px;background:rgba(3,19,39,.35);padding:15px;transform:perspective(600px) rotateY(-13deg);box-shadow:0 0 35px rgba(38,163,255,.1)}
+.chartLabel{font:700 8px 'Space Grotesk',sans-serif;letter-spacing:.18em;color:#8bcfff}
+.candles{height:82px;display:flex;align-items:center;justify-content:space-around;gap:6px;border-bottom:1px solid rgba(126,192,255,.18);background:repeating-linear-gradient(to bottom,transparent 0,transparent 19px,rgba(130,190,255,.07) 20px)}
+.candles i{display:block;width:7px;height:var(--h,35px);background:linear-gradient(#6fe3cb,#21a98e);border-radius:2px;position:relative;animation:candlePulse 2.4s ease-in-out infinite alternate}
+.candles i:nth-child(2n){--h:49px;background:linear-gradient(#ff9e9e,#e35f76)}.candles i:nth-child(3n){--h:25px}.candles i:nth-child(4n){--h:60px}.candles i:nth-child(5n){--h:42px}
+.candles i:before{content:"";position:absolute;left:3px;top:-8px;width:1px;height:calc(100% + 16px);background:currentColor;opacity:.8}
+.chartLine{height:2px;width:85%;margin-top:-38px;background:linear-gradient(90deg,transparent,#65d9ff,transparent);transform:rotate(-12deg);animation:lineSweep 3s linear infinite}
+.signal{position:absolute;border:1px solid rgba(92,199,255,.3);background:rgba(4,27,52,.7);padding:9px 13px;border-radius:8px;color:#b9e9ff;font:700 9px 'Space Grotesk',sans-serif;letter-spacing:.13em;animation:signalFloat 5s ease-in-out infinite}
+.signal b{color:#6de7c4;margin-left:7px}.signalA{top:10%;right:36%}.signalB{top:60%;right:5%;animation-delay:-2s}.signalC{top:78%;left:39%;animation-delay:-3.5s}
+@keyframes candlePulse{from{filter:brightness(.7);transform:scaleY(.9)}to{filter:brightness(1.35);transform:scaleY(1.05)}}
+@keyframes lineSweep{0%{opacity:.15;transform:translateX(-15px) rotate(-12deg)}50%{opacity:1}100%{opacity:.15;transform:translateX(20px) rotate(-12deg)}}
+@keyframes signalFloat{0%,100%{transform:translateY(0);opacity:.65}50%{transform:translateY(-12px);opacity:1}}
+/* Private in-app messages */
+.messagePanel{margin-top:28px;border:1px solid var(--line);border-radius:16px;background:rgba(5,24,47,.78);overflow:hidden}
+.messageHeader{padding:22px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);gap:15px}.messageHeader h2{font:600 22px 'Space Grotesk',sans-serif;margin:6px 0}.livePill{font-size:9px;color:#8df2d3;letter-spacing:.13em;white-space:nowrap}
+.messageList{height:min(52vh,520px);min-height:250px;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:12px}
+.messageBubble{max-width:min(78%,600px);padding:12px 15px;border-radius:13px;white-space:pre-wrap;overflow-wrap:anywhere}.messageBubble p{margin:0;line-height:1.55;font-size:14px}.messageBubble time{display:block;font-size:9px;color:#a5bad0;margin-top:7px}
+.messageBubble.mine{align-self:flex-end;background:linear-gradient(120deg,#125c94,#1478ad);border:1px solid #3e9bd0}.messageBubble.theirs{align-self:flex-start;background:#102a45;border:1px solid var(--line)}
+.emptyMessages{color:var(--muted);font-size:13px;text-align:center;margin:auto}
+.messageComposer{padding:16px 20px;display:flex;gap:12px;border-top:1px solid var(--line);align-items:flex-end}
+.messageComposer textarea{flex:1;resize:vertical;min-height:65px;max-height:180px;background:#07182d;border:1px solid #284765;border-radius:8px;padding:12px;color:white;font:inherit}
+.messagePrivacy{padding:0 20px 15px;color:#819ab5;font-size:10px}.customerActions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:700px){.derivRibbon{top:8px;font-size:7px;left:12px}.nav{margin-top:22px}.chartPanel{right:2%;top:25%;width:180px;opacity:.5}.signalA{right:3%;top:12%}.signalB{top:61%;right:2%}.signalC{left:3%;top:80%}.messageComposer{flex-direction:column;align-items:stretch}.messageComposer .button{width:100%}.messageBubble{max-width:92%}}
+@media(prefers-reduced-motion:reduce){.candles i,.chartLine,.signal{animation:none!important}}

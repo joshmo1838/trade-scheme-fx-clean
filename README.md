@@ -46,3 +46,13 @@ After you create your own user account, copy your user UUID from Supabase Authen
 4. The customer list shows names and email addresses. “Email customer” opens the device's email app with a draft addressed to that customer. Review and send it yourself.
 
 This first version uses `mailto:`; it does not send mail from the website. Sending directly from the dashboard later requires a transactional email provider (for example, Resend), verified sender domain, and server-side API key.
+
+
+## In-app customer messaging and homepage refresh
+1. Run `supabase/messaging.sql` in Supabase SQL Editor after the existing admin/customer-email migration.
+2. Deploy the updated project to Vercel.
+3. Customers sign in and open `/messages` to chat with Trade Scheme FX support.
+4. Admins open `/admin` and select **Message customer** beside a customer to open the private thread.
+5. Messages update in real time when Supabase Realtime is enabled for the `messages` table.
+
+The homepage now welcomes visitors with “WELCOME TO TRADE SCHEME FX”, moving market/candlestick visuals, floating trading labels, and a responsible-trading notice. The upper-left label says “Independent trading tools for Deriv traders” rather than “Powered by Deriv” because Trade Scheme FX should not imply official Deriv endorsement or partnership unless that has been authorized. If written approval is obtained, the wording can be updated.
