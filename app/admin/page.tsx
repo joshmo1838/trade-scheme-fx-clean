@@ -20,6 +20,10 @@ export default async function AdminPage() {
     .select("id, full_name, email, role, created_at")
     .order("created_at", { ascending: false });
 
+  const { count: botCount } = await supabase.from("bots").select("id", { count: "exact", head: true });
+  const { count: publishedBotCount } = await supabase.from("bots").select("id", { count: "exact", head: true }).eq("is_published", true);
+  const { count: selectionCount } = await supabase.from("customer_bots").select("id", { count: "exact", head: true });
+
   return (
     <main className="appShell">
       <header className="dashNav">
@@ -33,7 +37,12 @@ export default async function AdminPage() {
           <h2>Admin access verified</h2>
           <p className="muted">You are signed in as an administrator. View customers and message them privately inside the platform.</p>
         </div>
-        <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link></div>
+        <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link><Link className="button secondary" href="/admin/bots">Publish / unpublish bots</Link></div>
+        <div className="dashGrid">
+          <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
+          <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCount ?? 0}</h2><p>{publishedBotCount ?? 0} currently published.</p></article>
+          <article className="panel"><p className="eyebrow">CUSTOMER BOT SELECTIONS</p><h2>{selectionCount ?? 0}</h2><p>Saved bot preferences across customer accounts.</p></article>
+        </div>
         <div className="adminSectionHead">
           <div><p className="eyebrow">CUSTOMER MANAGEMENT</p><h2>Registered customers</h2></div>
           <span className="customerCount">{customers?.length ?? 0} accounts</span>

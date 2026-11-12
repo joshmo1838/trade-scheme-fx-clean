@@ -1,0 +1,30 @@
+TRADE SCHEME FX — ADMIN DASHBOARD & BOT PUBLISHING UPDATE
+
+WHAT CHANGED
+- Admin dashboard now shows customer count, bot profile count, published bot count, and saved customer bot selections.
+- Admin bot management page is protected by a server-side admin-role check.
+- Admins can create bot profiles (new profiles start unpublished).
+- Admins can edit bot names, markets, risk classification, and descriptions.
+- Admins can publish and unpublish bots with a confirmation prompt.
+- Unpublishing does not delete bot records or customer selections.
+- No permanent delete action is provided.
+
+NO DATABASE MIGRATION IS REQUIRED FOR THIS UPDATE.
+It uses the existing `bots`, `customer_bots`, and `profiles` tables created by the earlier SQL files. Keep the existing Supabase database and environment variables.
+
+UPLOAD SAFELY
+1. Back up/download the current GitHub repository before changing it.
+2. Extract this ZIP.
+3. Open the extracted folder. It contains `app`, `lib`, `public`, `supabase`, and the project files at its root.
+4. In the existing GitHub repository, use Add file > Upload files.
+5. Upload the CONTENTS of this extracted folder (not the ZIP and not the parent folder). Keep all folders in their original structure.
+6. Commit the changes. Vercel should deploy from the connected GitHub repository.
+7. Wait for the deployment to show Ready.
+8. Sign in with the administrator account and visit /admin, then /admin/bots.
+
+IMPORTANT
+- Do not replace or delete Supabase data.
+- Do not remove the existing Vercel environment variables.
+- Publishing only makes a bot visible in the customer catalogue. It does not run trades.
+- Unpublishing hides a bot from new customer selection; it does not remotely stop any live trading. Live Deriv execution is not included in this update.
+- If /admin/bots redirects to /dashboard, verify that the signed-in user's `profiles.role` is `admin`.
