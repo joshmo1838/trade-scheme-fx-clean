@@ -1,36 +1,160 @@
+
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
-import { createHash, randomBytes } from "node:crypto";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createCipheriv, randomBytes } from "node:crypto";
 
 const REDIRECT_URI = "https://www.tradesche.com/api/deriv/callback";
-const b64url = (value: Buffer) => value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const DASHBOARD_URL = "https://www.tradesche.com/dashboard";
 
-export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/login?next=/dashboard", "https://tradesche.com"));
+function encryptToken(token: string) {
+  const keyHex = process.env.DERIV_TOKEN_ENCRYPTION_KEY;
 
-  const clientId = process.env.DERIV_CLIENT_ID;
-  if (process.env.DERIV_OAUTH_ENABLED !== "true") return NextResponse.redirect(new URL("/dashboard?deriv=awaiting_approval", "https://tradesche.com"));
-  if (!clientId) return NextResponse.redirect(new URL("/dashboard?deriv=not_configured", "https://tradesche.com"));
+  if (!keyHex || !/^[a-f0-9]{64}$/i.test(keyHex)) {
+    throw new Error("DERIV_TOKEN_ENCRYPTION_KEY must be 64 hex characters");
+  }
 
-  const verifier = b64url(randomBytes(48));
-  const challenge = b64url(createHash("sha256").update(verifier).digest());
-  const state = b64url(randomBytes(32));
+  const key = Buffer.from(keyHex, "hex");
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(token, "utf8"),
+    cipher.final()
+  ]);
 
-  const url = new URL("https://auth.deriv.com/oauth2/auth");
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", clientId);
-  url.searchParams.set("redirect_uri", REDIRECT_URI);
-  url.searchParams.set("scope", "trade payment account_manage application_read");
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", challenge);
-  url.searchParams.set("code_challenge_method", "S256");
+  return {
+    ciphertext: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+    tag: cipher.getAuthTag().toString("base64")
+  };
+}
 
-  const response = NextResponse.redirect(url);
-  const options = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: 600 };
-  response.cookies.set("deriv_oauth_state", state, options);
-  response.cookies.set("deriv_oauth_verifier", verifier, options);
-  response.cookies.set("deriv_oauth_user", user.id, options);
-  return response;
+export async function GET(request: NextRequest) {
+  const url = new URL(DASHBOARD_URL);
+  const state = request.nextUrl.searchParams.get("state");
+  const code = request.nextUrl.searchParams.get("code");
+  const error = request.nextUrl.searchParams.get("error");
+
+  const expectedState = request.cookies.get("deriv_oauth_state")?.value;
+  const verifier = request.cookies.get("deriv_oauth_verifier")?.value;
+  const userId = request.cookies.get("deriv_oauth_user")?.value;
+
+  const clearCookies = (response: NextResponse) => {
+    for (const name of [
+      "deriv_oauth_state",
+      "deriv_oauth_verifier",
+      "deriv_oauth_user"
+    ]) {
+      response.cookies.set(name, "", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0
+      });
+    }
+
+    return response;
+  };
+
+  if (
+    error ||
+    !code ||
+    !state ||
+    !expectedState ||
+    state !== expectedState ||
+    !verifier ||
+    !userId
+  ) {
+    url.searchParams.set(
+      "deriv",
+      error ? "authorization_cancelled" : "state_check_failed"
+    );
+
+    return clearCookies(NextResponse.redirect(url));
+  }
+
+  try {
+    // Verify the signed-in Supabase user.
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser();
+
+    if (authError || !user || user.id !== userId) {
+      url.searchParams.set("deriv", "user_check_failed");
+      return clearCookies(NextResponse.redirect(url));
+    }
+
+    const clientId = process.env.DERIV_CLIENT_ID;
+    const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    if (!clientId || !serviceRole || !supabaseUrl) {
+      throw new Error("Server environment is incomplete");
+    }
+
+    // Exchange the authorization code on the server.
+    const tokenResponse = await fetch(
+      "https://auth.deriv.com/oauth2/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: clientId,
+          code,
+          code_verifier: verifier,
+          redirect_uri: REDIRECT_URI
+        }),
+        cache: "no-store"
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      throw new Error("Deriv token exchange failed");
+    }
+
+    // Encrypt the access token before storing it.
+    const encrypted = encryptToken(tokenData.access_token);
+
+    const admin = createSupabaseAdmin(
+      supabaseUrl,
+      serviceRole,
+      { auth: { persistSession: false } }
+    );
+
+    const { error: saveError } = await admin
+      .from("deriv_connections")
+      .upsert(
+        {
+          user_id: user.id,
+          encrypted_token: encrypted.ciphertext,
+          token_iv: encrypted.iv,
+          token_tag: encrypted.tag,
+          expires_at: new Date(
+            Date.now() + Number(tokenData.expires_in || 0) * 1000
+          ).toISOString(),
+          connected_at: new Date().toISOString(),
+          status: "connected"
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (saveError) {
+      throw new Error("Could not securely save the Deriv connection");
+    }
+
+    url.searchParams.set("deriv", "connected");
+    return clearCookies(NextResponse.redirect(url));
+
+  } catch {
+    url.searchParams.set("deriv", "connection_failed");
+    return clearCookies(NextResponse.redirect(url));
+  }
 }
