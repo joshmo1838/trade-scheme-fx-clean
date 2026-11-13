@@ -8,7 +8,7 @@ const REDIRECT_URI =
 
 const COOKIE_DOMAIN = ".tradesche.com";
 
-function base64Url(value: Buffer) {
+function base64Url(value: Buffer): string {
   return value
     .toString("base64")
     .replace(/\+/g, "-")
@@ -18,31 +18,40 @@ function base64Url(value: Buffer) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Always start OAuth on the canonical website hostname.
+    // Use the canonical www hostname.
     if (request.nextUrl.hostname !== "www.tradesche.com") {
       const canonicalUrl = new URL(
         request.nextUrl.pathname + request.nextUrl.search,
         "https://www.tradesche.com"
       );
+
       return NextResponse.redirect(canonicalUrl);
     }
 
-    // Confirm that the customer is signed in.
+    // Verify that the customer is signed in.
     const supabase = await createClient();
+
     const {
       data: { user },
-      error
+      error: authError
     } = await supabase.auth.getUser();
 
-    if (error || !user) {
+    if (authError || !user) {
       return NextResponse.redirect(
-        new URL("/login?next=/dashboard", "https://www.tradesche.com")
+        new URL(
+          "/login?next=/dashboard",
+          "https://www.tradesche.com"
+        )
       );
     }
 
+    // Check whether Deriv OAuth is enabled.
     if (process.env.DERIV_OAUTH_ENABLED !== "true") {
       return NextResponse.redirect(
-        new URL("/dashboard?deriv=awaiting_approval", "https://www.tradesche.com")
+        new URL(
+          "/dashboard?deriv=awaiting_approval",
+          "https://www.tradesche.com"
+        )
       );
     }
 
@@ -50,15 +59,20 @@ export async function GET(request: NextRequest) {
 
     if (!clientId) {
       return NextResponse.redirect(
-        new URL("/dashboard?deriv=not_configured", "https://www.tradesche.com")
+        new URL(
+          "/dashboard?deriv=not_configured",
+          "https://www.tradesche.com"
+        )
       );
     }
 
-    // Create PKCE values and a random state.
+    // Generate secure OAuth state and PKCE values.
     const verifier = base64Url(randomBytes(48));
 
     const challenge = base64Url(
-      createHash("sha256").update(verifier).digest()
+      createHash("sha256")
+        .update(verifier)
+        .digest()
     );
 
     const state = base64Url(randomBytes(32));
@@ -79,7 +93,7 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.set("code_challenge", challenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
 
-    // Create the redirect response first, then attach cookies.
+    // Attach temporary, secure cookies to the Deriv redirect.
     const response = NextResponse.redirect(authUrl);
 
     const cookieOptions = {
@@ -112,7 +126,10 @@ export async function GET(request: NextRequest) {
     return response;
   } catch {
     return NextResponse.redirect(
-      new URL("/dashboard?deriv=connect_failed", "https://www.tradesche.com")
+      new URL(
+        "/dashboard?deriv=connect_failed",
+        "https://www.tradesche.com"
+      )
     );
   }
 }
