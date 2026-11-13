@@ -36,7 +36,7 @@ function encryptToken(token: string) {
 }
 
 function clearCookies(response: NextResponse) {
-  const cookieOptions = {
+  const options = {
     httpOnly: true,
     secure: true,
     sameSite: "lax" as const,
@@ -45,27 +45,32 @@ function clearCookies(response: NextResponse) {
     maxAge: 0
   };
 
-  response.cookies.set("deriv_oauth_state", "", cookieOptions);
-  response.cookies.set("deriv_oauth_verifier", "", cookieOptions);
-  response.cookies.set("deriv_oauth_user", "", cookieOptions);
+  response.cookies.set("deriv_oauth_state", "", options);
+  response.cookies.set("deriv_oauth_verifier", "", options);
+  response.cookies.set("deriv_oauth_user", "", options);
 
   return response;
 }
 
-function dashboardRedirect(status: string) {
+function redirectToDashboard(
+  status: string,
+  stage?: string
+) {
   const url = new URL(DASHBOARD_URL);
   url.searchParams.set("deriv", status);
+
+  if (stage) {
+    url.searchParams.set("stage", stage);
+  }
 
   return NextResponse.redirect(url);
 }
 
 export async function GET(request: NextRequest) {
-  // Read the authorization response from Deriv.
   const state = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
   const oauthError = request.nextUrl.searchParams.get("error");
 
-  // Read the temporary cookies created by the Connect route.
   const expectedState =
     request.cookies.get("deriv_oauth_state")?.value;
 
@@ -75,7 +80,7 @@ export async function GET(request: NextRequest) {
   const userId =
     request.cookies.get("deriv_oauth_user")?.value;
 
-  // Validate the OAuth response before exchanging the code.
+  // Validate the OAuth response.
   if (
     oauthError ||
     !code ||
@@ -85,43 +90,33 @@ export async function GET(request: NextRequest) {
     !verifier ||
     !userId
   ) {
-    const response = dashboardRedirect(
+    const url = new URL(DASHBOARD_URL);
+
+    url.searchParams.set(
+      "deriv",
       oauthError ? "authorization_cancelled" : "state_check_failed"
     );
 
-    // Safe diagnostic flags; no cookie values are exposed.
-    const location = response.headers.get("location");
+    url.searchParams.set("diag_code", String(Boolean(code)));
+    url.searchParams.set("diag_state", String(Boolean(state)));
+    url.searchParams.set(
+      "diag_cookie_state",
+      String(Boolean(expectedState))
+    );
+    url.searchParams.set(
+      "diag_state_match",
+      String(Boolean(state && expectedState && state === expectedState))
+    );
+    url.searchParams.set("diag_verifier", String(Boolean(verifier)));
+    url.searchParams.set("diag_user", String(Boolean(userId)));
 
-    if (location) {
-      const diagnosticUrl = new URL(location);
-
-      diagnosticUrl.searchParams.set("diag_code", String(Boolean(code)));
-      diagnosticUrl.searchParams.set("diag_state", String(Boolean(state)));
-      diagnosticUrl.searchParams.set(
-        "diag_cookie_state",
-        String(Boolean(expectedState))
-      );
-      diagnosticUrl.searchParams.set(
-        "diag_state_match",
-        String(Boolean(state && expectedState && state === expectedState))
-      );
-      diagnosticUrl.searchParams.set(
-        "diag_verifier",
-        String(Boolean(verifier))
-      );
-      diagnosticUrl.searchParams.set(
-        "diag_user",
-        String(Boolean(userId))
-      );
-
-      return clearCookies(NextResponse.redirect(diagnosticUrl));
-    }
-
-    return clearCookies(response);
+    return clearCookies(NextResponse.redirect(url));
   }
 
+  let stage = "auth_check";
+
   try {
-    // Verify that the same customer is still signed in.
+    // Verify the signed-in customer.
     const supabase = await createClient();
 
     const {
@@ -131,20 +126,25 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user || user.id !== userId) {
       return clearCookies(
-        dashboardRedirect("user_check_failed")
+        redirectToDashboard("connection_failed", "auth_check_failed")
       );
     }
 
-    // Confirm server-side configuration.
+    stage = "configuration";
+
     const clientId = process.env.DERIV_CLIENT_ID;
     const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
     if (!clientId || !serviceRole || !supabaseUrl) {
-      throw new Error("Server configuration is incomplete");
+      return clearCookies(
+        redirectToDashboard("connection_failed", "configuration_failed")
+      );
     }
 
-    // Exchange the authorization code securely on the server.
+    stage = "token_exchange";
+
+    // Exchange the authorization code with Deriv.
     const tokenResponse = await fetch(
       "https://auth.deriv.com/oauth2/token",
       {
@@ -163,16 +163,33 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const tokenData = await tokenResponse.json();
-
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      throw new Error("Deriv token exchange failed");
+    if (!tokenResponse.ok) {
+      return clearCookies(
+        redirectToDashboard(
+          "connection_failed",
+          `token_exchange_http_${tokenResponse.status}`
+        )
+      );
     }
 
-    // Encrypt the access token before storing it.
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      return clearCookies(
+        redirectToDashboard(
+          "connection_failed",
+          "token_missing"
+        )
+      );
+    }
+
+    stage = "encryption";
+
+    // Encrypt the token before storing it.
     const encrypted = encryptToken(tokenData.access_token);
 
-    // Use the service role only on the server.
+    stage = "database_save";
+
     const admin = createSupabaseAdmin(
       supabaseUrl,
       serviceRole,
@@ -204,15 +221,25 @@ export async function GET(request: NextRequest) {
       );
 
     if (saveError) {
-      throw new Error("Could not save the Deriv connection");
+      return clearCookies(
+        redirectToDashboard(
+          "connection_failed",
+          "database_save_failed"
+        )
+      );
     }
 
     return clearCookies(
-      dashboardRedirect("connected")
+      redirectToDashboard("connected")
     );
+
   } catch {
+    // Report only the stage, never secrets or provider response bodies.
     return clearCookies(
-      dashboardRedirect("connection_failed")
+      redirectToDashboard(
+        "connection_failed",
+        `${stage}_failed`
+      )
     );
   }
 }
