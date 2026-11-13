@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 
-const REDIRECT_URI = "https://tradesche.com/api/deriv/callback";
+const REDIRECT_URI = "https://www.tradesche.com/api/deriv/callback";
 const b64url = (value: Buffer) => value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 export async function GET() {
