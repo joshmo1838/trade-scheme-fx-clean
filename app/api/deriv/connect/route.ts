@@ -22,7 +22,7 @@ export async function GET() {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", REDIRECT_URI);
-  url.searchParams.set("scope", "trade account_manage application_read");
+  url.searchParams.set("scope", "trade payment account_manage application_read");
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", challenge);
   url.searchParams.set("code_challenge_method", "S256");
