@@ -57,6 +57,7 @@ function redirectToDashboard(
   stage?: string
 ) {
   const url = new URL(DASHBOARD_URL);
+
   url.searchParams.set("deriv", status);
 
   if (stage) {
@@ -126,25 +127,32 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user || user.id !== userId) {
       return clearCookies(
-        redirectToDashboard("connection_failed", "auth_check_failed")
+        redirectToDashboard(
+          "connection_failed",
+          "auth_check_failed"
+        )
       );
     }
 
     stage = "configuration";
 
+    // Check server environment configuration.
     const clientId = process.env.DERIV_CLIENT_ID;
     const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
     if (!clientId || !serviceRole || !supabaseUrl) {
       return clearCookies(
-        redirectToDashboard("connection_failed", "configuration_failed")
+        redirectToDashboard(
+          "connection_failed",
+          "configuration_failed"
+        )
       );
     }
 
     stage = "token_exchange";
 
-    // Exchange the authorization code with Deriv.
+    // Exchange the authorization code securely with Deriv.
     const tokenResponse = await fetch(
       "https://auth.deriv.com/oauth2/token",
       {
@@ -164,6 +172,10 @@ export async function GET(request: NextRequest) {
     );
 
     if (!tokenResponse.ok) {
+      console.error("Deriv token exchange failed:", {
+        httpStatus: tokenResponse.status
+      });
+
       return clearCookies(
         redirectToDashboard(
           "connection_failed",
@@ -175,6 +187,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
+      console.error("Deriv token response did not contain an access token.");
+
       return clearCookies(
         redirectToDashboard(
           "connection_failed",
@@ -185,11 +199,12 @@ export async function GET(request: NextRequest) {
 
     stage = "encryption";
 
-    // Encrypt the token before storing it.
+    // Encrypt the access token before database storage.
     const encrypted = encryptToken(tokenData.access_token);
 
     stage = "database_save";
 
+    // Create the server-side Supabase admin client.
     const admin = createSupabaseAdmin(
       supabaseUrl,
       serviceRole,
@@ -200,6 +215,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Save the encrypted Deriv connection.
     const { error: saveError } = await admin
       .from("deriv_connections")
       .upsert(
@@ -221,6 +237,13 @@ export async function GET(request: NextRequest) {
       );
 
     if (saveError) {
+      // Log database diagnostics without logging tokens or secrets.
+      console.error("Deriv database save failed:", {
+        code: saveError.code,
+        message: saveError.message,
+        hint: saveError.hint
+      });
+
       return clearCookies(
         redirectToDashboard(
           "connection_failed",
@@ -229,12 +252,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.info("Deriv connection saved successfully.");
+
     return clearCookies(
       redirectToDashboard("connected")
     );
 
-  } catch {
-    // Report only the stage, never secrets or provider response bodies.
+  } catch (error) {
+    // Log the failure stage, not the sensitive error contents.
+    console.error("Deriv callback failed:", {
+      stage,
+      errorType:
+        error instanceof Error
+          ? error.name
+          : "UnknownError"
+    });
+
     return clearCookies(
       redirectToDashboard(
         "connection_failed",
