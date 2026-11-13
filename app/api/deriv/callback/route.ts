@@ -36,20 +36,18 @@ function encryptToken(token: string) {
 }
 
 function clearCookies(response: NextResponse) {
-  for (const name of [
-    "deriv_oauth_state",
-    "deriv_oauth_verifier",
-    "deriv_oauth_user"
-  ]) {
-    response.cookies.set(name, "", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      domain: COOKIE_DOMAIN,
-      maxAge: 0
-    });
-  }
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax" as const,
+    path: "/",
+    domain: COOKIE_DOMAIN,
+    maxAge: 0
+  };
+
+  response.cookies.set("deriv_oauth_state", "", cookieOptions);
+  response.cookies.set("deriv_oauth_verifier", "", cookieOptions);
+  response.cookies.set("deriv_oauth_user", "", cookieOptions);
 
   return response;
 }
@@ -62,10 +60,12 @@ function dashboardRedirect(status: string) {
 }
 
 export async function GET(request: NextRequest) {
+  // Read the authorization response from Deriv.
   const state = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
   const oauthError = request.nextUrl.searchParams.get("error");
 
+  // Read the temporary cookies created by the Connect route.
   const expectedState =
     request.cookies.get("deriv_oauth_state")?.value;
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   const userId =
     request.cookies.get("deriv_oauth_user")?.value;
 
-  // Reject missing or mismatched OAuth information.
+  // Validate the OAuth response before exchanging the code.
   if (
     oauthError ||
     !code ||
@@ -89,22 +89,39 @@ export async function GET(request: NextRequest) {
       oauthError ? "authorization_cancelled" : "state_check_failed"
     );
 
-    // Safe diagnostic flags: these reveal no cookie values.
-    const url = new URL(response.headers.get("location")!);
+    // Safe diagnostic flags; no cookie values are exposed.
+    const location = response.headers.get("location");
 
-    url.searchParams.set("diag_code", String(Boolean(code)));
-    url.searchParams.set("diag_state", String(Boolean(state)));
-    url.searchParams.set("diag_cookie_state", String(Boolean(expectedState)));
-    url.searchParams.set("diag_state_match", String(Boolean(state && expectedState && state === expectedState)));
-    url.searchParams.set("diag_verifier", String(Boolean(verifier)));
-    url.searchParams.set("diag_user", String(Boolean(userId)));
+    if (location) {
+      const diagnosticUrl = new URL(location);
 
-    const diagnosticResponse = NextResponse.redirect(url);
-    return clearCookies(diagnosticResponse);
+      diagnosticUrl.searchParams.set("diag_code", String(Boolean(code)));
+      diagnosticUrl.searchParams.set("diag_state", String(Boolean(state)));
+      diagnosticUrl.searchParams.set(
+        "diag_cookie_state",
+        String(Boolean(expectedState))
+      );
+      diagnosticUrl.searchParams.set(
+        "diag_state_match",
+        String(Boolean(state && expectedState && state === expectedState))
+      );
+      diagnosticUrl.searchParams.set(
+        "diag_verifier",
+        String(Boolean(verifier))
+      );
+      diagnosticUrl.searchParams.set(
+        "diag_user",
+        String(Boolean(userId))
+      );
+
+      return clearCookies(NextResponse.redirect(diagnosticUrl));
+    }
+
+    return clearCookies(response);
   }
 
   try {
-    // Confirm the same customer is still signed in.
+    // Verify that the same customer is still signed in.
     const supabase = await createClient();
 
     const {
@@ -118,6 +135,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Confirm server-side configuration.
     const clientId = process.env.DERIV_CLIENT_ID;
     const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -151,9 +169,10 @@ export async function GET(request: NextRequest) {
       throw new Error("Deriv token exchange failed");
     }
 
-    // Encrypt the token before saving it.
+    // Encrypt the access token before storing it.
     const encrypted = encryptToken(tokenData.access_token);
 
+    // Use the service role only on the server.
     const admin = createSupabaseAdmin(
       supabaseUrl,
       serviceRole,
