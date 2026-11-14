@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type TradingMode = "demo" | "real";
+
 type Bot = {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ type Bot = {
 type Selection = {
   id: string;
   bot_id: string;
+  trading_mode: TradingMode;
   control_status: "stopped" | "paused" | "selected";
 };
 
@@ -43,6 +46,7 @@ export default function CustomerBotsPage() {
 
     try {
       const supabase = createClient();
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -52,9 +56,69 @@ export default function CustomerBotsPage() {
         return;
       }
 
+      // Retrieve the customer's active Deriv account.
+      const [accountsResponse, selectionResponse] =
+        await Promise.all([
+          fetch("/api/deriv/account", {
+            cache: "no-store",
+            credentials: "same-origin",
+          }),
+          fetch("/api/deriv/select-account", {
+            cache: "no-store",
+            credentials: "same-origin",
+          }),
+        ]);
+
+      const accountsResult = await accountsResponse.json();
+      const selectionResult = await selectionResponse.json();
+
+      if (
+        !accountsResponse.ok ||
+        !accountsResult.success ||
+        !selectionResponse.ok ||
+        !selectionResult.success
+      ) {
+        setActiveAccount(null);
+        setSelections([]);
+        setAccountMessage(
+          "Connect Deriv and select an account on your dashboard."
+        );
+        setBots([]);
+        return;
+      }
+
+      const accountList: DerivAccount[] =
+        accountsResult.accounts || [];
+
+      const savedAccount = accountList.find(
+        (account) =>
+          account.account_id ===
+          selectionResult.active_account_id
+      );
+
+      if (
+        !savedAccount ||
+        (savedAccount.account_type !== "demo" &&
+          savedAccount.account_type !== "real")
+      ) {
+        setActiveAccount(null);
+        setSelections([]);
+        setAccountMessage(
+          "No valid active Deriv account found. Please select an account on your dashboard."
+        );
+        setBots([]);
+        return;
+      }
+
+      const mode = savedAccount.account_type as TradingMode;
+
+      setActiveAccount(savedAccount);
+      setAccountMessage("");
+
+      // Load published bots and selections for this account type.
       const [
-        { data: b, error: be },
-        { data: s, error: se },
+        { data: botData, error: botError },
+        { data: selectionData, error: selectionError },
       ] = await Promise.all([
         supabase
           .from("bots")
@@ -63,71 +127,22 @@ export default function CustomerBotsPage() {
 
         supabase
           .from("customer_bots")
-          .select("id,bot_id,control_status")
-          .eq("customer_id", user.id),
+          .select("id,bot_id,control_status,trading_mode")
+          .eq("customer_id", user.id)
+          .eq("trading_mode", mode),
       ]);
 
-      if (be || se) {
+      if (botError || selectionError) {
         setMessage(
-          be?.message || se?.message || "Unable to load bots."
+          botError?.message ||
+            selectionError?.message ||
+            "Unable to load bots."
         );
         return;
       }
 
-      setBots((b || []) as Bot[]);
-      setSelections((s || []) as Selection[]);
-
-      // Retrieve the saved account selection from Supabase.
-      try {
-        const [accountsResponse, selectionResponse] =
-          await Promise.all([
-            fetch("/api/deriv/account", {
-              cache: "no-store",
-              credentials: "same-origin",
-            }),
-            fetch("/api/deriv/select-account", {
-              cache: "no-store",
-              credentials: "same-origin",
-            }),
-          ]);
-
-        const accountsResult = await accountsResponse.json();
-        const selectionResult = await selectionResponse.json();
-
-        if (
-          accountsResponse.ok &&
-          accountsResult.success &&
-          selectionResponse.ok &&
-          selectionResult.success
-        ) {
-          const accountList: DerivAccount[] =
-            accountsResult.accounts || [];
-
-          const savedAccount = accountList.find(
-            (account) =>
-              account.account_id ===
-              selectionResult.active_account_id
-          );
-
-          setActiveAccount(savedAccount || null);
-
-          setAccountMessage(
-            savedAccount
-              ? ""
-              : "No active Deriv account selected. Choose an account on your dashboard."
-          );
-        } else {
-          setActiveAccount(null);
-          setAccountMessage(
-            "Connect Deriv and select an account on your dashboard."
-          );
-        }
-      } catch {
-        setActiveAccount(null);
-        setAccountMessage(
-          "Unable to retrieve your active Deriv account."
-        );
-      }
+      setBots((botData || []) as Bot[]);
+      setSelections((selectionData || []) as Selection[]);
     } catch {
       setMessage("Unable to load your workspace.");
     } finally {
@@ -140,11 +155,16 @@ export default function CustomerBotsPage() {
   }, [load]);
 
   async function choose(bot: Bot) {
+    if (!activeAccount || busy) return;
+
+    const mode = activeAccount.account_type as TradingMode;
+
     setBusy(bot.id);
     setMessage("");
 
     try {
       const supabase = createClient();
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -154,8 +174,31 @@ export default function CustomerBotsPage() {
         return;
       }
 
+      // Confirm that the selected account has not changed.
+      const response = await fetch(
+        "/api/deriv/select-account",
+        {
+          cache: "no-store",
+          credentials: "same-origin",
+        }
+      );
+
+      const result = await response.json();
+
+      if (
+        !response.ok ||
+        !result.success ||
+        result.active_account_id !== activeAccount.account_id
+      ) {
+        throw new Error(
+          "Your active Deriv account changed. Refresh the workspace before updating bots."
+        );
+      }
+
       const existing = selections.find(
-        (s) => s.bot_id === bot.id
+        (selection) =>
+          selection.bot_id === bot.id &&
+          selection.trading_mode === mode
       );
 
       let error;
@@ -166,6 +209,7 @@ export default function CustomerBotsPage() {
           .insert({
             customer_id: user.id,
             bot_id: bot.id,
+            trading_mode: mode,
             selected: true,
             control_status: "selected",
           }));
@@ -183,16 +227,22 @@ export default function CustomerBotsPage() {
             selected: next === "selected",
             control_status: next,
           })
-          .eq("id", existing.id));
+          .eq("id", existing.id)
+          .eq("customer_id", user.id)
+          .eq("trading_mode", mode));
       }
 
       if (error) {
-        setMessage(error.message);
-      } else {
-        await load();
+        throw new Error(error.message);
       }
-    } catch {
-      setMessage("Unable to update your bot selection.");
+
+      await load();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update your bot selection."
+      );
     } finally {
       setBusy(null);
     }
@@ -265,20 +315,30 @@ export default function CustomerBotsPage() {
         </article>
 
         <div className="notice">
-          <strong>Demo controls only:</strong> Selecting,
-          pausing, or stopping a bot here does not start or
-          stop live trades. The active Deriv account is
-          displayed for reference only. Live trading execution
-          remains disabled.
+          <strong>Configuration only:</strong> Bot selections
+          are saved independently for Demo and Real accounts.
+          Selecting, pausing, or stopping a bot does not
+          execute trades. Live trading remains disabled.
         </div>
 
         {message && (
-          <p className="notice">{message}</p>
+          <p className="notice" role="alert">
+            {message}
+          </p>
         )}
 
         {loading ? (
           <div className="panel">
-            <p className="muted">Loading your workspace...</p>
+            <p className="muted">
+              Loading your workspace...
+            </p>
+          </div>
+        ) : !activeAccount ? (
+          <div className="panel">
+            <p className="muted">
+              Select a valid Deriv account to view its bot
+              configurations.
+            </p>
           </div>
         ) : bots.length === 0 ? (
           <div className="panel">
@@ -291,7 +351,10 @@ export default function CustomerBotsPage() {
           <div className="botList">
             {bots.map((bot) => {
               const selected = selections.find(
-                (s) => s.bot_id === bot.id
+                (selection) =>
+                  selection.bot_id === bot.id &&
+                  selection.trading_mode ===
+                    activeAccount.account_type
               );
 
               const status =
@@ -314,13 +377,14 @@ export default function CustomerBotsPage() {
                     </p>
 
                     <span className="statusText">
-                      Your setting: {status}
+                      {activeAccount.account_type.toUpperCase()}{" "}
+                      setting: {status}
                     </span>
                   </div>
 
                   <button
                     className="button small"
-                    disabled={busy === bot.id || loading}
+                    disabled={busy !== null || loading}
                     onClick={() => choose(bot)}
                   >
                     {busy === bot.id
@@ -338,6 +402,15 @@ export default function CustomerBotsPage() {
             })}
           </div>
         )}
+
+        <button
+          className="button secondary"
+          style={{ marginTop: "16px" }}
+          onClick={() => void load()}
+          disabled={loading || busy !== null}
+        >
+          Refresh workspace
+        </button>
       </section>
     </main>
   );
