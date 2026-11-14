@@ -23,45 +23,66 @@ export default function DerivAccounts({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const storageKey = `deriv-active-account-${userId}`;
-
   const loadAccounts = useCallback(async () => {
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await fetch("/api/deriv/account", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
+      // Retrieve accounts and saved selection from the server.
+      const [accountsResponse, selectionResponse] =
+        await Promise.all([
+          fetch("/api/deriv/account", {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin",
+          }),
+          fetch("/api/deriv/select-account", {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin",
+          }),
+        ]);
 
-      const result = await response.json();
+      const accountsResult = await accountsResponse.json();
+      const selectionResult = await selectionResponse.json();
 
-      if (!response.ok || !result.success) {
+      if (!accountsResponse.ok || !accountsResult.success) {
         throw new Error(
-          result.error || "Unable to retrieve Deriv accounts."
+          accountsResult.error ||
+            "Unable to retrieve Deriv accounts."
         );
       }
 
-      const accountList: DerivAccount[] = result.accounts || [];
+      if (!selectionResponse.ok || !selectionResult.success) {
+        throw new Error(
+          selectionResult.error ||
+            "Unable to retrieve your saved account selection."
+        );
+      }
+
+      const accountList: DerivAccount[] =
+        accountsResult.accounts || [];
+
       setAccounts(accountList);
 
-      const savedAccount = window.localStorage.getItem(storageKey);
+      const savedAccount = selectionResult.active_account_id;
 
       const validSavedAccount = accountList.some(
         (account) => account.account_id === savedAccount
       );
 
-      const nextSelected = validSavedAccount
-        ? savedAccount!
-        : accountList.find(
-            (account) => account.account_type === "demo"
-          )?.account_id || accountList[0]?.account_id || "";
+      // Supabase is the only source of truth.
+      setSelected(validSavedAccount ? savedAccount : "");
 
-      setSelected(nextSelected);
+      if (savedAccount && !validSavedAccount) {
+        setMessage(
+          "Your saved account is not in the current account list."
+        );
+      }
     } catch (err) {
+      setAccounts([]);
+      setSelected("");
       setError(
         err instanceof Error
           ? err.message
@@ -70,14 +91,14 @@ export default function DerivAccounts({
     } finally {
       setLoading(false);
     }
-  }, [storageKey]);
+  }, [userId]);
 
   useEffect(() => {
-    loadAccounts();
+    void loadAccounts();
   }, [loadAccounts]);
 
   async function chooseAccount(accountId: string) {
-    if (saving || accountId === selected) return;
+    if (saving || loading || accountId === selected) return;
 
     setSaving(true);
     setError("");
@@ -103,13 +124,8 @@ export default function DerivAccounts({
         );
       }
 
+      // Update the screen only after the server confirms saving.
       setSelected(result.active_account_id);
-
-      window.localStorage.setItem(
-        storageKey,
-        result.active_account_id
-      );
-
       setMessage("Your account selection was saved securely.");
     } catch (err) {
       setError(
@@ -162,14 +178,16 @@ export default function DerivAccounts({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(190px, 1fr))",
               gap: "14px",
               marginTop: "18px",
             }}
           >
             {accounts.map((account) => {
               const isDemo = account.account_type === "demo";
-              const isSelected = selected === account.account_id;
+              const isSelected =
+                selected === account.account_id;
 
               return (
                 <div
@@ -186,7 +204,9 @@ export default function DerivAccounts({
                   }}
                 >
                   <p className="eyebrow">
-                    {isDemo ? "DEMO ACCOUNT" : "REAL ACCOUNT"}
+                    {isDemo
+                      ? "DEMO ACCOUNT"
+                      : "REAL ACCOUNT"}
                   </p>
 
                   <h2 style={{ fontSize: "25px" }}>
@@ -204,9 +224,13 @@ export default function DerivAccounts({
 
                   <button
                     className={
-                      isSelected ? "button" : "button secondary"
+                      isSelected
+                        ? "button"
+                        : "button secondary"
                     }
-                    onClick={() => chooseAccount(account.account_id)}
+                    onClick={() =>
+                      chooseAccount(account.account_id)
+                    }
                     disabled={
                       saving ||
                       account.status !== "active" ||
@@ -225,16 +249,28 @@ export default function DerivAccounts({
           </div>
 
           {activeAccount && (
-            <p className="muted" style={{ marginTop: "16px" }}>
+            <p
+              className="muted"
+              style={{ marginTop: "16px" }}
+            >
               Active selection:{" "}
               {activeAccount.account_type.toUpperCase()} (
               {activeAccount.account_id})
             </p>
           )}
 
+          {!activeAccount && (
+            <p
+              className="muted"
+              style={{ marginTop: "16px" }}
+            >
+              No account selected. Please select an account.
+            </p>
+          )}
+
           <button
             className="button secondary"
-            onClick={loadAccounts}
+            onClick={() => void loadAccounts()}
             disabled={loading || saving}
             style={{ marginTop: "12px" }}
           >
@@ -244,8 +280,9 @@ export default function DerivAccounts({
       )}
 
       <p className="muted" style={{ marginTop: "18px" }}>
-        Account selections are verified by the server and saved
-        in Supabase. Selecting an account does not execute trades
+        Your account selection is securely stored in Supabase
+        and retrieved when you open your dashboard.
+        Selecting an account does not execute trades
         or move money.
       </p>
     </article>
