@@ -30,14 +30,25 @@ type DerivAccount = {
   account_type: string;
 };
 
+type BotConfig = {
+  stake_amount: number;
+  daily_loss_limit: number | null;
+};
+
+type SavedConfig = BotConfig & {
+  bot_id: string;
+};
+
 export default function CustomerBotsPage() {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
+  const [configs, setConfigs] = useState<Record<string, BotConfig>>({});
   const [activeAccount, setActiveAccount] =
     useState<DerivAccount | null>(null);
   const [accountMessage, setAccountMessage] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [savingConfig, setSavingConfig] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -56,7 +67,6 @@ export default function CustomerBotsPage() {
         return;
       }
 
-      // Retrieve the customer's active Deriv account.
       const [accountsResponse, selectionResponse] =
         await Promise.all([
           fetch("/api/deriv/account", {
@@ -80,6 +90,7 @@ export default function CustomerBotsPage() {
       ) {
         setActiveAccount(null);
         setSelections([]);
+        setConfigs({});
         setAccountMessage(
           "Connect Deriv and select an account on your dashboard."
         );
@@ -92,8 +103,7 @@ export default function CustomerBotsPage() {
 
       const savedAccount = accountList.find(
         (account) =>
-          account.account_id ===
-          selectionResult.active_account_id
+          account.account_id === selectionResult.active_account_id
       );
 
       if (
@@ -103,6 +113,7 @@ export default function CustomerBotsPage() {
       ) {
         setActiveAccount(null);
         setSelections([]);
+        setConfigs({});
         setAccountMessage(
           "No valid active Deriv account found. Please select an account on your dashboard."
         );
@@ -115,10 +126,11 @@ export default function CustomerBotsPage() {
       setActiveAccount(savedAccount);
       setAccountMessage("");
 
-      // Load published bots and selections for this account type.
       const [
         { data: botData, error: botError },
         { data: selectionData, error: selectionError },
+        { data: configData, error: configError },
+        { data: accountSettings, error: settingsError },
       ] = await Promise.all([
         supabase
           .from("bots")
@@ -130,21 +142,75 @@ export default function CustomerBotsPage() {
           .select("id,bot_id,control_status,trading_mode")
           .eq("customer_id", user.id)
           .eq("trading_mode", mode),
+
+        supabase
+          .from("customer_bot_configurations")
+          .select("bot_id,stake_amount,daily_loss_limit")
+          .eq("customer_id", user.id)
+          .eq("trading_mode", mode),
+
+        supabase
+          .from("customer_bot_settings")
+          .select("stake_amount,daily_loss_limit")
+          .eq("customer_id", user.id)
+          .eq("trading_mode", mode)
+          .maybeSingle(),
       ]);
 
-      if (botError || selectionError) {
-        setMessage(
+      if (botError || selectionError || configError || settingsError) {
+        throw new Error(
           botError?.message ||
             selectionError?.message ||
-            "Unable to load bots."
+            configError?.message ||
+            settingsError?.message ||
+            "Unable to load bot configurations."
         );
-        return;
       }
 
-      setBots((botData || []) as Bot[]);
-      setSelections((selectionData || []) as Selection[]);
-    } catch {
-      setMessage("Unable to load your workspace.");
+      const botList = (botData || []) as Bot[];
+      const selectionList = (selectionData || []) as Selection[];
+      const savedConfigs = (configData || []) as SavedConfig[];
+
+      const defaultStake = accountSettings
+        ? Number(accountSettings.stake_amount)
+        : 10;
+
+      const defaultLossLimit = accountSettings
+        ? accountSettings.daily_loss_limit === null
+          ? null
+          : Number(accountSettings.daily_loss_limit)
+        : 20;
+
+      const nextConfigs: Record<string, BotConfig> = {};
+
+      botList.forEach((bot) => {
+        const saved = savedConfigs.find(
+          (config) => config.bot_id === bot.id
+        );
+
+        nextConfigs[bot.id] = saved
+          ? {
+              stake_amount: Number(saved.stake_amount),
+              daily_loss_limit:
+                saved.daily_loss_limit === null
+                  ? null
+                  : Number(saved.daily_loss_limit),
+            }
+          : {
+              stake_amount: defaultStake,
+              daily_loss_limit: defaultLossLimit,
+            };
+      });
+
+      setBots(botList);
+      setSelections(selectionList);
+      setConfigs(nextConfigs);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load your workspace."
+      );
     } finally {
       setLoading(false);
     }
@@ -154,15 +220,39 @@ export default function CustomerBotsPage() {
     void load();
   }, [load]);
 
-  async function choose(bot: Bot) {
-    if (!activeAccount || busy) return;
+  async function verifyActiveAccount() {
+    if (!activeAccount) {
+      throw new Error("No active Deriv account selected.");
+    }
 
-    const mode = activeAccount.account_type as TradingMode;
+    const response = await fetch("/api/deriv/select-account", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    const result = await response.json();
+
+    if (
+      !response.ok ||
+      !result.success ||
+      result.active_account_id !== activeAccount.account_id
+    ) {
+      throw new Error(
+        "Your active Deriv account changed. Refresh the workspace."
+      );
+    }
+
+    return activeAccount.account_type as TradingMode;
+  }
+
+  async function choose(bot: Bot) {
+    if (!activeAccount || busy || savingConfig) return;
 
     setBusy(bot.id);
     setMessage("");
 
     try {
+      const mode = await verifyActiveAccount();
       const supabase = createClient();
 
       const {
@@ -172,27 +262,6 @@ export default function CustomerBotsPage() {
       if (!user) {
         window.location.href = "/login";
         return;
-      }
-
-      // Confirm that the selected account has not changed.
-      const response = await fetch(
-        "/api/deriv/select-account",
-        {
-          cache: "no-store",
-          credentials: "same-origin",
-        }
-      );
-
-      const result = await response.json();
-
-      if (
-        !response.ok ||
-        !result.success ||
-        result.active_account_id !== activeAccount.account_id
-      ) {
-        throw new Error(
-          "Your active Deriv account changed. Refresh the workspace before updating bots."
-        );
       }
 
       const existing = selections.find(
@@ -232,9 +301,7 @@ export default function CustomerBotsPage() {
           .eq("trading_mode", mode));
       }
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
 
       await load();
     } catch (error) {
@@ -245,6 +312,102 @@ export default function CustomerBotsPage() {
       );
     } finally {
       setBusy(null);
+    }
+  }
+
+  function updateConfig(
+    botId: string,
+    field: keyof BotConfig,
+    value: number | null
+  ) {
+    setConfigs((current) => ({
+      ...current,
+      [botId]: {
+        ...current[botId],
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveConfig(bot: Bot) {
+    if (!activeAccount || busy || savingConfig) return;
+
+    const config = configs[bot.id];
+
+    if (!config) return;
+
+    const mode = activeAccount.account_type as TradingMode;
+
+    if (
+      !Number.isFinite(config.stake_amount) ||
+      config.stake_amount < 10 ||
+      (mode === "demo" && config.stake_amount > 100)
+    ) {
+      setMessage(
+        mode === "demo"
+          ? "Demo stake must be between $10 and $100."
+          : "Real stake must be at least $10."
+      );
+      return;
+    }
+
+    if (
+      config.daily_loss_limit !== null &&
+      (!Number.isFinite(config.daily_loss_limit) ||
+        config.daily_loss_limit <= 0)
+    ) {
+      setMessage(
+        "Daily loss limit must be greater than $0 or left blank."
+      );
+      return;
+    }
+
+    setSavingConfig(bot.id);
+    setMessage("");
+
+    try {
+      const verifiedMode = await verifyActiveAccount();
+
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const { error } = await supabase
+        .from("customer_bot_configurations")
+        .upsert(
+          {
+            customer_id: user.id,
+            bot_id: bot.id,
+            trading_mode: verifiedMode,
+            stake_amount: config.stake_amount,
+            daily_loss_limit: config.daily_loss_limit,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "customer_id,bot_id,trading_mode",
+          }
+        );
+
+      if (error) throw new Error(error.message);
+
+      setMessage(
+        `${bot.name} ${verifiedMode.toUpperCase()} configuration saved successfully.`
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save bot configuration."
+      );
+    } finally {
+      setSavingConfig(null);
     }
   }
 
@@ -272,7 +435,7 @@ export default function CustomerBotsPage() {
             className="button secondary small"
             href="/bot-settings"
           >
-            Bot settings
+            General bot settings
           </Link>
         </p>
 
@@ -315,10 +478,9 @@ export default function CustomerBotsPage() {
         </article>
 
         <div className="notice">
-          <strong>Configuration only:</strong> Bot selections
-          are saved independently for Demo and Real accounts.
-          Selecting, pausing, or stopping a bot does not
-          execute trades. Live trading remains disabled.
+          <strong>Configuration only:</strong> Each bot has
+          independent Demo and Real settings. Saving settings
+          does not execute trades. Live trading remains disabled.
         </div>
 
         {message && (
@@ -329,15 +491,12 @@ export default function CustomerBotsPage() {
 
         {loading ? (
           <div className="panel">
-            <p className="muted">
-              Loading your workspace...
-            </p>
+            <p className="muted">Loading your workspace...</p>
           </div>
         ) : !activeAccount ? (
           <div className="panel">
             <p className="muted">
-              Select a valid Deriv account to view its bot
-              configurations.
+              Select a valid Deriv account to view bot configurations.
             </p>
           </div>
         ) : bots.length === 0 ? (
@@ -360,12 +519,17 @@ export default function CustomerBotsPage() {
               const status =
                 selected?.control_status || "not selected";
 
+              const config = configs[bot.id] || {
+                stake_amount: 10,
+                daily_loss_limit: null,
+              };
+
               return (
                 <article
                   className="panel botRow"
                   key={bot.id}
                 >
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <strong>{bot.name}</strong>
 
                     <p className="muted">
@@ -380,12 +544,99 @@ export default function CustomerBotsPage() {
                       {activeAccount.account_type.toUpperCase()}{" "}
                       setting: {status}
                     </span>
+
+                    <div style={{ marginTop: "18px" }}>
+                      <p className="eyebrow">
+                        {activeAccount.account_type.toUpperCase()}{" "}
+                        BOT CONFIGURATION
+                      </p>
+
+                      <label
+                        className="fieldLabel"
+                        htmlFor={`stake-${bot.id}`}
+                      >
+                        Stake per trade (USD)
+                      </label>
+
+                      <input
+                        id={`stake-${bot.id}`}
+                        className="fieldInput"
+                        type="number"
+                        min="10"
+                        max={
+                          activeAccount.account_type === "demo"
+                            ? 100
+                            : undefined
+                        }
+                        step="0.01"
+                        value={config.stake_amount}
+                        onChange={(event) =>
+                          updateConfig(
+                            bot.id,
+                            "stake_amount",
+                            event.target.value === ""
+                              ? 0
+                              : Number(event.target.value)
+                          )
+                        }
+                      />
+
+                      <p className="muted">
+                        {activeAccount.account_type === "demo"
+                          ? "Demo stake range: $10–$100."
+                          : "Real stake minimum: $10. Deriv contract rules and available balance still apply."}
+                      </p>
+
+                      <label
+                        className="fieldLabel"
+                        htmlFor={`loss-${bot.id}`}
+                      >
+                        Daily loss limit (USD, optional)
+                      </label>
+
+                      <input
+                        id={`loss-${bot.id}`}
+                        className="fieldInput"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="Leave blank for no limit preference"
+                        value={config.daily_loss_limit ?? ""}
+                        onChange={(event) =>
+                          updateConfig(
+                            bot.id,
+                            "daily_loss_limit",
+                            event.target.value === ""
+                              ? null
+                              : Number(event.target.value)
+                          )
+                        }
+                      />
+
+                      <button
+                        className="button secondary small"
+                        disabled={
+                          savingConfig !== null ||
+                          busy !== null
+                        }
+                        onClick={() => void saveConfig(bot)}
+                        style={{ marginTop: "12px" }}
+                      >
+                        {savingConfig === bot.id
+                          ? "Saving configuration..."
+                          : "Save bot configuration"}
+                      </button>
+                    </div>
                   </div>
 
                   <button
                     className="button small"
-                    disabled={busy !== null || loading}
-                    onClick={() => choose(bot)}
+                    disabled={
+                      busy !== null ||
+                      savingConfig !== null ||
+                      loading
+                    }
+                    onClick={() => void choose(bot)}
                   >
                     {busy === bot.id
                       ? "Saving..."
@@ -407,7 +658,7 @@ export default function CustomerBotsPage() {
           className="button secondary"
           style={{ marginTop: "16px" }}
           onClick={() => void load()}
-          disabled={loading || busy !== null}
+          disabled={loading || busy !== null || savingConfig !== null}
         >
           Refresh workspace
         </button>
