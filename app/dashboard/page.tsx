@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import DerivAccounts from "./deriv-accounts";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -39,7 +40,10 @@ export default async function DashboardPage() {
         .maybeSingle();
 
       if (error) {
-        console.error("Dashboard Deriv status check failed:", error.message);
+        console.error(
+          "Dashboard Deriv status check failed:",
+          error.message
+        );
         derivError = true;
         derivStatus = "Unable to verify connection";
       } else if (data?.status === "connected") {
@@ -74,14 +78,19 @@ export default async function DashboardPage() {
         <Link className="brand" href="/">
           TRADE SCHEME <span>FX</span>
         </Link>
+
         <form action="/auth/signout" method="post">
-          <button className="button secondary small">Sign out</button>
+          <button className="button secondary small">
+            Sign out
+          </button>
         </form>
       </header>
 
       <section className="dashContent">
         <p className="eyebrow">CUSTOMER DASHBOARD</p>
+
         <h1>Welcome, {name}</h1>
+
         <p className="muted">
           Your trading workspace is being set up.
         </p>
@@ -124,15 +133,16 @@ export default async function DashboardPage() {
 
         <div className="dashGrid">
           <article className="panel">
-            <p className="eyebrow">DERIV ACCOUNT</p>
+            <p className="eyebrow">DERIV CONNECTION</p>
 
             <h2>{derivStatus}</h2>
 
             {derivStatus === "Connected" ? (
               <>
                 <p className="muted">
-                  Your Deriv connection has been saved successfully.
+                  Your Deriv account is authorized.
                 </p>
+
                 {expiryText && (
                   <p className="muted">
                     Connection expiry: {expiryText}
@@ -142,8 +152,7 @@ export default async function DashboardPage() {
             ) : derivStatus === "Expired" ? (
               <>
                 <p className="muted">
-                  Your Deriv authorization has expired. Please reconnect
-                  your account.
+                  Your Deriv authorization has expired.
                 </p>
                 <Link className="button" href="/api/deriv/connect">
                   Reconnect Deriv Account
@@ -153,9 +162,10 @@ export default async function DashboardPage() {
               <>
                 <p className="muted">
                   {derivError
-                    ? "We could not verify your Deriv connection. Please try again later."
+                    ? "We could not verify your Deriv connection."
                     : "Connect your Deriv account to continue."}
                 </p>
+
                 {!derivError && (
                   <Link className="button" href="/api/deriv/connect">
                     Connect Deriv Account
@@ -165,13 +175,17 @@ export default async function DashboardPage() {
             )}
           </article>
 
+          {derivStatus === "Connected" && (
+            <DerivAccounts userId={user.id} />
+          )}
+
           <article className="panel">
             <p className="eyebrow">BOT CONTROL</p>
             <h2>Bot controls are locked</h2>
             <p className="muted">
-              Live bot execution is not active yet. We will enable controls
-              only after the Deriv API connection, risk limits, and testing
-              are complete.
+              Live bot execution is not active yet. We will enable
+              controls only after the Deriv API connection, risk
+              limits, and testing are complete.
             </p>
             <button className="button secondary" disabled>
               Bot controls coming soon
@@ -195,9 +209,9 @@ export default async function DashboardPage() {
         </div>
 
         <p className="disclaimer">
-          Trading involves risk, including the possible loss of your capital.
-          Trade Scheme FX does not guarantee profits or provide investment
-          advice.
+          Trading involves risk, including the possible loss of
+          your capital. Trade Scheme FX does not guarantee profits
+          or provide investment advice.
         </p>
 
         <Link className="back" href="/">
