@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
@@ -32,6 +31,8 @@ function decryptToken(
 }
 
 export async function GET() {
+  let diagnosticStage = "authentication";
+
   try {
     // 1. Verify the logged-in customer.
     const supabase = await createClient();
@@ -49,10 +50,17 @@ export async function GET() {
     }
 
     // 2. Check server configuration.
+    diagnosticStage = "server_configuration";
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
+      console.error("Deriv account diagnostic:", {
+        stage: diagnosticStage,
+        supabaseUrlPresent: Boolean(supabaseUrl),
+        serviceRoleKeyPresent: Boolean(serviceKey)
+      });
+
       return NextResponse.json(
         { error: "Server configuration is incomplete." },
         { status: 500 }
@@ -60,6 +68,7 @@ export async function GET() {
     }
 
     // 3. Retrieve this customer's encrypted Deriv token.
+    diagnosticStage = "database_lookup";
     const admin = createSupabaseAdmin(
       supabaseUrl,
       serviceKey,
@@ -80,7 +89,10 @@ export async function GET() {
       .maybeSingle();
 
     if (dbError) {
-      console.error("Deriv database lookup failed:", dbError.code);
+      console.error("Deriv database lookup failed:", {
+        stage: diagnosticStage,
+        code: dbError.code
+      });
 
       return NextResponse.json(
         { error: "Could not retrieve the saved connection." },
@@ -96,6 +108,7 @@ export async function GET() {
     }
 
     // 4. Check token expiration.
+    diagnosticStage = "token_validation";
     if (
       connection.expires_at &&
       new Date(connection.expires_at).getTime() <= Date.now()
@@ -107,6 +120,7 @@ export async function GET() {
     }
 
     // 5. Decrypt token on the server only.
+    diagnosticStage = "token_decryption";
     const accessToken = decryptToken(
       connection.encrypted_token,
       connection.token_iv,
@@ -114,6 +128,7 @@ export async function GET() {
     );
 
     // 6. Request account information from Deriv.
+    diagnosticStage = "deriv_account_request";
     const derivResponse = await fetch(
       "https://api.derivws.com/trading/v1/options/accounts",
       {
@@ -141,6 +156,7 @@ export async function GET() {
       const derivError = result?.errors?.[0];
 
       console.error("Deriv account request rejected:", {
+        stage: diagnosticStage,
         httpStatus: derivResponse.status,
         errorCode: derivError?.code || "Unknown",
         message: derivError?.message || "No error message returned"
@@ -173,11 +189,15 @@ export async function GET() {
     );
 
   } catch (error) {
+    const errorName =
+      error instanceof Error ? error.name : "UnknownError";
+    const errorMessage =
+      error instanceof Error ? error.message.slice(0, 200) : "Unknown error";
+
     console.error("Deriv account API error:", {
-      errorType:
-        error instanceof Error
-          ? error.name
-          : "UnknownError"
+      stage: diagnosticStage,
+      errorType: errorName,
+      message: errorMessage
     });
 
     return NextResponse.json(
