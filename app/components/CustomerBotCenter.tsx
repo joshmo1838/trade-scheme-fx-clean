@@ -62,7 +62,7 @@ export default function CustomerBotCenter() {
     if(cfg.stake_amount<10||cfg.stake_amount>100||!Number.isFinite(cfg.stake_amount)){setMessage("Paper stake must be between $10 and $100.");return;}
     const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return;}
     const market=bot.market.toLowerCase().includes("synthetic")?"R_100":bot.market.toLowerCase().includes("forex")?"frxEURUSD":"R_100";
-    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:0};
+    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:0,cooldown:0,trades:0};
     runtimes.set(bot.id,runtime);setEngineStatus(v=>({...v,[bot.id]:"Connecting to public market data…"}));
     try{
       const ws=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");sockets.set(bot.id,ws);
@@ -72,9 +72,9 @@ export default function CustomerBotCenter() {
         const price=Number(msg.tick.quote);if(!Number.isFinite(price)||!runtime.running)return;
         setLivePrices(v=>({...v,[bot.id]:price}));runtime.prices=[...runtime.prices,price].slice(-22);
         if(runtime.open){runtime.open.remaining-=1;if(runtime.open.remaining<=0){const won=runtime.open.direction==="CALL"?price>runtime.open.entry:price<runtime.open.entry;const pnl=won?runtime.open.stake:-runtime.open.stake;const closedAt=new Date().toISOString();const trade={customer_id:user.id,bot_id:bot.id,market_symbol:market,direction:runtime.open.direction,entry_price:runtime.open.entry,exit_price:price,stake_amount:runtime.open.stake,pnl,outcome:won?"WIN":"LOSS",opened_at:runtime.open.openedAt,closed_at:closedAt};
-          const {error}=await supabase.from("customer_paper_trades").insert(trade);if(error){stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss+=pnl<0?Math.abs(pnl):0;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.open=null;
-          if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Daily paper loss limit reached. Simulation stopped.");}
-        }}else if(runtime.prices.length>=21){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
+          const {error}=await supabase.from("customer_paper_trades").insert(trade);if(error){stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.open=null;
+          if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Paper loss limit reached for this run. Simulation stopped.");}else if(runtime.trades>=20){stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");}
+        }}else if(runtime.cooldown>0){runtime.cooldown-=1;}else if(runtime.prices.length>=21&&runtime.trades<20){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
       };
       ws.onerror=()=>stopPaper(bot.id,"Market data connection failed.");ws.onclose=()=>{if(runtime.running){runtime.running=false;setEngineStatus(v=>({...v,[bot.id]:"Feed disconnected. Simulation stopped."}));}sockets.delete(bot.id);};
     }catch{stopPaper(bot.id,"Could not start paper feed.");}
@@ -104,7 +104,7 @@ export default function CustomerBotCenter() {
 
   async function saveConfig(bot:Bot){
     const cfg=configs[bot.id];if(!cfg||busy)return;
-    if(!Number.isFinite(cfg.stake_amount)||cfg.stake_amount<1||cfg.stake_amount>100){setMessage("Paper stake must be between $1 and $100.");return;}
+    if(!Number.isFinite(cfg.stake_amount)||cfg.stake_amount<10||cfg.stake_amount>100){setMessage("Paper stake must be between $10 and $100.");return;}
     if(cfg.daily_loss_limit!==null&&(!Number.isFinite(cfg.daily_loss_limit)||cfg.daily_loss_limit<=0)){setMessage("Daily paper loss limit must be above zero or left blank.");return;}
     setBusy(bot.id);setMessage("");
     const {data:{user}}=await supabase.auth.getUser();
@@ -122,7 +122,7 @@ export default function CustomerBotCenter() {
     <header className="botCenterTop"><Link href="/dashboard" className="botCenterBrand">TRADE SCHEME <b>FX</b></Link><nav><Link href="/dashboard">Dashboard</Link><Link href="/builder">Bot Builder</Link><Link href="/intelligence">Market Intelligence</Link></nav></header>
     <section className="botCenterContent">
       <div className="botCenterHero"><div><span className="botCenterEyebrow">SENFX AUTOMATION WORKSPACE</span><h1>Customer <em>Bot Center</em></h1><p>Browse free strategies, configure risk limits and run isolated paper simulations.</p></div><span className="botCenterSafety">PAPER MODE · NO EXECUTION</span></div>
-      <div className="botCenterNotice"><b>Safety first.</b> Paper simulations use public market prices and a simple EMA 9/21 direction rule. They do not send orders, use account tokens, or access real or Deriv demo funds. Keep this page open while a simulation runs.</div>
+      <div className="botCenterNotice"><b>Safety first.</b> Paper simulations use public market prices and a simple 9/21 moving-average direction rule. They do not send orders, use account tokens, or access real or Deriv demo funds. Keep this page open while a simulation runs.</div>
       <div className="botCenterStats"><article><small>AVAILABLE BOTS</small><strong>{bots.length}</strong></article><article><small>MY BOTS</small><strong>{myBots.length}</strong></article><article><small>MARKED SELECTED</small><strong>{activeCount}</strong></article><article><small>PAUSED PREFERENCES</small><strong>{pausedCount}</strong></article></div>
       <div className="botCenterTabs" role="tablist" aria-label="Bot Center sections">
         <button className={tab==="marketplace"?"active":""} onClick={()=>setTab("marketplace")}>Free Marketplace</button>
@@ -130,7 +130,7 @@ export default function CustomerBotCenter() {
         <button className={tab==="performance"?"active":""} onClick={()=>setTab("performance")}>Performance</button>
       </div>
       {message&&<p className="botCenterMessage" role="status">{message}</p>}
-      {loading?<div className="botCenterEmpty">Loading your secure Bot Center…</div>:tab==="performance"?<section className="botCenterPerformance"><div><span className="botCenterEyebrow">PAPER PERFORMANCE</span><h2>Performance will appear here</h2><p>No paper trade records are available yet. We will connect this panel to the paper engine after it is built and tested. We will not display invented profit, win-rate or trade statistics.</p></div><div className="botCenterPerfGrid"><article><small>RECORDED PAPER TRADES</small><strong>—</strong></article><article><small>SIMULATED P/L</small><strong>—</strong></article><article><small>WIN RATE</small><strong>—</strong></article></div></section>:<section className="botCenterGrid">{(tab==="marketplace"?bots:myBots).map(bot=>{
+      {loading?<div className="botCenterEmpty">Loading your secure Bot Center…</div>:tab==="performance"?<section className="botCenterPerformance"><div><span className="botCenterEyebrow">PAPER PERFORMANCE</span><h2>Recorded simulation results</h2><p>These figures summarize saved paper simulations only. They are not broker statements, live trading results, or predictions of future performance.</p></div><div className="botCenterPerfGrid"><article><small>RECORDED PAPER TRADES</small><strong>{paperTrades.length}</strong></article><article><small>SIMULATED P/L</small><strong>{paperTrades.reduce((sum,t)=>sum+Number(t.pnl||0),0).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article><article><small>WIN RATE</small><strong>{paperTrades.length?Math.round(paperTrades.filter(t=>t.outcome==="WIN").length/paperTrades.length*100)+"%":"—"}</strong></article></div><div className="botCenterTradeHistory"><h3>Recent paper trades</h3>{paperTrades.length===0?<p>No saved paper trades yet. Start a paper simulation from My Bots.</p>:paperTrades.slice(0,20).map(t=><article key={t.id}><span><b>{t.direction}</b> · {t.market_symbol} · {new Date(t.closed_at).toLocaleString()}</span><strong>{Number(t.pnl).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article>)}</div></section>:<section className="botCenterGrid">{(tab==="marketplace"?bots:myBots).map(bot=>{
         const selection=selections.find(s=>s.bot_id===bot.id);
         const cfg=configs[bot.id]||{stake_amount:10,daily_loss_limit:20};
         return <article className="botCenterCard" key={bot.id}>
@@ -138,7 +138,7 @@ export default function CustomerBotCenter() {
           <h2>{bot.name}</h2><p>{bot.description||"No strategy description has been provided."}</p>
           <div className="botCenterStatus"><span>Status preference</span><b>{selection?.control_status||"Not added"}</b></div>
           {tab==="mybots"&&<div className="botCenterConfig">
-            <label>Paper stake (USD)<input type="number" min="1" max="100" step="0.01" value={cfg.stake_amount} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,stake_amount:e.target.value===""?0:Number(e.target.value)}}))}/></label>
+            <label>Paper stake (USD)<input type="number" min="10" max="100" step="0.01" value={cfg.stake_amount} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,stake_amount:e.target.value===""?0:Number(e.target.value)}}))}/></label>
             <label>Daily paper loss limit (USD)<input type="number" min="0.01" step="0.01" placeholder="No limit preference" value={cfg.daily_loss_limit??""} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,daily_loss_limit:e.target.value===""?null:Number(e.target.value)}}))}/></label>
             <button className="botCenterSecondary" disabled={busy!==null} onClick={()=>void saveConfig(bot)}>Save paper settings</button>
             <button className="botCenterPrimary" disabled={busy!==null||!!sockets.has(bot.id)||selection?.control_status!=="selected"} onClick={()=>void startPaper(bot)}>Start paper simulation</button>
