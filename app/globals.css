@@ -114,3 +114,17 @@
 .builderBlockEditor label{display:grid;gap:8px;color:#d9e8f4;font-size:13px}
 .builderBlockEditor textarea{width:100%;resize:vertical;border:1px solid rgba(148,177,203,.28);border-radius:9px;padding:10px;background:#081625;color:#f2f8ff;font:inherit}
 .builderBlockEditor small{color:#9fb4c7;line-height:1.5}
+
+
+/* Draft-only strategy validation */
+.builderValidationPanel{margin-top:18px;padding:18px;border:1px solid rgba(75,211,232,.22);border-radius:14px;background:rgba(9,24,43,.72)}
+.builderValidationHeader{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.builderValidationHeader>div{display:grid;gap:5px}
+.builderValidationHeader strong{font-size:16px}
+.builderValidationHeader small{color:var(--muted,#9aabc0);font-size:12px}
+.builderValidationResults{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+.validationPass{color:#5de0ae;font-weight:700}
+.validationFail{color:#ff9b9b;font-weight:700}
+.validationItem,.validationWarning{font-size:13px;margin:7px 0;color:#ffb1b1}
+.validationWarning{color:#f3c979}
+@media(max-width:600px){.builderValidationHeader{align-items:flex-start;flex-direction:column}}
