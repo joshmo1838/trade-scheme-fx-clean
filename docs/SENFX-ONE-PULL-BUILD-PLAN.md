@@ -62,3 +62,12 @@ The consolidated PR includes the customer workspace redesign, visual strategy bu
 
 ## Release definition
 A feature is complete only when its UI, backend behavior, authorization, error states, automated tests and documentation are implemented. A placeholder screen is not a completed feature. The integrated PR remains draft until all agreed release gates pass.
+
+
+## Implemented milestone: account-backed strategy drafts
+- Authenticated strategy APIs provide customer-owned create, list, update and delete operations.
+- The customer_strategies table uses Supabase row-level security to isolate customer data.
+- Server-side validation and a 64 KB request limit protect strategy storage.
+- Visual Bot Builder can save and reload account-backed drafts across signed-in devices after applying the SQL migration.
+- Browser-local save and JSON export remain available.
+- Saving a strategy does not execute orders; real-money execution remains disabled.
