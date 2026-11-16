@@ -3,8 +3,6 @@
  * Runs as a single persistent Node process (Railway worker service).
  * No Deriv account token, customer funds, or order execution is used.
  */
-import WebSocket from "ws";
-
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DERIV_WS_URL = process.env.DERIV_PUBLIC_WS_URL || "wss://api.derivws.com/trading/v1/options/ws/public";
@@ -153,7 +151,7 @@ async function ensureRun() {
     body: JSON.stringify({ run_id: RUN_ID, market_symbol: MARKET, target_trades: TARGET_TRADES, status: "starting", state }),
   });
 }
-function handleCompletedBar(bar) {
+async function handleCompletedBar(bar) {
   if (!bar || bar.epoch <= state.lastProcessedEpoch) return;
   state.lastProcessedEpoch = bar.epoch;
   state.bars.push({ open: bar.open, high: bar.high, low: bar.low, close: bar.close, time: new Date(bar.epoch * 1000).toISOString(), epoch: bar.epoch });
@@ -173,7 +171,7 @@ function handleCompletedBar(bar) {
       state.completedTrades += 1;
       if (won) state.wins += 1; else state.losses += 1;
       // Persist first; a restart will recover the same state/trade from the database.
-      void persistTrade(trade).then(() => saveState()).then(() => {
+      await persistTrade(trade).then(() => saveState()).then(() => {
         console.log(`Trade ${state.completedTrades}/${TARGET_TRADES}: ${trade.outcome} ${trade.side}`);
         if (state.completedTrades >= TARGET_TRADES) {
           console.log("200-trade forward paper test completed. Disconnecting feed.");
@@ -187,13 +185,13 @@ function handleCompletedBar(bar) {
     const side = getSignal(state.bars);
     if (side) state.pending = { side, entry: bar.close, left: 5, signalEpoch: bar.epoch };
   }
-  void saveState().catch((error) => console.error("State save failed:", error));
+  await saveState().catch((error) => console.error("State save failed:", error));
 }
 function connect() {
   if (stopped) return;
   console.log("Connecting to Deriv public R_100 feed…");
-  socket = new WebSocket(DERIV_WS_URL);
-  socket.on("open", () => {
+  socket = new globalThis.WebSocket(DERIV_WS_URL);
+  socket.addEventListener("open", () => {
     reconnectDelay = 1000;
     console.log("Connected; subscribing to R_100 ticks and one-minute candle history.");
     socket.send(JSON.stringify({ ticks: MARKET, subscribe: 1 }));
@@ -202,9 +200,9 @@ function connect() {
       style: "candles", granularity: 60, req_id: 81001,
     }));
   });
-  socket.on("message", (raw) => {
+  socket.addEventListener("message", async (event) => {
     let message;
-    try { message = JSON.parse(raw.toString()); } catch { return; }
+    try { message = JSON.parse(String(event.data)); } catch { return; }
     if (message.error) {
       console.error("Deriv feed error:", message.error.message || message.error.code);
       return;
@@ -219,8 +217,17 @@ function connect() {
         .filter((candle) => Number.isFinite(candle.epoch) && candle.epoch + 60 <= now &&
           [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite))
         .sort((a, b) => a.epoch - b.epoch);
-      for (const candle of history) {
-        if (candle.epoch > state.lastProcessedEpoch) handleCompletedBar(candle);
+      if (state.lastProcessedEpoch === 0 && state.bars.length === 0) {
+        // Historical candles are warm-up data, not forward-test outcomes.
+        state.bars = history.slice(-400).map((bar) => ({ ...bar, time: new Date(bar.epoch * 1000).toISOString() }));
+        state.lastProcessedEpoch = history.at(-1)?.epoch || 0;
+        await saveState();
+        console.log(`Seeded ${state.bars.length} historical candles for indicator warm-up; no historical trades counted.`);
+      } else {
+        // On reconnect, only candles newer than the last persisted candle are processed.
+        for (const candle of history) {
+          if (candle.epoch > state.lastProcessedEpoch) await handleCompletedBar(candle);
+        }
       }
       return;
     }
@@ -229,7 +236,7 @@ function connect() {
     if (!Number.isFinite(price) || !Number.isFinite(epoch)) return;
     const minuteEpoch = Math.floor(epoch / 60) * 60;
     if (!state.currentMinute || minuteEpoch > state.currentMinute.epoch) {
-      if (state.currentMinute) handleCompletedBar(state.currentMinute);
+      if (state.currentMinute) await handleCompletedBar(state.currentMinute);
       state.currentMinute = { epoch: minuteEpoch, open: price, high: price, low: price, close: price };
       return;
     }
@@ -239,8 +246,8 @@ function connect() {
       state.currentMinute.close = price;
     }
   });
-  socket.on("error", (error) => console.error("Deriv WebSocket error:", error.message));
-  socket.on("close", () => {
+  socket.addEventListener("error", () => console.error("Deriv WebSocket error"));
+  socket.addEventListener("close", () => {
     if (stopped) return;
     console.warn(`Feed disconnected. Reconnecting in ${Math.round(reconnectDelay / 1000)}s.`);
     clearTimeout(reconnectTimer);
