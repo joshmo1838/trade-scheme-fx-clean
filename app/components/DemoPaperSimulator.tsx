@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 type Draft={market?:string;contract?:string;duration?:string;stake?:string;tp?:string;sl?:string;martingale?:boolean;triggerInterval?:string;blocks?:{id:string;title:string;kind:string}[];conditionRules?:Record<string,{indicator:string;operator:string;value:string}>;sellRules?:Record<string,{exitType:string;operator:string;value:string}>;riskRules?:Record<string,{maxStake:string;maxSessionLoss:string;maxTrades:string;stopAtProfit:boolean}>};
 type Trade={id:number;entry:number;exit?:number;direction:"CALL"|"PUT";stake:number;remaining:number;status:"OPEN"|"WIN"|"LOSS";pnl?:number;time:string};
-const KEY="trade-scheme-fx-visual-builder-v1",APP_ID="34SBwLGAx9IL6eEDUQ39T";
+const KEY="trade-scheme-fx-visual-builder-v1";
 const compare=(a:number,op:string,b:number)=>op==="gt"?a>b:op==="lt"?a<b:op==="eq"?a===b:op==="gte"?a>=b:a<=b;
 const lastDigit=(p:number)=>Number(p.toFixed(2).replace(".","").slice(-1));
 export default function DemoPaperSimulator(){
@@ -21,8 +21,8 @@ export default function DemoPaperSimulator(){
   const cb=d.blocks?.find(b=>b.title==="Purchase condition"),rule=cb?d.conditionRules?.[cb.id]:undefined,value=Number(rule?.value??5);
   if(!cb||!Number.isInteger(value)||value<0||value>9){setStatus("Add a valid Purchase condition using a digit from 0 to 9.");return;}
   state.current={running:true,open:null,trades:[],pnl:0,ticks:0,draft:d};setTrades([]);setPnl(0);setTicks(0);setPrice(null);setOpenTrade(null);setRunning(true);setStatus("Connecting to Deriv public tick feed. Paper mode only.");setFeed("CONNECTING");
-  try{const ws=new WebSocket("wss://ws.derivws.com/websockets/v3?app_id="+APP_ID);socket.current=ws;
-   connectionTimer.current=setTimeout(()=>{if(state.current.running&&ws.readyState!==WebSocket.OPEN){stop("Connection timed out before Deriv opened the market feed. Check your internet connection, firewall/VPN, and the configured public Deriv app ID.");}},12000);\n   ws.onopen=()=>{if(connectionTimer.current){clearTimeout(connectionTimer.current);connectionTimer.current=null;}setFeed("CONNECTED");setStatus("Connected. Waiting for the first market tick.");ws.send(JSON.stringify({ticks:d.market||"R_100",subscribe:1}));};
+  try{const ws=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");socket.current=ws;
+   connectionTimer.current=setTimeout(()=>{if(state.current.running&&ws.readyState!==WebSocket.OPEN){stop("Connection timed out before Deriv opened the market feed. Check your internet connection, firewall/VPN, and the configured public Deriv app ID.");}},12000);\n   ws.onopen=()=>{if(connectionTimer.current){clearTimeout(connectionTimer.current);connectionTimer.current=null;}setFeed("CONNECTED");setStatus("Connected. Waiting for the first market tick.");ws.send(JSON.stringify({ticks:d.market||"R_100",subscribe:1,req_id:1}));};
    ws.onmessage=(event)=>{let m:any;try{m=JSON.parse(event.data);}catch{return;}if(m.error){stop("Market feed error: "+m.error.message);return;}if(m.msg_type!=="tick"||!m.tick)return;const px=Number(m.tick.quote);if(!Number.isFinite(px))return;setPrice(px);
     const s=state.current,config=s.draft;if(!s.running||!config)return;s.ticks++;setTicks(s.ticks);const direction=config.contract==="PUT"?"PUT":"CALL",dur=Number(config.duration||5);
     if(s.open){const rem=s.open.remaining-1;if(rem<=0){const won=direction==="CALL"?px>s.open.entry:px<s.open.entry,profit=won?s.open.stake:-s.open.stake,closed:Trade={...s.open,exit:px,remaining:0,status:won?"WIN":"LOSS",pnl:profit};s.open=null;setOpenTrade(null);s.trades=[closed,...s.trades].slice(0,50);s.pnl=Number((s.pnl+profit).toFixed(2));setTrades([...s.trades]);setPnl(s.pnl);
