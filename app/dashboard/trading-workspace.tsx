@@ -102,7 +102,7 @@ export default function TradingWorkspace({
 
           <div className="workspaceSectionHeading">
             <div><p className="workspaceEyebrow">GET STARTED</p><h2>Your trading tools</h2></div>
-            <Link href="/bots" className="workspaceViewAll">View bot library ↗</Link>
+            <Link href="/bot-center" className="workspaceViewAll">Open Bot Center ↗</Link>
           </div>
 
           <section className="workspaceLaunchGrid">
