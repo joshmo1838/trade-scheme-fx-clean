@@ -34,7 +34,6 @@ export default function MarketIntelligence() {
   const [ticks, setTicks] = useState<Record<string, Tick[]>>({});
   const [connection, setConnection] = useState("CONNECTING");
   const [watch, setWatch] = useState<string[]>(["R_100", "R_75", "R_50"]);
-  const [threshold, setThreshold] = useState("1");
   const [alertEnabled, setAlertEnabled] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [selected, setSelected] = useState("R_100");
