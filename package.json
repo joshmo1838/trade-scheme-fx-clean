@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "worker:forward": "node worker/senfx-forward-worker.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.90.0",
     "next": "16.4.6",
     "react": "19.2.9",
-    "react-dom": "19.2.9"
+    "react-dom": "19.2.9",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
