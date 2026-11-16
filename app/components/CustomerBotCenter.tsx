@@ -21,7 +21,7 @@ export default function CustomerBotCenter() {
   const [engineStatus,setEngineStatus]=useState<Record<string,string>>({});
   const [livePrices,setLivePrices]=useState<Record<string,number>>({});
   const sockets=useMemo(()=>new Map<string,WebSocket>(),[]);
-  const runtimes=useMemo(()=>new Map<string,{prices:number[];open:{entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null;running:boolean;loss:number}>(),[]);
+  const runtimes=useMemo(()=>new Map<string,{prices:number[];open:{entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null;running:boolean;loss:number;cooldown:number;trades:number;closing:boolean}>(),[]);
   const supabase=useMemo(()=>createClient(),[]);
 
   const load=useCallback(async()=>{
@@ -62,18 +62,24 @@ export default function CustomerBotCenter() {
     if(cfg.stake_amount<10||cfg.stake_amount>100||!Number.isFinite(cfg.stake_amount)){setMessage("Paper stake must be between $10 and $100.");return;}
     const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return;}
     const market=bot.market.toLowerCase().includes("synthetic")?"R_100":bot.market.toLowerCase().includes("forex")?"frxEURUSD":"R_100";
-    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:0,cooldown:0,trades:0};
+    const dayStart=new Date();dayStart.setHours(0,0,0,0);
+    const {data:todayTrades,error:historyError}=await supabase.from("customer_paper_trades").select("pnl").eq("customer_id",user.id).eq("bot_id",bot.id).gte("closed_at",dayStart.toISOString());
+    if(historyError){setMessage("Could not verify today's paper loss before starting: "+historyError.message);return;}
+    const todayNet=(todayTrades||[]).reduce((sum,row)=>sum+Number(row.pnl||0),0);
+    const initialLoss=Math.max(0,-todayNet);
+    if(cfg.daily_loss_limit!==null&&initialLoss>=cfg.daily_loss_limit){setEngineStatus(v=>({...v,[bot.id]:"Daily paper loss limit already reached. No new simulation started."}));setMessage("Today's saved paper losses have already reached this bot's daily limit.");return;}
+    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:initialLoss,cooldown:0,trades:0,closing:false};
     runtimes.set(bot.id,runtime);setEngineStatus(v=>({...v,[bot.id]:"Connecting to public market data…"}));
     try{
       const ws=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");sockets.set(bot.id,ws);
       ws.onopen=()=>{if(runtime.running){setEngineStatus(v=>({...v,[bot.id]:"Live paper simulation running"}));ws.send(JSON.stringify({ticks:market,subscribe:1}));}};
       ws.onmessage=async(event)=>{
         let msg:any;try{msg=JSON.parse(event.data);}catch{return;}if(msg.error){stopPaper(bot.id,"Feed error: "+msg.error.message);return;}if(msg.msg_type!=="tick"||!msg.tick)return;
-        const price=Number(msg.tick.quote);if(!Number.isFinite(price)||!runtime.running)return;
+        const price=Number(msg.tick.quote);if(!Number.isFinite(price)||!runtime.running||runtime.closing)return;
         setLivePrices(v=>({...v,[bot.id]:price}));runtime.prices=[...runtime.prices,price].slice(-22);
-        if(runtime.open){runtime.open.remaining-=1;if(runtime.open.remaining<=0){const won=runtime.open.direction==="CALL"?price>runtime.open.entry:price<runtime.open.entry;const pnl=won?runtime.open.stake:-runtime.open.stake;const closedAt=new Date().toISOString();const trade={customer_id:user.id,bot_id:bot.id,market_symbol:market,direction:runtime.open.direction,entry_price:runtime.open.entry,exit_price:price,stake_amount:runtime.open.stake,pnl,outcome:won?"WIN":"LOSS",opened_at:runtime.open.openedAt,closed_at:closedAt};
-          const {error}=await supabase.from("customer_paper_trades").insert(trade);if(error){stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.open=null;
-          if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Paper loss limit reached for this run. Simulation stopped.");}else if(runtime.trades>=20){stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");}
+        if(runtime.open){runtime.open.remaining-=1;if(runtime.open.remaining<=0){runtime.closing=true;const completed=runtime.open;runtime.open=null;const won=completed.direction==="CALL"?price>completed.entry:price<completed.entry;const pnl=won?completed.stake:-completed.stake;const closedAt=new Date().toISOString();const trade={customer_id:user.id,bot_id:bot.id,market_symbol:market,direction:completed.direction,entry_price:completed.entry,exit_price:price,stake_amount:completed.stake,pnl,outcome:won?"WIN":"LOSS",opened_at:completed.openedAt,closed_at:closedAt};
+          const {error}=await supabase.from("customer_paper_trades").insert(trade);if(error){runtime.closing=false;stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.closing=false;
+          if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Daily paper loss limit reached. Simulation stopped.");}else if(runtime.trades>=20){stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");}
         }}else if(runtime.cooldown>0){runtime.cooldown-=1;}else if(runtime.prices.length>=21&&runtime.trades<20){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
       };
       ws.onerror=()=>stopPaper(bot.id,"Market data connection failed.");ws.onclose=()=>{if(runtime.running){runtime.running=false;setEngineStatus(v=>({...v,[bot.id]:"Feed disconnected. Simulation stopped."}));}sockets.delete(bot.id);};
