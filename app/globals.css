@@ -158,3 +158,5 @@
 
 .miAlertField{display:grid;gap:6px;margin:10px 0;color:#a9bfd2;font-size:9px}
 .miAlertField input,.miAlertField select{width:100%;padding:9px;border:1px solid rgba(111,169,213,.24);border-radius:6px;background:#071a30;color:#edf7ff;font:10px 'DM Sans',sans-serif}
+
+.miPriceAlertLog{display:grid;gap:6px;margin-top:12px;padding:12px;border:1px solid rgba(88,212,244,.35);border-radius:10px;background:rgba(88,212,244,.07);font-size:12px}.miPriceAlertLog b{color:#58d4f4}.miPriceAlertLog span{line-height:1.5;overflow-wrap:anywhere}
