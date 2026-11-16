@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-type Bar = { close:number; high:number; low:number; time:string };
+type Bar = { open?:number; close:number; high:number; low:number; time:string };
 type Trade = { side:"CALL"|"PUT"; entry:number; exit:number; pnl:number; outcome:"WIN"|"LOSS"; time:string };
 type Metrics = { trades:number; wins:number; losses:number; winRate:number; net:number; profitFactor:number|null; maxDrawdown:number };
 
