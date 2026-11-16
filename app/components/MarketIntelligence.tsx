@@ -38,6 +38,7 @@ export default function MarketIntelligence() {
   const [priceAlertMarket, setPriceAlertMarket] = useState("R_100");
   const [priceTarget, setPriceTarget] = useState("");
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [priceAlertEvents, setPriceAlertEvents] = useState<string[]>([]);
   const [selected, setSelected] = useState("R_100");
   const socketRef = useRef<WebSocket | null>(null);
   const previousRef = useRef<Record<string, string>>({});
@@ -162,9 +163,14 @@ export default function MarketIntelligence() {
       previousPriceRef.current[market.symbol] = price;
       const target = Number(priceTarget);
       if (!alertEnabled || market.symbol !== priceAlertMarket || !Number.isFinite(target) || target <= 0 || previous === undefined) return;
-      if ((previous < target && price >= target) || (previous > target && price <= target)) {
+      const crossedUp = previous < target && price >= target;
+      const crossedDown = previous > target && price <= target;
+      if (crossedUp || crossedDown) {
+        const direction = crossedUp ? "crossed above" : "crossed below";
+        const event = market.label + " " + direction + " " + fmt(target) + " · latest " + fmt(price) + " · " + new Date().toLocaleTimeString();
+        setPriceAlertEvents(current => [event, ...current].slice(0, 5));
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-          new Notification("SENFX price alert", { body: market.label + " crossed " + fmt(target) + " · latest " + fmt(price) });
+          new Notification("SENFX price alert", { body: event });
         }
       }
     });
@@ -215,9 +221,10 @@ export default function MarketIntelligence() {
             <p className="miAlertText">Set a price level and receive a browser notification when the selected market crosses it. Signal notifications are also included. Your browser may ask permission.</p>
             <label className="miAlertField">Market<select value={priceAlertMarket} onChange={e => setPriceAlertMarket(e.target.value)}>{MARKETS.map(m => <option key={m.symbol} value={m.symbol}>{m.label}</option>)}</select></label>
             <label className="miAlertField">Price level<input type="number" min="0" step="any" value={priceTarget} onChange={e => setPriceTarget(e.target.value)} placeholder="Enter target price"/></label>
-            <button className="miButton" onClick={enableAlerts}>{alertEnabled ? "Notifications enabled" : "Enable signal notifications"}</button>
-            <label className="miCheck"><input type="checkbox" checked={alertEnabled} onChange={e => e.target.checked ? void enableAlerts() : setAlertEnabled(false)}/> Notify me about new rule-based signals</label>
-            <p className="miFoot">Notifications require browser permission and this page to remain open. No email or SMS alerts are sent.</p>
+            <button className="miButton" onClick={enableAlerts}>{alertEnabled ? "Browser notifications enabled" : "Enable browser notifications"}</button>
+            <label className="miCheck"><input type="checkbox" checked={alertEnabled} onChange={e => e.target.checked ? void enableAlerts() : setAlertEnabled(false)}/> Notify me about price crossings and new rule-based signals</label>
+            {priceAlertEvents.length > 0 && <div className="miPriceAlertLog" role="status"><b>Latest price alert</b><span>{priceAlertEvents[0]}</span></div>}
+            <p className="miFoot">A crossing is also recorded here when detected. Notifications require browser permission and this page to remain open. No email or SMS alerts are sent.</p>
           </article>
         </section>
         <section className="miPanel miHistory"><div className="miPanelHead"><div><span className="miEyebrow">RECENT DETECTIONS</span><h2>Signal history</h2></div><span className="miCount">{signals.length} this session</span></div>
