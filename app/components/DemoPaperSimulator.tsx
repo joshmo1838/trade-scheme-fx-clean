@@ -13,7 +13,7 @@ export default function DemoPaperSimulator(){
  useEffect(()=>{load();return()=>{state.current.running=false;if(socket.current)socket.current.close();};},[]);
  const start=()=>{
   let d=draft;try{const raw=localStorage.getItem(KEY);if(raw)d=JSON.parse(raw);}catch{}
-  if(!d){setStatus("Save a strategy draft before starting.");return;}
+  if(!d){setStatus("Save a strategy draft before starting.");return;}setDraft(d);
   if(d.contract!=="CALL"&&d.contract!=="PUT"){setStatus("This first simulator supports Rise/Call and Fall/Put only. Digit contracts are not simulated.");return;}
   if(d.martingale){setStatus("Turn Martingale off first. Stake escalation is not supported.");return;}
   const rb=d.blocks?.find(b=>b.kind==="risk"),risk=rb?d.riskRules?.[rb.id]:undefined,stake=Number(d.stake||1),maxStake=Number(risk?.maxStake||2),maxLoss=Number(risk?.maxSessionLoss||10),maxTrades=Number(risk?.maxTrades||10),duration=Number(d.duration||5);
@@ -27,7 +27,7 @@ export default function DemoPaperSimulator(){
     const s=state.current,config=s.draft;if(!s.running||!config)return;s.ticks++;setTicks(s.ticks);const direction=config.contract==="PUT"?"PUT":"CALL",dur=Number(config.duration||5);
     if(s.open){const rem=s.open.remaining-1;if(rem<=0){const won=direction==="CALL"?px>s.open.entry:px<s.open.entry,profit=won?s.open.stake:-s.open.stake,closed:Trade={...s.open,exit:px,remaining:0,status:won?"WIN":"LOSS",pnl:profit};s.open=null;setOpenTrade(null);s.trades=[closed,...s.trades].slice(0,50);s.pnl=Number((s.pnl+profit).toFixed(2));setTrades([...s.trades]);setPnl(s.pnl);
       const riskBlock=config.blocks?.find(b=>b.kind==="risk"),riskNow=riskBlock?config.riskRules?.[riskBlock.id]:undefined,sellBlock=config.blocks?.find(b=>b.title==="Sell condition"),sell=sellBlock?config.sellRules?.[sellBlock.id]:undefined,maxLossNow=Number(riskNow?.maxSessionLoss||10),maxCount=Number(riskNow?.maxTrades||10),tp=Number(config.tp||0),sl=Number(config.sl||0),sellTarget=Number(sell?.value||0);
-      if(s.pnl<=-maxLossNow||(sl>0&&s.pnl<=-sl)||s.trades.length>=maxCount||(tp>0&&s.pnl>=tp)||(sell?.exitType==="profit_target"&&s.pnl>=sellTarget)||(sell?.exitType==="loss_limit"&&s.pnl<=-sellTarget)){stop("A session guardrail was reached. Paper simulation stopped.");return;}
+      if(s.pnl<=-maxLossNow||(sl>0&&s.pnl<=-sl)||s.trades.length>=maxCount||(riskNow?.stopAtProfit!==false&&tp>0&&s.pnl>=tp)||(sell?.exitType==="profit_target"&&s.pnl>=sellTarget)||(sell?.exitType==="loss_limit"&&s.pnl<=-sellTarget)){stop("A session guardrail was reached. Paper simulation stopped.");return;}
      }else{s.open={...s.open,remaining:rem};setOpenTrade(s.open);}
     }else{const interval=Math.max(1,Number(config.triggerInterval||1)),cond=config.blocks?.find(b=>b.title==="Purchase condition"),r=cond?config.conditionRules?.[cond.id]:undefined;if(s.ticks%interval===0&&compare(lastDigit(px),r?.operator||"gt",Number(r?.value??5))){const riskBlock=config.blocks?.find(b=>b.kind==="risk"),riskNow=riskBlock?config.riskRules?.[riskBlock.id]:undefined,amount=Number(config.stake||1);if(amount<=Number(riskNow?.maxStake||2)){s.open={id:++nextId.current,entry:px,direction,stake:amount,remaining:dur,status:"OPEN",time:new Date().toLocaleTimeString()};setOpenTrade(s.open);}}}
    };
