@@ -19,6 +19,7 @@ const navigation = [
   { label: "Free Bots", href: "/bots", symbol: "◈" },
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
+  { label: "Market Intelligence", href: "/intelligence", symbol: "◉" },
   { label: "Hedging Tool", href: "/copy-trading", symbol: "⇄" },
   { label: "Manual Trader", href: "/manual-trader", symbol: "⌖" },
   { label: "Digit Tools", href: "/digit-tools", symbol: "％" },
