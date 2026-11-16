@@ -85,3 +85,11 @@ Important: these are prototype interfaces. They do not connect to Deriv, execute
 
 The existing authentication, admin, messaging, bot catalogue, and bot preference code is retained from the supplied project ZIP. Existing Supabase migrations remain in `supabase/`. No new SQL migration is required for these prototype-only pages.
 \n\n## Global market ticker and market watch\nSee `MARKET-UPGRADE-SETUP.txt`. Live quotes require a server-side `TWELVEDATA_API_KEY`. No prices are invented and no trades are executed.\n\n\n## T&J Homepage Upgrade\nSee `TJ-HOMEPAGE-UPGRADE.txt` for the homepage redesign and deployment instructions.\n
+
+## SENFX account-backed strategy drafts
+1. Open your Supabase project and go to SQL Editor.
+2. Run the complete migration in `supabase/senfx-platform.sql`.
+3. Deploy the updated branch preview. Sign in and open `/builder`.
+4. Use **Save to my account** to store a strategy, then select it under **My saved strategies** to reload it on another device.
+
+Strategy drafts are private to the signed-in customer through row-level security. This feature stores configuration only; it does not place Deriv demo or real-money orders.
