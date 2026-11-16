@@ -21,8 +21,6 @@ const groups = [
   { title: "DERIV SYNTHETIC INDICES", symbols: ["Volatility 10", "Volatility 25", "Volatility 50", "Volatility 75", "Volatility 100"] },
 ];
 
-// This is a public Deriv application ID. It is not an account token.
-const DERIV_APP_ID = "34SBwLGAx9IL6eEDUQ39T";
 const DERIV_SYMBOL = "R_100";
 
 export default function MarketsPage() {
@@ -68,7 +66,7 @@ export default function MarketsPage() {
 
       try {
         socket = new WebSocket(
-          `wss://ws.derivws.com/websockets/v3?app_id=${DERIV_APP_ID}`
+          "wss://api.derivws.com/trading/v1/options/ws/public"
         );
       } catch {
         setSyntheticStatus("FEED UNAVAILABLE");
@@ -79,7 +77,7 @@ export default function MarketsPage() {
       socket.onopen = () => {
         if (!active || !socket) return;
         attempts = 0;
-        socket.send(JSON.stringify({ ticks: DERIV_SYMBOL, subscribe: 1 }));
+        socket.send(JSON.stringify({ ticks: DERIV_SYMBOL, subscribe: 1, req_id: 1 }));
       };
 
       socket.onmessage = (event) => {
