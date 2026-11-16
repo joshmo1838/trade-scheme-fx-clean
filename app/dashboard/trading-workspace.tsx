@@ -16,7 +16,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", symbol: "▦" },
   { label: "Bot Builder", href: "/builder", symbol: "▧" },
   { label: "Volt AI", href: "/ai-scanner", symbol: "✧" },
-  { label: "Free Bots", href: "/bots", symbol: "◈" },
+  { label: "Customer Bot Center", href: "/bot-center", symbol: "◈" },
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
   { label: "Market Intelligence", href: "/intelligence", symbol: "◉" },
@@ -28,8 +28,8 @@ const navigation = [
 ];
 
 const launchCards = [
-  { title: "Load Bot", description: "Open and configure a trading strategy.", href: "/bots", symbol: "◈", tag: "BOT LIBRARY" },
-  { title: "Premium Bots", description: "Explore advanced strategy listings.", href: "/bots", symbol: "✦", tag: "PREMIUM" },
+  { title: "Customer Bot Center", description: "Browse free bots, manage your selections and paper settings.", href: "/bot-center", symbol: "◈", tag: "BOT WORKSPACE" },
+  { title: "Free Bot Marketplace", description: "Explore strategies available to every registered customer.", href: "/bot-center", symbol: "✦", tag: "FREE ACCESS" },
   { title: "Speed Bot", description: "Quick access to your bot workspace.", href: "/builder", symbol: "ϟ", tag: "QUICK START" },
   { title: "Manual Trading", description: "Review markets and control each trade.", href: "/manual-trader", symbol: "⌖", tag: "MANUAL" },
 ];
