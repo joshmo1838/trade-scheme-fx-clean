@@ -35,10 +35,13 @@ export default function MarketIntelligence() {
   const [connection, setConnection] = useState("CONNECTING");
   const [watch, setWatch] = useState<string[]>(["R_100", "R_75", "R_50"]);
   const [alertEnabled, setAlertEnabled] = useState(false);
+  const [priceAlertMarket, setPriceAlertMarket] = useState("R_100");
+  const [priceTarget, setPriceTarget] = useState("");
   const [signals, setSignals] = useState<Signal[]>([]);
   const [selected, setSelected] = useState("R_100");
   const socketRef = useRef<WebSocket | null>(null);
   const previousRef = useRef<Record<string, string>>({});
+  const previousPriceRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     try {
@@ -151,6 +154,22 @@ export default function MarketIntelligence() {
   }, [analytics, alertEnabled]);
 
   const current = analytics[selected];
+  useEffect(() => {
+    MARKETS.forEach(market => {
+      const price = analytics[market.symbol]?.price;
+      if (price === null || price === undefined) return;
+      const previous = previousPriceRef.current[market.symbol];
+      previousPriceRef.current[market.symbol] = price;
+      const target = Number(priceTarget);
+      if (!alertEnabled || market.symbol !== priceAlertMarket || !Number.isFinite(target) || target <= 0 || previous === undefined) return;
+      if ((previous < target && price >= target) || (previous > target && price <= target)) {
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          new Notification("SENFX price alert", { body: market.label + " crossed " + fmt(target) + " · latest " + fmt(price) });
+        }
+      }
+    });
+  }, [analytics, alertEnabled, priceAlertMarket, priceTarget]);
+
   const chartValues: number[] = current?.values || [];
   const min = chartValues.length ? Math.min(...chartValues) : 0;
   const max = chartValues.length ? Math.max(...chartValues) : 1;
@@ -193,7 +212,9 @@ export default function MarketIntelligence() {
             <div className="miTableWrap"><table className="miTable"><thead><tr><th>Market</th><th>Signal</th><th>RSI</th><th>Latest</th><th>Reason</th></tr></thead><tbody>{MARKETS.map(m => { const a = analytics[m.symbol]; return <tr key={m.symbol}><td><b>{m.label}</b><small>{m.symbol}</small></td><td><span className={a?.side === "BUY" ? "miBadge buy" : a?.side === "SELL" ? "miBadge sell" : "miBadge"}>{a?.side || "WAIT"}</span></td><td>{a?.rsi == null ? "—" : a.rsi.toFixed(1)}</td><td>{fmt(a?.price ?? null)}</td><td>{a?.reason || "Waiting for ticks"}</td></tr>; })}</tbody></table></div>
           </article>
           <article className="miPanel"><div className="miPanelHead"><div><span className="miEyebrow">ALERT PREFERENCES</span><h2>Price & signal alerts</h2></div></div>
-            <p className="miAlertText">Enable browser notifications for newly detected BUY/SELL paper signals. Your browser may ask permission.</p>
+            <p className="miAlertText">Set a price level and receive a browser notification when the selected market crosses it. Signal notifications are also included. Your browser may ask permission.</p>
+            <label className="miAlertField">Market<select value={priceAlertMarket} onChange={e => setPriceAlertMarket(e.target.value)}>{MARKETS.map(m => <option key={m.symbol} value={m.symbol}>{m.label}</option>)}</select></label>
+            <label className="miAlertField">Price level<input type="number" min="0" step="any" value={priceTarget} onChange={e => setPriceTarget(e.target.value)} placeholder="Enter target price"/></label>
             <button className="miButton" onClick={enableAlerts}>{alertEnabled ? "Notifications enabled" : "Enable signal notifications"}</button>
             <label className="miCheck"><input type="checkbox" checked={alertEnabled} onChange={e => e.target.checked ? void enableAlerts() : setAlertEnabled(false)}/> Notify me about new rule-based signals</label>
             <p className="miFoot">Notifications require browser permission and this page to remain open. No email or SMS alerts are sent.</p>
