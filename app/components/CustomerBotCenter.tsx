@@ -125,7 +125,7 @@ export default function CustomerBotCenter() {
   const pausedCount=selections.filter(s=>s.control_status==="paused").length;
 
   return <main className="botCenterShell">
-    <header className="botCenterTop"><Link href="/dashboard" className="botCenterBrand">TRADE SCHEME <b>FX</b></Link><nav><Link href="/dashboard">Dashboard</Link><Link href="/builder">Bot Builder</Link><Link href="/intelligence">Market Intelligence</Link></nav></header>
+    <header className="botCenterTop"><Link href="/dashboard" className="botCenterBrand">TRADE SCHEME <b>FX</b></Link><nav><Link href="/dashboard">Dashboard</Link><Link href="/builder">Bot Builder</Link><Link href="/intelligence">Market Intelligence</Link><Link href="/strategy-lab">Ultra Precision Lab</Link></nav></header>
     <section className="botCenterContent">
       <div className="botCenterHero"><div><span className="botCenterEyebrow">SENFX AUTOMATION WORKSPACE</span><h1>Customer <em>Bot Center</em></h1><p>Browse free strategies, configure risk limits and run isolated paper simulations.</p></div><span className="botCenterSafety">PAPER MODE · NO EXECUTION</span></div>
       <div className="botCenterNotice"><b>Safety first.</b> Paper simulations use public market prices and a simple 9/21 moving-average direction rule. They do not send orders, use account tokens, or access real or Deriv demo funds. Keep this page open while a simulation runs.</div>
