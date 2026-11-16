@@ -93,3 +93,12 @@ The existing authentication, admin, messaging, bot catalogue, and bot preference
 4. Use **Save to my account** to store a strategy, then select it under **My saved strategies** to reload it on another device.
 
 Strategy drafts are private to the signed-in customer through row-level security. This feature stores configuration only; it does not place Deriv demo or real-money orders.
+
+
+## SENFX bot-management schema reconciliation
+
+After the earlier `bot-center.sql` and `bot-settings.sql` migrations, run `supabase/senfx-bot-management-v2.sql` once in Supabase SQL Editor. This migration separates each customer's Demo and Real bot selections, fixes the account-mode key for general settings, and creates the missing per-bot configuration table used by `/bots`. It is designed to be safe to rerun.
+
+After applying it, sign in with a customer account that has a Deriv account connected and selected, then open `/bots`. Published bots can be selected, paused, or stopped as saved preferences, and per-bot Demo/Real stake and loss-limit preferences can be stored independently. An administrator must publish bot catalogue entries before customers can see them.
+
+**Important:** Select, pause, and stop are currently configuration states only. They do not start, pause, or stop an automated trading process. No Deriv orders are sent by this feature; real-money execution remains disabled.
