@@ -1,4 +1,4 @@
-TRADE SCHEME FX — DERIV OAUTH + DEMO EXECUTION SETUP
+TRADE SCHEME FX — DERIV OAUTH + UNLIMITED DEMO LEARNING SETUP
 
 OAuth foundation
 - /api/deriv/connect starts Deriv OAuth 2.0 Authorization Code + PKCE.
@@ -32,13 +32,14 @@ Keep the output private and add it only as a Vercel Secret. Never send it in cha
 Database setup
 1. Apply supabase/deriv-connections.sql if the deriv_connections table does not exist yet.
 2. Apply supabase/senfx-deriv-demo-execution.sql after the existing Deriv connections migration.
-3. The new migration adds active Demo account selection fields, a customer-scoped Demo order audit table, and a $20 per-account daily Demo loss ledger.
+3. The base migration adds active Demo account selection, customer-scoped orders, and a daily Demo loss audit ledger with no SENFX loss cap.
+4. For an existing database that previously ran the capped Demo migration, apply only supabase/senfx-deriv-demo-unlimited-learning.sql as the upgrade after verifying a backup. The upgrade replaces the reserve and settlement RPCs and does not erase historical loss records.
 
 Demo account workflow
 1. Sign in to Trade Scheme FX.
 2. Connect Deriv through OAuth.
 3. Select an active Demo account in the dashboard. Real accounts are not selectable for SENFX Demo execution.
-4. Open /demo-trading. SENFX verifies your selected Demo account from the server.
+4. Open /demo-trading. SENFX verifies your selected Demo account and current virtual balance from Deriv on the server.
 5. Request a price. SENFX obtains the proposal on its authenticated server-side WebSocket and saves the terms for your review.
 6. Confirm one Demo purchase. SENFX opens a fresh server-side session, obtains a new streaming proposal, checks that price and payout still match the terms you reviewed, reserves the 10-unit stake, and buys that exact proposal on the same authenticated session.
 7. SENFX verifies the returned contract on Deriv, monitors it through server-side status requests, and reconciles final P/L before releasing the reservation. You can request an early sell from the Demo console when Deriv marks the contract sellable.
@@ -46,7 +47,9 @@ Demo account workflow
 Execution and safety boundaries
 - SENFX obtains and consumes Demo OTP URLs on the server only. The browser never receives an OTP URL or an authenticated trading WebSocket. Each OTP is short-lived, single-use, and restricted to Deriv's /trading/v1/options/ws/demo endpoint.
 - The Real WebSocket endpoint is not used by this feature. No Real-account buy or sell endpoint is provided.
-- The $20 cap tracks SENFX-originated Demo contracts in the selected account. It does not include trades placed directly on Deriv outside SENFX.
+- SENFX does not impose a daily Demo loss cap. Learning continues as long as the customer's own Deriv Demo account has sufficient virtual funds, subject to Deriv rules and the fixed 10-unit SENFX stake. The daily ledger still records SENFX-originated losses and reservations but does not account for trades placed directly on Deriv outside SENFX.
+- The user authorizes each Demo order manually. SENFX has no Real account execution endpoint, no deposit/cash-transfer mechanism, and no access to another customer's Demo balance.
+- A confirmed Demo order is limited to one open position per user. Duplicate-buy and uncertain-order reconciliation rules remain enforced.
 - If a buy response is ambiguous, SENFX keeps the full stake reserved and checks the account statement before releasing risk. Do not repeat the purchase until the order is reconciled.
 - Demo contract execution is different from the illustrative public-tick paper simulator. Their history and P/L must remain separately labelled.
 - This is a manual Demo contract test first. Automatic bot execution is a later phase after the Demo lifecycle is proven on test accounts.
