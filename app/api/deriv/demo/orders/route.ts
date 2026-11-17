@@ -67,8 +67,20 @@ async function reconcileBuyOrder(
     };
   }
 
+  if (order.status === "reserved" && !order.buy_requested_at) {
+    const { data: cancelled, error: cancelError } = await context.admin.rpc("senfx_demo_cancel_order", {
+      p_user_id: context.user.id,
+      p_order_id: order.id,
+      p_reason: "No buy request was sent after the risk reservation.",
+    });
+    if (cancelError || !cancelled?.cancelled) {
+      return { state: "waiting" as const, reason: "No buy attempt was recorded, but SENFX could not release the unused reservation. Contact support." };
+    }
+    return { state: "rejected" as const, reason: "No Deriv buy was sent. The unused risk reservation has been released." };
+  }
+
   if (!["reserved", "buy_unknown"].includes(order.status) || !order.buy_requested_at) {
-    return { state: "waiting" as const, reason: "This order has no recorded buy attempt yet. Risk remains reserved." };
+    return { state: "waiting" as const, reason: "This order has no recorded buy attempt. Risk remains reserved." };
   }
 
   const appId = process.env.DERIV_CLIENT_ID;
