@@ -99,9 +99,21 @@ begin
     raise exception 'First 10 Demo risk reservation should be allowed: %', v_result;
   end if;
 
+  -- A second reservation attempt on the same order must be denied.
+  v_result := public.senfx_demo_reserve_order(p_user_id, v_order_one);
+  if coalesce((v_result->>'allowed')::boolean, true) is not false then
+    raise exception 'Duplicate Demo reservation must be denied: %', v_result;
+  end if;
+
   v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_one);
   if coalesce((v_result->>'marked')::boolean, false) is not true then
     raise exception 'First buy attempt should be marked before confirmation: %', v_result;
+  end if;
+
+  -- A second buy-attempt claim must fail so two tabs cannot submit separate buys.
+  v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_one);
+  if coalesce((v_result->>'marked')::boolean, true) is not false then
+    raise exception 'Duplicate Demo buy attempt must be denied: %', v_result;
   end if;
 
   v_result := public.senfx_demo_confirm_order(p_user_id, v_order_one, '91000000001', '92000000001', 10);
