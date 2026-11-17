@@ -465,8 +465,9 @@ export async function POST(request: NextRequest) {
       }
 
       if (Math.abs(freshAsk - Number(order.ask_price)) > 0.01 ||
-          Math.abs(freshPayout - Number(order.payout)) > 0.02) {
-        await context.admin.from("deriv_demo_orders").update({
+          Math.abs(freshPayout - Number(order.payout)) > 0.02 ||
+          proposal.longcode !== order.longcode) {
+        const { error: quoteUpdateError } = await context.admin.from("deriv_demo_orders").update({
           proposal_id: freshId,
           ask_price: freshAsk,
           payout: freshPayout,
@@ -474,6 +475,10 @@ export async function POST(request: NextRequest) {
           quote_expires_at: new Date(Date.now() + 20_000).toISOString(),
           updated_at: new Date().toISOString(),
         }).eq("id", order.id).eq("user_id", context.user.id);
+        if (quoteUpdateError) {
+          console.error("SENFX updated quote persistence failed:", quoteUpdateError.code);
+          return jsonError("Deriv's quote changed and SENFX could not save the new terms. No buy request was sent.", 503, "QUOTE_UPDATE_FAILED");
+        }
         return NextResponse.json({
           success: false,
           quoteChanged: true,
@@ -490,6 +495,22 @@ export async function POST(request: NextRequest) {
             stakeAmount: DEMO_STAKE,
           },
         }, { status: 409, headers: noStore });
+      }
+
+      // Record the exact streaming proposal that will be bought on this same
+      // authenticated server session. The original browser-visible quote is never
+      // sent to Deriv for purchase.
+      const { error: freshProposalSaveError } = await context.admin.from("deriv_demo_orders").update({
+        proposal_id: freshId,
+        ask_price: freshAsk,
+        payout: freshPayout,
+        longcode: proposal.longcode.slice(0, 500),
+        quote_expires_at: new Date(Date.now() + 20_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", order.id).eq("user_id", context.user.id);
+      if (freshProposalSaveError) {
+        console.error("SENFX fresh proposal save failed:", freshProposalSaveError.code);
+        return jsonError("SENFX could not save the fresh Deriv proposal. No buy request was sent.", 503, "FRESH_PROPOSAL_SAVE_FAILED");
       }
 
       const { data: reservation, error: reserveError } = await context.admin.rpc("senfx_demo_reserve_order", {
