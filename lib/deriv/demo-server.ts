@@ -1,5 +1,5 @@
 import { createDecipheriv } from "node:crypto";
-import { createClient as createSupabaseAdmin, SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseAdmin, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export const DERIV_API_BASE = "https://api.derivws.com";
@@ -155,7 +155,7 @@ export async function requestOnDemoWebSocket<T = any>(
   timeoutMs = 8_000,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    let socket: WebSocket;
+    let socket: WebSocket | undefined;
     let finished = false;
     const requestId = Number(request.req_id);
 
@@ -180,17 +180,19 @@ export async function requestOnDemoWebSocket<T = any>(
       return;
     }
 
-    socket.addEventListener("open", () => {
-      try { socket.send(JSON.stringify(request)); }
+    const ws = socket;
+    ws.addEventListener("open", () => {
+      try { ws.send(JSON.stringify(request)); }
       catch { finish(new DemoApiError("Could not send the Deriv Demo request.", 502, "DERIV_WS_SEND_FAILED")); }
     });
 
-    socket.addEventListener("message", (event: MessageEvent) => {
+    ws.addEventListener("message", (event: MessageEvent) => {
       let message: any;
       try { message = JSON.parse(String(event.data)); }
       catch { return; }
 
-      if (message.req_id !== requestId && message.msg_type !== expectedMessageType) return;
+      // Only accept the response correlated to this exact request.
+      if (Number(message.req_id) !== requestId) return;
       if (message.error) {
         finish(new DemoApiError(
           String(message.error.message || "Deriv rejected the Demo request."),
@@ -202,16 +204,15 @@ export async function requestOnDemoWebSocket<T = any>(
       if (message.msg_type === expectedMessageType) finish(undefined, message as T);
     });
 
-    socket.addEventListener("error", () => {
+    ws.addEventListener("error", () => {
       finish(new DemoApiError("The Deriv Demo WebSocket encountered a connection error.", 502, "DERIV_WS_ERROR"));
     });
 
-    socket.addEventListener("close", () => {
+    ws.addEventListener("close", () => {
       if (!finished) finish(new DemoApiError("Deriv closed the Demo WebSocket before returning a response.", 502, "DERIV_WS_CLOSED"));
     });
   });
 }
-
 export function safeDemoError(error: unknown) {
   if (error instanceof DemoApiError) {
     return { error: error.message, code: error.code, status: error.status };
