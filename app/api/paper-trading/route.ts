@@ -3,6 +3,51 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const PAPER_MARKETS = new Set(["R_10", "R_25", "R_50", "R_75", "R_100", "frxEURUSD"]);
+
+function getLatestPublicQuote(symbol: string): Promise<number> {
+  if (!PAPER_MARKETS.has(symbol)) return Promise.reject(new Error("Unsupported paper market."));
+  if (typeof WebSocket === "undefined") return Promise.reject(new Error("Server WebSocket support is unavailable."));
+
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+    let finished = false;
+    const finish = (error?: Error, price?: number) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch { /* Socket may already be closed. */ }
+      if (error) reject(error);
+      else if (price !== undefined) resolve(price);
+      else reject(new Error("No valid market quote was returned."));
+    };
+    const timer = setTimeout(() => finish(new Error("Timed out waiting for a server-side market quote.")), 7000);
+
+    socket.addEventListener("open", () => {
+      socket.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: 1 }));
+    });
+    socket.addEventListener("message", event => {
+      try {
+        const message = JSON.parse(String(event.data));
+        if (message.error) {
+          finish(new Error("Deriv public feed returned an error."));
+          return;
+        }
+        if (message.msg_type !== "tick" || !message.tick || message.tick.symbol !== symbol) return;
+        const quote = Number(message.tick.quote);
+        if (Number.isFinite(quote) && quote > 0) finish(undefined, quote);
+      } catch {
+        finish(new Error("Could not parse the server-side market quote."));
+      }
+    });
+    socket.addEventListener("error", () => finish(new Error("Could not connect to the Deriv public feed.")));
+    socket.addEventListener("close", () => {
+      if (!finished) finish(new Error("Deriv public feed closed before returning a quote."));
+    });
+  });
+}
 
 const noStore = { "Cache-Control": "no-store, max-age=0" };
 const isUuid = (value: unknown): value is string =>
@@ -109,9 +154,15 @@ export async function POST(request: Request) {
 
     if (body?.action === "reserve") {
       if (!isUuid(body.botId) || typeof body.marketSymbol !== "string" ||
-          (body.direction !== "CALL" && body.direction !== "PUT") ||
-          typeof body.entryPrice !== "number" || !Number.isFinite(body.entryPrice) || body.entryPrice <= 0) {
+          !PAPER_MARKETS.has(body.marketSymbol) ||
+          (body.direction !== "CALL" && body.direction !== "PUT")) {
         return NextResponse.json({ allowed: false, reason: "Invalid paper-trade entry details." }, { status: 400, headers: noStore });
+      }
+
+      let entryPrice: number;
+      try { entryPrice = await getLatestPublicQuote(body.marketSymbol); }
+      catch {
+        return NextResponse.json({ allowed: false, reason: "The server could not verify a fresh Deriv market quote. No paper position was opened." }, { status: 503, headers: noStore });
       }
 
       const { data, error } = await admin.rpc("senfx_paper_reserve_trade", {
@@ -119,7 +170,7 @@ export async function POST(request: Request) {
         p_bot_id: body.botId,
         p_market_symbol: body.marketSymbol,
         p_direction: body.direction,
-        p_entry_price: body.entryPrice,
+        p_entry_price: entryPrice,
       });
       if (error) {
         console.error("Paper-risk reserve failed:", { code: error.code, message: error.message });
@@ -129,14 +180,30 @@ export async function POST(request: Request) {
     }
 
     if (body?.action === "settle") {
-      if (!isUuid(body.reservationId) || typeof body.exitPrice !== "number" ||
-          !Number.isFinite(body.exitPrice) || body.exitPrice <= 0) {
+      if (!isUuid(body.reservationId)) {
         return NextResponse.json({ settled: false, reason: "Invalid paper-trade settlement details." }, { status: 400, headers: noStore });
       }
+
+      const { data: reservation, error: reservationError } = await admin
+        .from("customer_paper_trade_reservations")
+        .select("market_symbol,status")
+        .eq("id", body.reservationId)
+        .eq("customer_id", user.id)
+        .maybeSingle();
+      if (reservationError || !reservation || reservation.status !== "open" || !PAPER_MARKETS.has(reservation.market_symbol)) {
+        return NextResponse.json({ settled: false, reason: "The open paper reservation could not be verified." }, { status: 409, headers: noStore });
+      }
+
+      let exitPrice: number;
+      try { exitPrice = await getLatestPublicQuote(reservation.market_symbol); }
+      catch {
+        return NextResponse.json({ settled: false, reason: "The server could not verify a fresh Deriv exit quote. The reservation remains held and the simulation has stopped." }, { status: 503, headers: noStore });
+      }
+
       const { data, error } = await admin.rpc("senfx_paper_settle_trade", {
         p_customer_id: user.id,
         p_reservation_id: body.reservationId,
-        p_exit_price: body.exitPrice,
+        p_exit_price: exitPrice,
       });
       if (error) {
         console.error("Paper-risk settlement failed:", { code: error.code, message: error.message });
