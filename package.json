@@ -8,7 +8,8 @@
     "start": "next start",
     "worker:forward": "node worker/senfx-forward-worker.mjs",
     "typecheck": "tsc --noEmit",
-    "test:routes": "node scripts/check-workspace-routes.mjs"
+    "test:routes": "node scripts/check-workspace-routes.mjs",
+    "test:engine": "node --experimental-strip-types --test tests/paper-strategy.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

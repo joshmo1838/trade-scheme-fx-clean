@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { evaluatePaperSignal, paperPreset } from "@/lib/bots/paper-strategy";
 
 type Bot = { id: string; name: string; market: string; description: string; risk_level: string };
 type Selection = { id: string; bot_id: string; control_status: "selected" | "paused" | "stopped"; selected?: boolean };
@@ -26,24 +27,6 @@ type Runtime = {
 };
 
 const PAPER_RISK_ENDPOINT = "/api/paper-trading";
-
-/**
- * Distinct, unvalidated learning presets. These use public ticks for paper
- * simulations only; they are NOT production trading strategies or advice.
- */
-function paperPreset(bot: Bot) {
-  const label = bot.name.toLowerCase();
-  if (label.includes("trend scout")) {
-    return { market: "R_50", fast: 5, slow: 18, thresholdBps: .35, description: "5/18 simple-moving-average trend learning rule" };
-  }
-  if (label.includes("volatility watch")) {
-    return { market: "R_75", fast: 10, slow: 21, thresholdBps: .45, description: "10/21 simple-moving-average learning rule" };
-  }
-  if (bot.market.toLowerCase().includes("forex")) {
-    return { market: "frxEURUSD", fast: 9, slow: 21, thresholdBps: .3, description: "9/21 simple-moving-average forex learning rule" };
-  }
-  return { market: "R_100", fast: 9, slow: 21, thresholdBps: .25, description: "9/21 simple-moving-average synthetic learning rule" };
-}
 
 export default function CustomerBotCenter() {
   const [bots, setBots] = useState<Bot[]>([]);
@@ -323,13 +306,10 @@ export default function CustomerBotCenter() {
         } else if (runtime.cooldown > 0) {
           runtime.cooldown -= 1;
         } else if (runtime.prices.length >= preset.slow && runtime.trades < 20) {
-          const prices = runtime.prices;
-          const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
-          const fast = average(prices.slice(-preset.fast));
-          const slow = average(prices.slice(-preset.slow));
-          const spreadBps = Math.abs(fast - slow) / Math.max(0.000001, Math.abs(slow)) * 10_000;
-          if (spreadBps >= preset.thresholdBps) {
-            const direction: "CALL" | "PUT" = fast > slow ? "CALL" : "PUT";
+          // A shared pure strategy evaluator can be reused in the future server worker.
+          // It does not place orders; all paper entries still require server risk reservation.
+          const direction = evaluatePaperSignal(runtime.prices, preset);
+          if (direction) {
             runtime.reserving = true;
             try {
               const response = await fetch(PAPER_RISK_ENDPOINT, {
