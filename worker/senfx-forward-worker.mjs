@@ -106,6 +106,7 @@ let state = {
   lastProcessedEpoch: 0,
 };
 let heartbeatTimer;
+let derivPingTimer;
 
 async function saveState() {
   const rows = await db(`senfx_forward_runs?run_id=eq.${encodeURIComponent(RUN_ID)}`, {
@@ -200,6 +201,17 @@ function connect() {
       console.log("Deriv WebSocket connection stable for 30 seconds; reconnect delay reset.");
     }, 30_000);
     console.log("Connected; subscribing to R_100 ticks and one-minute candle history.");
+    clearInterval(derivPingTimer);
+    derivPingTimer = setInterval(() => {
+      if (socket?.readyState === 1) {
+        try {
+          socket.send(JSON.stringify({ ping: 1, req_id: 90001 }));
+          console.log("Sent Deriv keepalive ping.");
+        } catch (error) {
+          console.error("Deriv keepalive ping failed:", error?.message || String(error));
+        }
+      }
+    }, 30_000);
     socket.send(JSON.stringify({ ticks: MARKET, subscribe: 1 }));
     socket.send(JSON.stringify({
       ticks_history: MARKET, end: "latest", count: 500,
@@ -261,6 +273,7 @@ function connect() {
     console.error("Deriv WebSocket error details:", JSON.stringify(details));
   });
   socket.addEventListener("close", (event) => {
+    clearInterval(derivPingTimer);
     clearTimeout(connectionStableTimer);
     if (stopped) return;
     console.warn(
@@ -290,6 +303,7 @@ process.on("SIGTERM", () => {
   clearInterval(heartbeatTimer);
   clearTimeout(reconnectTimer);
   clearTimeout(connectionStableTimer);
+  clearInterval(derivPingTimer);
   socket?.close();
   console.log("Worker shutting down; latest state was persisted on each completed candle.");
 });
