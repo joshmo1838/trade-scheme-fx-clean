@@ -89,3 +89,25 @@ A feature is complete only when its UI, backend behavior, authorization, error s
 - Verify the Vercel Preview has the server-only `SUPABASE_SERVICE_ROLE_KEY` environment variable.
 - Test loss-limit enforcement, concurrent reservations, refresh persistence, customer isolation, and the 00:00 UTC reset using test accounts.
 - A successful TypeScript/build pipeline does not replace Supabase integration tests or paper-model validation.
+
+## Implemented milestone: Deriv Demo execution foundation (manual Phase 1)
+
+- Added server-owned Deriv Demo WebSocket sessions. OTP URLs and authenticated trading sockets never leave the SENFX server; there is no browser-facing Demo session endpoint. The server validates every OTP URL against the Demo WebSocket path; the Real endpoint is never used.
+- Added a manual Demo trading console at `/demo-trading` for a fixed 10 account-currency-unit, five-minute Rise/Fall proposal.
+- SENFX obtains and persists the displayed quote on the server. At confirmation it requests a fresh streaming proposal on the same server-owned authenticated session used for the buy, verifies the price and payout still match the reviewed terms, and only then reserves the full stake against the 20 account-currency-unit per-account daily loss cap and sends the buy.
+- A server-side order record tracks quote, reservation, contract ID, and status. The server verifies the newly purchased contract and retrieves final contract P/L from Deriv before updating the loss ledger. Status checks and early sells also use server-owned Demo sessions, so the browser cannot bypass the risk ledger by issuing direct WebSocket trading requests.
+- Added a per-customer, per-Demo-account UTC daily gross-loss ledger. It allows one active contract at a time, reserves the full stake, does not replenish the loss budget after wins, and retains reserved risk after ambiguous purchase responses.
+- The account selector now allows only active Demo accounts for SENFX Demo execution. Real account selection is blocked in this workflow.
+- OAuth redirect URI and site URL are environment-configurable for Production and Preview. The OAuth request now asks only for the `trade` scope.
+- Required migration: `supabase/senfx-deriv-demo-execution.sql`.
+- Required secrets and flags are documented in `.env.example` and `DERIV-OAUTH-SETUP.txt`.
+
+### Verification still required before customer Demo testing
+- Apply the Demo execution SQL migration in the target Supabase project.
+- Confirm the Deriv OAuth app is approved/configured with the exact Preview callback URL and `trade` scope.
+- Configure Preview-only `DERIV_CLIENT_ID`, `DERIV_REDIRECT_URI`, `DERIV_SITE_URL`, `DERIV_TOKEN_ENCRYPTION_KEY`, `DERIV_OAUTH_ENABLED=true`, and `DERIV_DEMO_TRADING_ENABLED=true`. Keep Production's Demo execution flag false until Preview testing is signed off.
+- Test Demo OAuth, active Demo account selection, fresh proposal, explicit buy confirmation, contract subscription, early sell, expiry settlement, refresh recovery, duplicate-click prevention, and $20 loss cap reaching zero.
+- Verify that Real accounts cannot obtain a SENFX execution session.
+- The current release is manual Demo execution only. Do not label it autonomous bot execution until the strategy-to-Demo engine and its lifecycle are separately tested.
+- Real-money execution remains disabled.
+

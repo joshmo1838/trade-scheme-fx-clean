@@ -1,5 +1,6 @@
  "use client";
 import Link from "next/link";
+import DerivAccountPrompt from "@/components/DerivAccountPrompt";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,6 +22,7 @@ export default function LoginPage() {
   }
 
   return <main className="authPage"><div className="authCard"><Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link><p className="eyebrow">WELCOME BACK</p><h1>Log in</h1><p className="muted">Access your customer dashboard.</p>
+    <DerivAccountPrompt compact />
     <form onSubmit={submit} className="form"><label>Email address<input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} /></label><label>Password<input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button className="button full" disabled={busy}>{busy ? "Signing in…" : "Log in"}</button></form>
     {message && <p className="notice">{message}</p>}<p className="muted center">New here? <Link href="/signup">Create a free account</Link></p><Link className="back" href="/">← Back to home</Link></div></main>;
 }

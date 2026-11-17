@@ -1,32 +1,59 @@
-TRADE SCHEME FX — DERIV OAUTH INFRASTRUCTURE
+TRADE SCHEME FX — DERIV OAUTH + UNLIMITED DEMO LEARNING SETUP
 
-Included:
+OAuth foundation
 - /api/deriv/connect starts Deriv OAuth 2.0 Authorization Code + PKCE.
-- /api/deriv/callback validates state, exchanges the code server-side, encrypts the access token with AES-256-GCM, and stores it using the Supabase service role.
-- Customer dashboard shows a disabled "awaiting approval" button until DERIV_OAUTH_ENABLED=true.
-- No live trade execution is included.
+- /api/deriv/callback validates state, exchanges the code server-side, encrypts the access token with AES-256-GCM, and stores it using Supabase service role.
+- Access tokens are never returned to browser code.
+- Deriv does not issue OAuth refresh tokens. When expires_in passes or Deriv returns 401, the customer must reconnect.
+- OAuth requests only the trade scope (least privilege for account listing, Demo OTP, and trading).
 
-Before enabling:
-1. Deriv must approve/verify your OAuth application.
-2. Register this exact redirect URL in Deriv:
-   https://tradesche.com/api/deriv/callback
-3. Set the Website URL:
-   https://tradesche.com
-4. In Vercel Project Settings > Environment Variables add:
-   DERIV_CLIENT_ID = your Deriv App ID
-   DERIV_OAUTH_ENABLED = false (keep false until Deriv approval)
-   DERIV_TOKEN_ENCRYPTION_KEY = 64 hexadecimal characters (generate a random 32-byte key)
-   SUPABASE_SERVICE_ROLE_KEY = Supabase service_role secret (server-only; never NEXT_PUBLIC)
-5. Run supabase/deriv-connections.sql in Supabase SQL Editor.
-6. Redeploy Vercel after adding environment variables.
+Required Deriv application setup
+1. Register an OAuth application in the Deriv developer dashboard.
+2. Allow the trade scope for the app.
+3. Register the exact callback URI used by the deployment. Production default:
+   https://www.tradesche.com/api/deriv/callback
+4. If connecting from a Vercel Preview, register that Preview callback URI too and set DERIV_REDIRECT_URI and DERIV_SITE_URL for the Preview environment to that Preview host. Preview callback URLs must match exactly.
+5. Add the Deriv OAuth Client ID to Vercel as DERIV_CLIENT_ID.
 
-Security:
-- Never put service-role keys or encryption keys in GitHub.
-- Never send Deriv passwords or access tokens in chat.
-- Do not set DERIV_OAUTH_ENABLED=true until Deriv approves the app and redirect URL.
-- OAuth access tokens expire; the customer must re-authorize after expiry. No refresh token is issued.
-- This package does not submit trades or implement bot execution.
+Required Vercel server environment variables
+- DERIV_CLIENT_ID: Deriv OAuth App ID.
+- DERIV_REDIRECT_URI: exact registered callback URL.
+- DERIV_SITE_URL: base URL to return to after OAuth.
+- DERIV_TOKEN_ENCRYPTION_KEY: random 32-byte key encoded as 64 hexadecimal characters.
+- DERIV_OAUTH_ENABLED: keep false until the OAuth application and redirect URI are ready; set true only for the deployment being tested.
+- DERIV_DEMO_TRADING_ENABLED: keep false until the Demo execution migration is applied and the Preview configuration is verified; set true for Preview only when ready.
+- SUPABASE_SERVICE_ROLE_KEY: server-only Supabase secret. Never use a NEXT_PUBLIC_ prefix.
+- NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY: existing public Supabase configuration.
 
-Generate encryption key locally with:
+Generate the encryption key locally with:
   openssl rand -hex 32
-Keep the output private and add it only as a Vercel environment variable.
+Keep the output private and add it only as a Vercel Secret. Never send it in chat or commit it to GitHub. Do not rotate this key after customers have connected unless you first implement a secure re-encryption migration for all saved tokens.
+
+Database setup
+1. Apply supabase/deriv-connections.sql if the deriv_connections table does not exist yet.
+2. Apply supabase/senfx-deriv-demo-execution.sql after the existing Deriv connections migration.
+3. The base migration adds active Demo account selection, customer-scoped orders, and a daily Demo loss audit ledger with no SENFX loss cap.
+4. For an existing database that previously ran the capped Demo migration, apply only supabase/senfx-deriv-demo-unlimited-learning.sql as the upgrade after verifying a backup. The upgrade replaces the reserve and settlement RPCs and does not erase historical loss records.
+
+Demo account workflow
+1. Sign in to Trade Scheme FX.
+2. Connect Deriv through OAuth.
+3. Select an active Demo account in the dashboard. Real accounts are not selectable for SENFX Demo execution.
+4. Open /demo-trading. SENFX verifies your selected Demo account and current virtual balance from Deriv on the server.
+5. Request a price. SENFX obtains the proposal on its authenticated server-side WebSocket and saves the terms for your review.
+6. Confirm one Demo purchase. SENFX opens a fresh server-side session, obtains a new streaming proposal, checks that price and payout still match the terms you reviewed, reserves the 10-unit stake, and buys that exact proposal on the same authenticated session.
+7. SENFX verifies the returned contract on Deriv, monitors it through server-side status requests, and reconciles final P/L before releasing the reservation. You can request an early sell from the Demo console when Deriv marks the contract sellable.
+
+Execution and safety boundaries
+- SENFX obtains and consumes Demo OTP URLs on the server only. The browser never receives an OTP URL or an authenticated trading WebSocket. Each OTP is short-lived, single-use, and restricted to Deriv's /trading/v1/options/ws/demo endpoint.
+- The Real WebSocket endpoint is not used by this feature. No Real-account buy or sell endpoint is provided.
+- SENFX does not impose a daily Demo loss cap. Learning continues as long as the customer's own Deriv Demo account has sufficient virtual funds, subject to Deriv rules and the fixed 10-unit SENFX stake. The daily ledger still records SENFX-originated losses and reservations but does not account for trades placed directly on Deriv outside SENFX.
+- The user authorizes each Demo order manually. SENFX has no Real account execution endpoint, no deposit/cash-transfer mechanism, and no access to another customer's Demo balance.
+- A confirmed Demo order is limited to one open position per user. Duplicate-buy and uncertain-order reconciliation rules remain enforced.
+- If a buy response is ambiguous, SENFX keeps the full stake reserved and checks the account statement before releasing risk. Do not repeat the purchase until the order is reconciled.
+- Demo contract execution is different from the illustrative public-tick paper simulator. Their history and P/L must remain separately labelled.
+- This is a manual Demo contract test first. Automatic bot execution is a later phase after the Demo lifecycle is proven on test accounts.
+- No profit is guaranteed. Do not treat Demo outcomes as evidence of future live profitability.
+
+Support
+Never share OAuth access tokens, OTP URLs, encryption keys, or Supabase service-role secrets in chat, screenshots, logs, or GitHub.

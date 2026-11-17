@@ -69,7 +69,7 @@ export default function DerivAccounts({
       const savedAccount = selectionResult.active_account_id;
 
       const validSavedAccount = accountList.some(
-        (account) => account.account_id === savedAccount
+        (account) => account.account_id === savedAccount && account.account_type === "demo"
       );
 
       // Supabase is the only source of truth.
@@ -217,6 +217,11 @@ export default function DerivAccounts({
                   <p className="muted">
                     Status: {account.status}
                   </p>
+                  {!isDemo && (
+                    <p className="muted">
+                      Real accounts are view-only in this demo-first release.
+                    </p>
+                  )}
 
                   <p className="muted">
                     ID: {account.account_id}
@@ -233,15 +238,19 @@ export default function DerivAccounts({
                     }
                     disabled={
                       saving ||
+                      loading ||
+                      !isDemo ||
                       account.status !== "active" ||
                       isSelected
                     }
                   >
-                    {saving
+                    {!isDemo
+                      ? "Real trading disabled"
+                      : saving
                       ? "Saving..."
                       : isSelected
-                      ? "Selected"
-                      : "Select account"}
+                      ? "Selected for Demo"
+                      : "Select Demo account"}
                   </button>
                 </div>
               );
@@ -264,7 +273,7 @@ export default function DerivAccounts({
               className="muted"
               style={{ marginTop: "16px" }}
             >
-              No account selected. Please select an account.
+              No Demo account selected. Select an active Demo account to use SENFX Demo Trading.
             </p>
           )}
 
