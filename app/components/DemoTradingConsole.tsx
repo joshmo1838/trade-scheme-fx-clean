@@ -83,6 +83,8 @@ export default function DemoTradingConsole() {
   const settleInFlight = useRef(false);
   const reconcilingOrders = useRef<Set<string>>(new Set());
   const forgottenContracts = useRef<Set<string>>(new Set());
+  const contractSubscriptions = useRef<Map<string, string>>(new Map());
+  const proposalSubscriptionRef = useRef<string | null>(null);
   const currencyRef = useRef("USD");
 
   useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
@@ -119,6 +121,16 @@ export default function DemoTradingConsole() {
     void refresh();
     return () => {
       const socket = socketRef.current;
+      if (socket?.readyState === WebSocket.OPEN) {
+        if (proposalSubscriptionRef.current) {
+          try { socket.send(JSON.stringify({ forget: proposalSubscriptionRef.current })); } catch { /* Closing the socket also releases streams. */ }
+        }
+        contractSubscriptions.current.forEach(subscriptionId => {
+          try { socket.send(JSON.stringify({ forget: subscriptionId })); } catch { /* Closing the socket also releases streams. */ }
+        });
+      }
+      proposalSubscriptionRef.current = null;
+      contractSubscriptions.current.clear();
       socketRef.current = null;
       if (socket) socket.close();
       pendingRef.current.forEach(pending => {
@@ -150,6 +162,20 @@ export default function DemoTradingConsole() {
       }
     });
   }, []);
+
+  function forgetProposalSubscription() {
+    const proposalId = proposalSubscriptionRef.current;
+    const socket = socketRef.current;
+    if (proposalId && socket?.readyState === WebSocket.OPEN) {
+      try { socket.send(JSON.stringify({ forget: proposalId })); } catch { /* Socket teardown releases the stream. */ }
+    }
+    proposalSubscriptionRef.current = null;
+  }
+
+  function clearQuote() {
+    forgetProposalSubscription();
+    setQuote(null);
+  }
 
   const settleOrder = useCallback(async (orderId: string) => {
     if (settleInFlight.current) return;
@@ -247,6 +273,12 @@ export default function DemoTradingConsole() {
         if (data.msg_type === "proposal_open_contract" && data.proposal_open_contract) {
           const contractData = data.proposal_open_contract as ContractStatus;
           const current = activeOrderRef.current;
+          if (data.subscription?.id) {
+            contractSubscriptions.current.set(
+              String(contractData.contract_id),
+              String(data.subscription.id),
+            );
+          }
           // Ignore any contract update that is not the active SENFX Demo contract.
           if (!current?.contract_id || String(contractData.contract_id) !== String(current.contract_id)) return;
 
@@ -274,7 +306,7 @@ export default function DemoTradingConsole() {
                 setMessage("Existing Demo contract verified with Deriv. No second purchase was sent.");
                 if (contractData.is_sold === 1 || contractData.is_expired === 1) {
                   const contractKey = String(contractData.contract_id);
-                  const subscriptionId = data.subscription?.id;
+                  const subscriptionId = data.subscription?.id || contractSubscriptions.current.get(contractKey);
                   if (
                     subscriptionId &&
                     socket.readyState === WebSocket.OPEN &&
@@ -282,6 +314,7 @@ export default function DemoTradingConsole() {
                   ) {
                     socket.send(JSON.stringify({ forget: subscriptionId }));
                     forgottenContracts.current.add(contractKey);
+                    contractSubscriptions.current.delete(contractKey);
                   }
                   await settleOrder(current.id);
                 }
@@ -307,6 +340,7 @@ export default function DemoTradingConsole() {
               try {
                 socket.send(JSON.stringify({ forget: subscriptionId }));
                 forgottenContracts.current.add(contractKey);
+                contractSubscriptions.current.delete(contractKey);
               } catch {
                 setError("The contract settled, but its live update subscription could not be released. Refresh the Demo workspace.");
               }
@@ -403,6 +437,8 @@ export default function DemoTradingConsole() {
       if (!proposal?.id || !Number.isFinite(askPrice) || askPrice <= 0 || askPrice > 10 || !Number.isFinite(payout) || payout <= 0) {
         throw new Error("Deriv returned a quote that does not meet SENFX's $10 Demo stake guard.");
       }
+      forgetProposalSubscription();
+      proposalSubscriptionRef.current = String(response?.subscription?.id || proposal.id);
       setQuote({
         id: String(proposal.id),
         askPrice,
@@ -481,6 +517,7 @@ export default function DemoTradingConsole() {
       try {
         bought = await sendRequest("buy", { buy: quote.id, price: quote.askPrice });
       } catch (buyError) {
+        forgetProposalSubscription();
         const reason = buyError instanceof Error ? buyError.message.replace("DERIV_REJECTED: ", "") : "Unknown buy response.";
         await reconcileUnknownOrder(orderId);
         if (activeOrderRef.current?.status === "open") {
@@ -491,6 +528,7 @@ export default function DemoTradingConsole() {
         return;
       }
 
+      forgetProposalSubscription();
       const contractId = String(bought?.buy?.contract_id || "");
       const transactionId = String(bought?.buy?.transaction_id || "");
       if (!/^\d{1,30}$/.test(contractId) || !/^\d{1,30}$/.test(transactionId)) {
@@ -600,12 +638,12 @@ export default function DemoTradingConsole() {
           <p className="muted">Initial release is deliberately manual: review every proposal and click Confirm before a contract is purchased. One position at a time, fixed 10 stake, five-minute Rise/Fall, maximum daily loss 20.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginTop: 18 }}>
             <label className="muted">Market
-              <select value={market} onChange={e => { setMarket(e.target.value); setQuote(null); }} disabled={!connected || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
+              <select value={market} onChange={e => { setMarket(e.target.value); clearQuote(); }} disabled={!connected || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
                 {MARKETS.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}
               </select>
             </label>
             <label className="muted">Direction
-              <select value={direction} onChange={e => { setDirection(e.target.value as "CALL" | "PUT"); setQuote(null); }} disabled={!connected || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
+              <select value={direction} onChange={e => { setDirection(e.target.value as "CALL" | "PUT"); clearQuote(); }} disabled={!connected || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
                 <option value="CALL">Rise (CALL)</option>
                 <option value="PUT">Fall (PUT)</option>
               </select>
@@ -631,7 +669,7 @@ export default function DemoTradingConsole() {
               <button className="workspacePrimaryButton" onClick={() => void buyDemoContract()} disabled={busy || !connected || locked}>
                 {busy ? "Submitting…" : "Confirm and buy on DEMO"}
               </button>
-              <button className="button secondary" style={{ marginLeft: 10 }} onClick={() => setQuote(null)} disabled={busy}>Cancel quote</button>
+              <button className="button secondary" style={{ marginLeft: 10 }} onClick={() => clearQuote()} disabled={busy}>Cancel quote</button>
             </div>
           )}
         </section>
