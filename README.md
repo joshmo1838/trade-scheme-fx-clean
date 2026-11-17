@@ -113,7 +113,7 @@ Before testing the updated Preview:
 3. Save a positive daily loss cap that is at least as large as the paper stake.
 4. Start a paper simulation and confirm the server reports a reservation before the simulator opens each position.
 5. Complete a simulated losing position; confirm the daily gross-loss amount increases and remains after refresh/sign-in from another device.
-6. Use a test customer/bot with a deliberately small cap to verify the server refuses any new reservation that would exceed it.
+6. Use a fresh test customer with a published synthetic bot, saved Demo stake $10, and daily cap $20. Replace the UUID placeholders in `supabase/tests/senfx-paper-risk-controls-smoke-test.sql` and run it in Supabase SQL Editor. It ends with `ROLLBACK`, so its test rows are not retained.
 
 Risk behavior:
 - The cap is per customer, per bot, per UTC calendar day and is enforced in PostgreSQL under a row lock.
