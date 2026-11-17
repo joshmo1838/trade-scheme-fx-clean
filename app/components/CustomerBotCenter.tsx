@@ -227,7 +227,9 @@ export default function CustomerBotCenter() {
         let msg: any;
         try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.error) {
-          stopPaper(bot.id, "Feed error: " + String(msg.error.message || "Unknown market-data error"));
+          const feedCode = msg.error.code ? " (" + String(msg.error.code) + ")" : "";
+          stopPaper(bot.id, "Deriv market-data error" + feedCode + ": " +
+            String(msg.error.message || "Unknown market-data error") + ". Simulation stopped.");
           return;
         }
         if (msg.msg_type !== "tick" || !msg.tick) return;
@@ -353,12 +355,32 @@ export default function CustomerBotCenter() {
         }
       };
 
-      ws.onerror = () => stopPaper(bot.id, "Market data connection failed. Simulation stopped.");
-      ws.onclose = () => {
+      ws.onerror = () => {
+        setEngineStatus(current => ({
+          ...current,
+          [bot.id]: "Market-data socket reported a connection error; waiting for disconnect details…",
+        }));
+      };
+      ws.onclose = event => {
         if (runtime.running) {
-          stopPaper(bot.id, "Market feed disconnected. Simulation stopped.");
+          runtime.running = false;
+          if (runtime.open?.reservationId && !runtime.closing) {
+            const reservationId = runtime.open.reservationId;
+            runtime.open = null;
+            void cancelReservation(reservationId);
+          }
+          const closeType = event.code === 1000
+            ? "normal close"
+            : "close code " + event.code;
+          const closeReason = event.reason ? " · " + event.reason : "";
+          const cleanState = event.wasClean ? "clean" : "unclean";
+          setEngineStatus(current => ({
+            ...current,
+            [bot.id]: "Market feed disconnected (" + closeType + ", " + cleanState + ")" +
+              closeReason + ". Simulation stopped.",
+          }));
         }
-        sockets.delete(bot.id);
+        if (sockets.get(bot.id) === ws) sockets.delete(bot.id);
       };
     } catch {
       stopPaper(bot.id, "Could not start paper feed.");
