@@ -334,8 +334,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   let session: Awaited<ReturnType<typeof openDerivDemoSession>> | null = null;
-  let orderForRecovery: any = null;
-  let buyAttemptStarted = false;
 
   try {
     assertSameOrigin(request);
@@ -431,7 +429,6 @@ export async function POST(request: NextRequest) {
 
     if (action === "buy") {
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
-      orderForRecovery = order;
       if (order.account_id !== context.account.account_id) return jsonError("This quote belongs to a different Demo account.", 409, "DEMO_ACCOUNT_MISMATCH");
       if (order.status !== "quoted") return jsonError("This quote is no longer available. Request a new price.", 409, "QUOTE_NOT_AVAILABLE");
       if (new Date(order.quote_expires_at).getTime() <= Date.now()) {
@@ -516,7 +513,6 @@ export async function POST(request: NextRequest) {
         });
         return jsonError("SENFX could not safely mark the purchase attempt. No buy request was sent.", 503, "BUY_ATTEMPT_NOT_MARKED");
       }
-      buyAttemptStarted = true;
 
       let buyResponse: any;
       try {
@@ -670,13 +666,6 @@ export async function POST(request: NextRequest) {
 
     return jsonError("Unsupported Demo order action.");
   } catch (error) {
-    if (buyAttemptStarted && orderForRecovery) {
-      await (async () => {
-        try {
-          await orderForRecovery && (await contextlessMarkUnknown());
-        } catch { /* Keep the reservation as-is if the mark cannot be confirmed. */ }
-      })();
-    }
     const safe = safeDemoError(error);
     if (safe.status >= 500) console.error("SENFX Demo order route failure:", safe.code);
     return NextResponse.json(
