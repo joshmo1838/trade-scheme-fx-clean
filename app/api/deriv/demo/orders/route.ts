@@ -332,18 +332,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, buyRequestedAt: data.buyRequestedAt }, { headers: noStore });
     }
 
-    if (action === "buy-attempt") {
-      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
-      const { data, error } = await context.admin.rpc("senfx_demo_mark_buy_attempt", {
-        p_user_id: context.user.id,
-        p_order_id: order.id,
-      });
-      if (error || !data?.marked) {
-        return jsonError("SENFX could not mark the buy attempt. No purchase should be sent.", 409, "BUY_ATTEMPT_NOT_MARKED");
-      }
-      return NextResponse.json({ success: true, buyRequestedAt: data.buyRequestedAt }, { headers: noStore });
-    }
-
     if (action === "confirm" || action === "reconcile") {
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
       const contractId = typeof body?.contractId === "string" && /^\\d{1,30}$/.test(body.contractId)
