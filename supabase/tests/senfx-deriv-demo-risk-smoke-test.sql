@@ -53,7 +53,12 @@ begin
     raise exception 'First 10 Demo risk reservation should be allowed: %', v_result;
   end if;
 
-  v_result := public.senfx_demo_confirm_order(p_user_id, v_order_one, '91000000001', 10);
+  v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_one);
+  if coalesce((v_result->>'marked')::boolean, false) is not true then
+    raise exception 'First buy attempt should be marked before confirmation: %', v_result;
+  end if;
+
+  v_result := public.senfx_demo_confirm_order(p_user_id, v_order_one, '91000000001', '92000000001', 10);
   if coalesce((v_result->>'confirmed')::boolean, false) is not true then
     raise exception 'First test contract should confirm: %', v_result;
   end if;
@@ -79,7 +84,12 @@ begin
     raise exception 'Second 10 Demo risk reservation should be allowed: %', v_result;
   end if;
 
-  v_result := public.senfx_demo_confirm_order(p_user_id, v_order_two, '91000000002', 10);
+  v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_two);
+  if coalesce((v_result->>'marked')::boolean, false) is not true then
+    raise exception 'Second buy attempt should be marked before confirmation: %', v_result;
+  end if;
+
+  v_result := public.senfx_demo_confirm_order(p_user_id, v_order_two, '91000000002', '92000000002', 10);
   if coalesce((v_result->>'confirmed')::boolean, false) is not true then
     raise exception 'Second test contract should confirm: %', v_result;
   end if;
