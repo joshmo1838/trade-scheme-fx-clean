@@ -1,4 +1,5 @@
 import Link from "next/link";
+import DerivAccountPrompt from "@/components/DerivAccountPrompt";
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
             <Link className="button" href="/signup">Get started — free</Link>
             <Link className="button secondary" href="/markets">Explore markets</Link>
           </div>
+          <DerivAccountPrompt />
           <div className="tjTrust"><span>✓ Your Deriv account stays yours</span><span>✓ You control your bot settings</span><span>✓ No platform membership fee</span></div>
         </div>
         <div className="tjArtworkFrame">
