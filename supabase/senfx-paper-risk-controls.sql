@@ -122,9 +122,14 @@ begin
   end if;
   if not exists (
     select 1 from public.bots b
-    where b.id = p_bot_id and b.is_published = true
+    where b.id = p_bot_id
+      and b.is_published = true
+      and (
+        (lower(b.market) like '%forex%' and p_market_symbol = 'frxEURUSD')
+        or (lower(b.market) like '%synthetic%' and p_market_symbol in ('R_10','R_25','R_50','R_75','R_100'))
+      )
   ) then
-    return jsonb_build_object('allowed', false, 'reason', 'This bot is not currently published.');
+    return jsonb_build_object('allowed', false, 'reason', 'This market does not match the selected published bot.');
   end if;
   if not exists (
     select 1 from public.customer_bots cb
