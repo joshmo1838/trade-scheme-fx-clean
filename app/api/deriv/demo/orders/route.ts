@@ -54,6 +54,10 @@ async function reconcileBuyOrder(
   submittedContractId?: string,
   submittedTransactionId?: string,
 ) {
+  if (order.account_id !== context.account.account_id) {
+    return { state: "waiting" as const, reason: "This Demo order belongs to a different account. Switch back to that Demo account to reconcile it." };
+  }
+
   if (order.status === "open" && order.contract_id && order.buy_transaction_id) {
     if (submittedContractId && submittedContractId !== String(order.contract_id)) {
       return { state: "mismatch" as const, reason: "The supplied contract does not match the saved Demo order." };
@@ -390,6 +394,9 @@ export async function POST(request: NextRequest) {
 
     if (action === "settle") {
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      if (order.account_id !== context.account.account_id) {
+        return jsonError("This Demo order belongs to a different selected account. Switch back to the original Demo account.", 409, "DEMO_ACCOUNT_MISMATCH");
+      }
       if (FINAL_STATUSES.has(order.status)) {
         const today = new Date().toISOString().slice(0, 10);
         const { data: risk } = await context.admin.from("deriv_demo_daily_risk")
