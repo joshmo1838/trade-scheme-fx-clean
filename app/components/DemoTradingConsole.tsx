@@ -244,9 +244,11 @@ export default function DemoTradingConsole() {
 
         if (data.msg_type === "proposal_open_contract" && data.proposal_open_contract) {
           const contractData = data.proposal_open_contract as ContractStatus;
-          setContract(contractData);
           const current = activeOrderRef.current;
-          if (current?.id && (contractData.is_sold === 1 || contractData.is_expired === 1)) {
+          // Ignore any contract update that is not the active SENFX Demo contract.
+          if (!current?.contract_id || String(contractData.contract_id) !== String(current.contract_id)) return;
+          setContract(contractData);
+          if (current.id && (contractData.is_sold === 1 || contractData.is_expired === 1)) {
             void settleOrder(current.id);
           }
         }
