@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 export const DERIV_API_BASE = "https://api.derivws.com";
 export const DEMO_MARKETS = new Set(["R_10", "R_25", "R_50", "R_75", "R_100", "frxEURUSD"]);
 export const DEMO_STAKE = 10;
-export const DEMO_DAILY_LOSS_LIMIT = 20;
 
 export type DemoAccount = {
   account_id: string;
