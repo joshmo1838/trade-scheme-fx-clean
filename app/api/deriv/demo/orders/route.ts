@@ -124,6 +124,7 @@ async function reconcileBuyOrder(
       Math.abs(amount - Number(order.stake_amount)) <= 0.01 &&
       Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest &&
       /^\d{1,30}$/.test(String(transaction.contract_id || "")) &&
+      Number.isSafeInteger(Number(transaction.contract_id)) &&
       /^\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
       (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
       (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId);
@@ -595,7 +596,9 @@ export async function POST(request: NextRequest) {
 
       const contractId = String(buyResponse?.buy?.contract_id || "");
       const transactionId = String(buyResponse?.buy?.transaction_id || "");
-      if (!/^\d{1,30}$/.test(contractId) || !/^\d{1,30}$/.test(transactionId)) {
+      if (!/^\d{1,30}$/.test(contractId) ||
+          !Number.isSafeInteger(Number(contractId)) ||
+          !/^\d{1,30}$/.test(transactionId)) {
         await context.admin.rpc("senfx_demo_mark_buy_unknown", {
           p_user_id: context.user.id,
           p_order_id: order.id,
