@@ -90,7 +90,7 @@ export async function GET() {
 
     const { data, error: dbError } = await admin
       .from("deriv_connections")
-      .select("active_account_id, status")
+      .select("active_account_id, active_account_type, status")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -105,6 +105,7 @@ export async function GET() {
       {
         success: true,
         active_account_id: data.active_account_id || "",
+        active_account_type: data.active_account_type || "",
         status: data.status
       },
       { headers: { "Cache-Control": "no-store" } }
@@ -227,15 +228,17 @@ export async function POST(request: NextRequest) {
     const accounts = result?.data ?? [];
 
     const accountBelongsToUser = accounts.some(
-      (account: { account_id?: string }) =>
-        account.account_id === accountId
+      (account: { account_id?: string; account_type?: string; status?: string }) =>
+        account.account_id === accountId &&
+        account.account_type === "demo" &&
+        account.status === "active"
     );
 
     if (!accountBelongsToUser) {
       return NextResponse.json(
         {
           error:
-            "This account does not belong to your Deriv connection."
+            "Select an active Demo account that belongs to your Deriv connection. Real accounts cannot be selected for SENFX Demo execution."
         },
         { status: 403 }
       );
@@ -244,7 +247,8 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await admin
       .from("deriv_connections")
       .update({
-        active_account_id: accountId
+        active_account_id: accountId,
+        active_account_type: "demo"
       })
       .eq("user_id", user.id);
 
