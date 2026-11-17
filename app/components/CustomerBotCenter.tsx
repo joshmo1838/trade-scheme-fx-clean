@@ -63,8 +63,7 @@ export default function CustomerBotCenter() {
     const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return;}
     const market=bot.market.toLowerCase().includes("synthetic")?"R_100":bot.market.toLowerCase().includes("forex")?"frxEURUSD":"R_100";
     // Session-only simulation; no customer-submitted history is trusted as a risk baseline.
-    const initialLoss=0;
-    if(cfg.daily_loss_limit!==null&&initialLoss>=cfg.daily_loss_limit){setEngineStatus(v=>({...v,[bot.id]:"Daily paper loss limit already reached. No new simulation started."}));setMessage("Today's saved paper losses have already reached this bot's daily limit.");return;}
+    const initialLoss=0; // Each simulation starts with a fresh session loss counter.
     const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:initialLoss,cooldown:0,trades:0,closing:false};
     runtimes.set(bot.id,runtime);setEngineStatus(v=>({...v,[bot.id]:"Connecting to public market data…"}));
     try{
@@ -124,7 +123,7 @@ export default function CustomerBotCenter() {
   async function saveConfig(bot:Bot){
     const cfg=configs[bot.id];if(!cfg||busy)return;
     if(!Number.isFinite(cfg.stake_amount)||cfg.stake_amount<10||cfg.stake_amount>100){setMessage("Paper stake must be between $10 and $100.");return;}
-    if(cfg.daily_loss_limit!==null&&(!Number.isFinite(cfg.daily_loss_limit)||cfg.daily_loss_limit<=0)){setMessage("Daily paper loss limit must be above zero or left blank.");return;}
+    if(cfg.daily_loss_limit!==null&&(!Number.isFinite(cfg.daily_loss_limit)||cfg.daily_loss_limit<=0)){setMessage("Session paper loss limit must be above zero or left blank.");return;}
     setBusy(bot.id);setMessage("");
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){window.location.href="/login";return;}
@@ -141,7 +140,7 @@ export default function CustomerBotCenter() {
     <header className="botCenterTop"><Link href="/dashboard" className="botCenterBrand">TRADE SCHEME <b>FX</b></Link><nav><Link href="/dashboard">Dashboard</Link><Link href="/builder">Bot Builder</Link><Link href="/intelligence">Market Intelligence</Link><Link href="/strategy-lab">Ultra Precision Lab</Link></nav></header>
     <section className="botCenterContent">
       <div className="botCenterHero"><div><span className="botCenterEyebrow">SENFX AUTOMATION WORKSPACE</span><h1>Customer <em>Bot Center</em></h1><p>Browse free strategies, configure risk limits and run isolated paper simulations.</p></div><span className="botCenterSafety">PAPER MODE · NO EXECUTION</span></div>
-      <div className="botCenterNotice"><b>Safety first.</b> Paper simulations use public market prices and a simple 9/21 moving-average direction rule. They do not send orders, use account tokens, or access real or Deriv demo funds. Keep this page open while a simulation runs.</div>
+      <div className="botCenterNotice"><b>Safety first.</b> Paper simulations use public market prices and a simple 9/21 moving-average direction rule. They do not send orders, use account tokens, or access real or Deriv demo funds. Keep this page open while a simulation runs. Loss limits reset when a new simulation starts; they are not enforced across sessions.</div>
       <div className="botCenterStats"><article><small>AVAILABLE BOTS</small><strong>{bots.length}</strong></article><article><small>MY BOTS</small><strong>{myBots.length}</strong></article><article><small>MARKED SELECTED</small><strong>{activeCount}</strong></article><article><small>PAUSED PREFERENCES</small><strong>{pausedCount}</strong></article></div>
       <div className="botCenterTabs" role="tablist" aria-label="Bot Center sections">
         <button className={tab==="marketplace"?"active":""} onClick={()=>setTab("marketplace")}>Free Marketplace</button>
@@ -158,7 +157,7 @@ export default function CustomerBotCenter() {
           <div className="botCenterStatus"><span>Status preference</span><b>{selection?.control_status||"Not added"}</b></div>
           {tab==="mybots"&&<div className="botCenterConfig">
             <label>Paper stake (USD)<input type="number" min="10" max="100" step="0.01" value={cfg.stake_amount} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,stake_amount:e.target.value===""?0:Number(e.target.value)}}))}/></label>
-            <label>Daily paper loss limit (USD)<input type="number" min="0.01" step="0.01" placeholder="No limit preference" value={cfg.daily_loss_limit??""} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,daily_loss_limit:e.target.value===""?null:Number(e.target.value)}}))}/></label>
+            <label>Session paper loss limit (USD)<input type="number" min="0.01" step="0.01" placeholder="No limit preference" value={cfg.daily_loss_limit??""} onChange={e=>setConfigs(v=>({...v,[bot.id]:{...cfg,daily_loss_limit:e.target.value===""?null:Number(e.target.value)}}))}/></label>
             <button className="botCenterSecondary" disabled={busy!==null} onClick={()=>void saveConfig(bot)}>Save paper settings</button>
             <button className="botCenterPrimary" disabled={busy!==null||!!sockets.has(bot.id)||selection?.control_status!=="selected"} onClick={()=>void startPaper(bot)}>Start paper simulation</button>
             <button className="botCenterSecondary" disabled={!sockets.has(bot.id)} onClick={()=>stopPaper(bot.id)}>Pause simulation</button>
