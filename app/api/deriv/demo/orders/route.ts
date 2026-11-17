@@ -99,29 +99,37 @@ async function reconcileBuyOrder(
 
   const earliest = Math.floor(buyRequestedAt / 1000) - 8;
   const latest = Math.floor(Date.now() / 1000) + 5;
-  const matches = transactions.filter((transaction: any) => {
+  const recentBuys = transactions.filter((transaction: any) => {
     const transactionTime = Number(transaction.transaction_time);
     const amount = Math.abs(Number(transaction.amount));
     return transaction.action_type === "buy" &&
       String(transaction.app_id) === String(appId) &&
       Math.abs(amount - Number(order.stake_amount)) <= 0.01 &&
-      typeof transaction.longcode === "string" &&
-      transaction.longcode === order.longcode &&
-      Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest &&
-      /^\\d{1,30}$/.test(String(transaction.contract_id || "")) &&
-      /^\\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
-      (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
-      (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId);
+      Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest;
   });
 
+  const matches = recentBuys.filter((transaction: any) =>
+    typeof transaction.longcode === "string" &&
+    transaction.longcode === order.longcode &&
+    /^\d{1,30}$/.test(String(transaction.contract_id || "")) &&
+    /^\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
+    (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
+    (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId)
+  );
+
   if (matches.length === 0) {
+    if (recentBuys.length > 0) {
+      // There is a plausible buy for this app/stake/time but the statement does not
+      // expose enough detail to prove it is this order. Never release risk here.
+      return { state: "waiting" as const, reason: "Deriv shows a recent buy for this app and stake, but SENFX cannot safely identify which contract it belongs to. The reservation remains held for manual review." };
+    }
     if (Date.now() - buyRequestedAt < 15_000) {
       return { state: "waiting" as const, reason: "No matching buy appears in Deriv statement yet. Wait a few seconds and check again; do not retry the purchase." };
     }
     const { data: rejected, error: rejectError } = await context.admin.rpc("senfx_demo_reject_order", {
       p_user_id: context.user.id,
       p_order_id: order.id,
-      p_reason: "Deriv statement returned no matching buy transaction after the reconciliation window.",
+      p_reason: "Complete Deriv statement returned no buy for this application, stake and time window.",
     });
     if (rejectError || !rejected?.rejected) {
       return { state: "waiting" as const, reason: "No buy was found, but SENFX could not safely release the reservation. Contact support before continuing." };
@@ -350,10 +358,10 @@ export async function POST(request: NextRequest) {
 
     if (action === "confirm" || action === "reconcile") {
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
-      const contractId = typeof body?.contractId === "string" && /^\\d{1,30}$/.test(body.contractId)
+      const contractId = typeof body?.contractId === "string" && /^\d{1,30}$/.test(body.contractId)
         ? body.contractId
         : undefined;
-      const transactionId = typeof body?.transactionId === "string" && /^\\d{1,30}$/.test(body.transactionId)
+      const transactionId = typeof body?.transactionId === "string" && /^\d{1,30}$/.test(body.transactionId)
         ? body.transactionId
         : undefined;
       const result = await reconcileBuyOrder(context, order, contractId, transactionId);
