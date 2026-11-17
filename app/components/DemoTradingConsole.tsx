@@ -270,6 +270,25 @@ export default function DemoTradingConsole() {
           pending.resolve(data);
         }
 
+        if (data.msg_type === "proposal" && data.proposal) {
+          const streamedId = String(data.proposal.id || data.subscription?.id || "");
+          if (streamedId && streamedId === proposalSubscriptionRef.current) {
+            const askPrice = Number(data.proposal.ask_price);
+            const payout = Number(data.proposal.payout);
+            if (Number.isFinite(askPrice) && askPrice > 0 && askPrice <= 10 &&
+                Number.isFinite(payout) && payout > 0) {
+              setQuote(current => current?.id === streamedId
+                ? {
+                    id: streamedId,
+                    askPrice,
+                    payout,
+                    longcode: String(data.proposal.longcode || current.longcode),
+                  }
+                : current);
+            }
+          }
+        }
+
         if (data.msg_type === "proposal_open_contract" && data.proposal_open_contract) {
           const contractData = data.proposal_open_contract as ContractStatus;
           const current = activeOrderRef.current;
