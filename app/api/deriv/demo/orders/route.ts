@@ -359,6 +359,28 @@ export async function POST(request: NextRequest) {
       if (activeError) return jsonError("Could not check for an existing Demo order.", 503, "ACTIVE_ORDER_CHECK_FAILED");
       if (activeOrders && activeOrders.length > 0) return jsonError("Settle or reconcile your active Demo order before requesting another quote.", 409, "ACTIVE_ORDER_EXISTS");
 
+      const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+      const { count: recentQuoteCount, error: quoteRateError } = await context.admin
+        .from("deriv_demo_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", context.user.id)
+        .eq("account_id", context.account.account_id)
+        .gte("created_at", minuteAgo);
+      if (quoteRateError) return jsonError("Could not verify quote request limits. Try again.", 503, "QUOTE_RATE_CHECK_FAILED");
+      if ((recentQuoteCount || 0) >= 8) return jsonError("Too many quote requests. Please wait one minute before requesting another price.", 429, "QUOTE_RATE_LIMIT");
+
+      // Only one live quote is needed per customer/account. Older unconfirmed
+      // quotes cannot be submitted after the customer requests a new one.
+      const { error: expireQuotesError } = await context.admin.from("deriv_demo_orders")
+        .update({ status: "expired", updated_at: new Date().toISOString() })
+        .eq("user_id", context.user.id)
+        .eq("account_id", context.account.account_id)
+        .eq("status", "quoted");
+      if (expireQuotesError) {
+        console.error("SENFX old quote cleanup failed:", expireQuotesError.code);
+        return jsonError("Could not expire your previous quote. No new quote was requested.", 503, "QUOTE_CLEANUP_FAILED");
+      }
+
       session = await openDerivDemoSession(context);
       const proposalResponse: any = await session.request("proposal", {
         proposal: 1,
@@ -425,6 +447,18 @@ export async function POST(request: NextRequest) {
           stakeAmount: DEMO_STAKE,
         },
       }, { headers: noStore });
+    }
+
+    if (action === "cancel-quote") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      if (order.account_id !== context.account.account_id) return jsonError("This quote belongs to a different Demo account.", 409, "DEMO_ACCOUNT_MISMATCH");
+      const { data, error } = await context.admin.rpc("senfx_demo_cancel_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+        p_reason: "Customer cancelled the unsubmitted Demo quote.",
+      });
+      if (error || !data?.cancelled) return jsonError("Could not cancel this unused quote.", 409, "QUOTE_CANCEL_FAILED");
+      return NextResponse.json({ success: true, cancelled: true }, { headers: noStore });
     }
 
     if (action === "buy") {
