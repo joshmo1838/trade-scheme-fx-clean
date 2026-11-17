@@ -351,14 +351,24 @@ export default function DemoTradingConsole() {
       } catch (buyError) {
         const reason = buyError instanceof Error ? buyError.message : "Unknown buy response.";
         if (reason.startsWith("DERIV_REJECTED:")) {
+          // Keep the reservation even when the browser sees a rejection:
+          // only the server may release it after a verified reconciliation.
           await fetch(API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "same-origin",
-            body: JSON.stringify({ action: "cancel", orderId, reason: reason.slice(0, 150) }),
+            body: JSON.stringify({ action: "buy-unknown", orderId }),
+          });
+          setActiveOrder({
+            id: orderId,
+            status: "buy_unknown",
+            market_symbol: market,
+            contract_type: direction,
+            stake_amount: 10,
+            currency: currencyRef.current,
           });
           await refresh();
-          throw new Error(reason.replace("DERIV_REJECTED: ", ""));
+          throw new Error("Deriv rejected or did not conclusively confirm the buy. SENFX kept the 10 " + currencyRef.current + " risk reservation. Do not retry; check the contract status before continuing.");
         }
         await fetch(API, {
           method: "POST",
