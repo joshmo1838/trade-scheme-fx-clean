@@ -26,6 +26,7 @@ const videoNav = [
 ];
 
 const moreTools = [
+  { label: "Deriv Demo Trading (Preview)", href: "/demo-trading" },
   { label: "Bulk Trader", href: "/bulk-trader" },
   { label: "Hedging Planner", href: "/hedging" },
   { label: "Digit Tools", href: "/digit-tools" },

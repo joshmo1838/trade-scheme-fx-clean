@@ -90,7 +90,7 @@ export async function GET() {
 
     const { data, error: dbError } = await admin
       .from("deriv_connections")
-      .select("active_account_id, status")
+      .select("active_account_id, active_account_type, status")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -105,6 +105,7 @@ export async function GET() {
       {
         success: true,
         active_account_id: data.active_account_id || "",
+        active_account_type: data.active_account_type || "",
         status: data.status
       },
       { headers: { "Cache-Control": "no-store" } }
@@ -151,6 +152,29 @@ export async function POST(request: NextRequest) {
     }
 
     const accountId = body?.account_id;
+
+    // Never allow switching away from a Demo account with an unresolved broker
+    // order while the Demo execution feature is enabled.
+    if (process.env.DERIV_DEMO_TRADING_ENABLED === "true") {
+      const { data: activeOrders, error: activeError } = await admin
+        .from("deriv_demo_orders")
+        .select("id")
+        .eq("user_id", user.id)
+        .in("status", ["reserved", "open", "buy_unknown"])
+        .limit(1);
+      if (activeError) {
+        return NextResponse.json(
+          { error: "Unable to verify any unresolved Demo orders; account selection is blocked." },
+          { status: 503 }
+        );
+      }
+      if (activeOrders && activeOrders.length > 0) {
+        return NextResponse.json(
+          { error: "Settle or reconcile the unresolved Demo order before switching accounts." },
+          { status: 409 }
+        );
+      }
+    }
 
     if (
       typeof accountId !== "string" ||
@@ -226,12 +250,14 @@ export async function POST(request: NextRequest) {
     const result = await derivResponse.json();
     const accounts = result?.data ?? [];
 
-    const accountBelongsToUser = accounts.some(
-      (account: { account_id?: string }) =>
-        account.account_id === accountId
+    const verifiedAccount = accounts.find(
+      (account: { account_id?: string; account_type?: string; status?: string }) =>
+        account.account_id === accountId &&
+        account.status === "active" &&
+        (account.account_type === "demo" || account.account_type === "real")
     );
 
-    if (!accountBelongsToUser) {
+    if (!verifiedAccount) {
       return NextResponse.json(
         {
           error:
@@ -244,7 +270,8 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await admin
       .from("deriv_connections")
       .update({
-        active_account_id: accountId
+        active_account_id: accountId,
+        active_account_type: verifiedAccount.account_type
       })
       .eq("user_id", user.id);
 
