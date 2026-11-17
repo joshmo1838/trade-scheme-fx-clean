@@ -241,6 +241,9 @@ begin
   if v_order.status not in ('reserved','buy_unknown') then
     return jsonb_build_object('confirmed',false,'reason','The Demo order has no active risk reservation.');
   end if;
+  if v_order.buy_requested_at is null then
+    return jsonb_build_object('confirmed',false,'reason','The buy attempt must be recorded before a contract can be confirmed.');
+  end if;
   if v_order.contract_id is not null and v_order.contract_id<>p_contract_id then
     return jsonb_build_object('confirmed',false,'reason','The unresolved order already references a different contract.');
   end if;
@@ -315,8 +318,8 @@ begin
   if v_order.status='rejected' then
     return jsonb_build_object('rejected',true,'idempotent',true);
   end if;
-  if v_order.status<>'buy_unknown' or v_order.contract_id is not null then
-    return jsonb_build_object('rejected',false,'reason','Only an unresolved buy without a confirmed contract can be rejected.');
+  if v_order.status<>'buy_unknown' or v_order.contract_id is not null or v_order.buy_requested_at is null then
+    return jsonb_build_object('rejected',false,'reason','Only a recorded unresolved buy without a confirmed contract can be rejected.');
   end if;
   select * into v_risk from public.deriv_demo_daily_risk
   where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_order.risk_date for update;
@@ -345,6 +348,9 @@ begin
   where id=p_order_id and user_id=p_user_id for update;
   if not found or v_order.status not in ('reserved','buy_unknown') then
     return jsonb_build_object('updated',false,'reason','No unresolved reserved purchase was found.');
+  end if;
+  if v_order.buy_requested_at is null then
+    return jsonb_build_object('updated',false,'reason','Record the buy attempt before marking it unresolved.');
   end if;
   update public.deriv_demo_orders set status='buy_unknown',updated_at=now() where id=p_order_id;
   return jsonb_build_object('updated',true,'riskRemainsReserved',true);
