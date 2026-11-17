@@ -528,8 +528,8 @@ export default function DemoTradingConsole() {
           <section className="workspacePanel" style={{ marginTop: 18 }}>
             <p className="workspaceEyebrow">ACTIVE DEMO CONTRACT</p>
             <h2>{activeOrder.market_symbol} · {activeOrder.contract_type}</h2>
-            {activeOrder.status === "buy_unknown" ? (
-              <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. Do not retry this trade; reconnect and contact support so the contract can be reconciled.</p>
+            {activeOrder.status === "buy_unknown" || activeOrder.status === "reserved" ? (
+              <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. The buy may not have reached Deriv, or its response may have been lost. Do not retry this trade; reconnect and contact support so the contract can be reconciled safely.</p>
             ) : (
               <>
                 <p>Contract ID: {activeOrder.contract_id}</p>
