@@ -321,67 +321,39 @@ export async function POST(request: NextRequest) {
       }, { headers: noStore });
     }
 
-    if (action === "confirm") {
+    if (action === "buy-attempt") {
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
-      if (order.status !== "reserved" && order.status !== "buy_unknown") {
-        return jsonError("This Demo order is not awaiting contract confirmation.", 409, "ORDER_NOT_RESERVED");
-      }
-      const contractId = String(body?.contractId ?? "");
-      if (!/^\d{1,30}$/.test(contractId) || !Number.isSafeInteger(Number(contractId))) {
-        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
-        return jsonError("Deriv returned an invalid contract ID. The risk reservation remains held for safety.", 409, "CONTRACT_ID_INVALID");
-      }
-
-      const wsUrl = await getDemoWebSocketUrl(context);
-      const reqId = Date.now() % 2_000_000_000;
-      let verification: any;
-      try {
-        verification = await requestOnDemoWebSocket(wsUrl, {
-          proposal_open_contract: 1,
-          contract_id: Number(contractId),
-          req_id: reqId,
-        }, "proposal_open_contract");
-      } catch {
-        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
-        return jsonError("The buy response needs reconciliation. The $10 risk reservation remains held; do not retry the purchase.", 503, "BUY_CONFIRMATION_UNVERIFIED");
-      }
-
-      const contract = verification?.proposal_open_contract;
-      const actualBuyPrice = Number(contract?.buy_price);
-      if (
-        String(contract?.contract_id) !== contractId ||
-        contract?.underlying_symbol !== order.market_symbol ||
-        contract?.contract_type !== order.contract_type ||
-        contract?.currency !== order.currency ||
-        !Number.isFinite(actualBuyPrice) ||
-        actualBuyPrice <= 0 ||
-        actualBuyPrice > DEMO_STAKE
-      ) {
-        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
-        return jsonError("Deriv's contract details did not match the reserved quote. Risk remains reserved until reconciled.", 409, "CONTRACT_DETAILS_MISMATCH");
-      }
-
-      const { data: confirmed, error: confirmError } = await context.admin.rpc("senfx_demo_confirm_order", {
+      const { data, error } = await context.admin.rpc("senfx_demo_mark_buy_attempt", {
         p_user_id: context.user.id,
         p_order_id: order.id,
-        p_contract_id: contractId,
-        p_buy_price: actualBuyPrice,
       });
-
-      if (confirmError || !confirmed?.confirmed) {
-        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
-        return jsonError("The contract exists but SENFX could not confirm the order record. Its risk remains reserved.", 503, "ORDER_CONFIRM_FAILED");
+      if (error || !data?.marked) {
+        return jsonError("SENFX could not mark the buy attempt. No purchase should be sent.", 409, "BUY_ATTEMPT_NOT_MARKED");
       }
+      return NextResponse.json({ success: true, buyRequestedAt: data.buyRequestedAt }, { headers: noStore });
+    }
 
+    if (action === "confirm" || action === "reconcile") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      const contractId = typeof body?.contractId === "string" && /^\\d{1,30}$/.test(body.contractId)
+        ? body.contractId
+        : undefined;
+      const transactionId = typeof body?.transactionId === "string" && /^\\d{1,30}$/.test(body.transactionId)
+        ? body.transactionId
+        : undefined;
+      const result = await reconcileBuyOrder(context, order, contractId, transactionId);
+      if (result.state === "open") {
+        return NextResponse.json({ success: true, ...result }, { headers: noStore });
+      }
+      if (result.state === "rejected") {
+        return NextResponse.json({ success: true, ...result }, { headers: noStore });
+      }
       return NextResponse.json({
-        success: true,
-        orderId: order.id,
-        contractId,
-        status: contract?.status || "open",
-        buyPrice: actualBuyPrice,
-        isSold: contract?.is_sold === 1,
-        isExpired: contract?.is_expired === 1,
-      }, { headers: noStore });
+        success: false,
+        state: result.state,
+        error: result.reason,
+        riskRemainsReserved: true,
+      }, { status: 409, headers: noStore });
     }
 
     if (action === "buy-unknown") {
