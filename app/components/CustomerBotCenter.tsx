@@ -28,13 +28,13 @@ export default function CustomerBotCenter() {
     setLoading(true); setMessage("");
     const {data:{user},error:userError}=await supabase.auth.getUser();
     if(userError||!user){window.location.href="/login";return;}
-    const [b,s,c,t]=await Promise.all([
+    const [b,s,c]=await Promise.all([
       supabase.from("bots").select("id,name,market,description,risk_level").eq("is_published",true).order("name"),
       supabase.from("customer_bots").select("id,bot_id,control_status").eq("customer_id",user.id).eq("trading_mode","demo"),
       supabase.from("customer_bot_configurations").select("bot_id,stake_amount,daily_loss_limit").eq("customer_id",user.id).eq("trading_mode","demo"),
-      supabase.from("customer_paper_trades").select("id,bot_id,market_symbol,direction,entry_price,exit_price,stake_amount,pnl,outcome,opened_at,closed_at").eq("customer_id",user.id).order("closed_at",{ascending:false}).limit(100)
+
     ]);
-    const err=b.error||s.error||c.error||t.error;
+    const err=b.error||s.error||c.error;
     if(err){setMessage("Could not load your Bot Center: "+err.message);setLoading(false);return;}
     const botRows=(b.data||[]) as Bot[], selectionRows=(s.data||[]) as Selection[];
     const configRows=c.data||[];
@@ -43,7 +43,7 @@ export default function CustomerBotCenter() {
       const saved=configRows.find(row=>row.bot_id===bot.id);
       next[bot.id]=saved?{stake_amount:Number(saved.stake_amount),daily_loss_limit:saved.daily_loss_limit===null?null:Number(saved.daily_loss_limit)}:{stake_amount:10,daily_loss_limit:20};
     });
-    setBots(botRows);setSelections(selectionRows);setConfigs(next);setPaperTrades((t.data||[]) as PaperTrade[]);setLoading(false);
+    setBots(botRows);setSelections(selectionRows);setConfigs(next);setPaperTrades([]);setLoading(false);
   },[supabase]);
 
   useEffect(()=>{void load();return()=>{sockets.forEach(ws=>ws.close());sockets.clear();runtimes.clear();};},[load,sockets,runtimes]);
@@ -62,11 +62,8 @@ export default function CustomerBotCenter() {
     if(cfg.stake_amount<10||cfg.stake_amount>100||!Number.isFinite(cfg.stake_amount)){setMessage("Paper stake must be between $10 and $100.");return;}
     const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return;}
     const market=bot.market.toLowerCase().includes("synthetic")?"R_100":bot.market.toLowerCase().includes("forex")?"frxEURUSD":"R_100";
-    const dayStart=new Date();dayStart.setHours(0,0,0,0);
-    const {data:todayTrades,error:historyError}=await supabase.from("customer_paper_trades").select("pnl").eq("customer_id",user.id).eq("bot_id",bot.id).gte("closed_at",dayStart.toISOString());
-    if(historyError){setMessage("Could not verify today's paper loss before starting: "+historyError.message);return;}
-    const todayNet=(todayTrades||[]).reduce((sum,row)=>sum+Number(row.pnl||0),0);
-    const initialLoss=Math.max(0,-todayNet);
+    // Session-only simulation; no customer-submitted history is trusted as a risk baseline.
+    const initialLoss=0;
     if(cfg.daily_loss_limit!==null&&initialLoss>=cfg.daily_loss_limit){setEngineStatus(v=>({...v,[bot.id]:"Daily paper loss limit already reached. No new simulation started."}));setMessage("Today's saved paper losses have already reached this bot's daily limit.");return;}
     const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:initialLoss,cooldown:0,trades:0,closing:false};
     runtimes.set(bot.id,runtime);setEngineStatus(v=>({...v,[bot.id]:"Connecting to public market data…"}));
@@ -78,7 +75,7 @@ export default function CustomerBotCenter() {
         const price=Number(msg.tick.quote);if(!Number.isFinite(price)||!runtime.running||runtime.closing)return;
         setLivePrices(v=>({...v,[bot.id]:price}));runtime.prices=[...runtime.prices,price].slice(-22);
         if(runtime.open){runtime.open.remaining-=1;if(runtime.open.remaining<=0){runtime.closing=true;const completed=runtime.open;runtime.open=null;const won=completed.direction==="CALL"?price>completed.entry:price<completed.entry;const pnl=won?completed.stake:-completed.stake;const closedAt=new Date().toISOString();const trade={customer_id:user.id,bot_id:bot.id,market_symbol:market,direction:completed.direction,entry_price:completed.entry,exit_price:price,stake_amount:completed.stake,pnl,outcome:won?"WIN":"LOSS",opened_at:completed.openedAt,closed_at:closedAt};
-          const {error}=await supabase.from("customer_paper_trades").insert(trade);if(error){runtime.closing=false;stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.closing=false;
+          runtime.closing=false;stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.closing=false;
           if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Daily paper loss limit reached. Simulation stopped.");}else if(runtime.trades>=20){stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");}
         }}else if(runtime.cooldown>0){runtime.cooldown-=1;}else if(runtime.prices.length>=21&&runtime.trades<20){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
       };
@@ -136,7 +133,7 @@ export default function CustomerBotCenter() {
         <button className={tab==="performance"?"active":""} onClick={()=>setTab("performance")}>Performance</button>
       </div>
       {message&&<p className="botCenterMessage" role="status">{message}</p>}
-      {loading?<div className="botCenterEmpty">Loading your secure Bot Center…</div>:tab==="performance"?<section className="botCenterPerformance"><div><span className="botCenterEyebrow">PAPER PERFORMANCE</span><h2>Recorded simulation results</h2><p>These figures summarize saved paper simulations only. They are not broker statements, live trading results, or predictions of future performance.</p></div><div className="botCenterPerfGrid"><article><small>RECORDED PAPER TRADES</small><strong>{paperTrades.length}</strong></article><article><small>SIMULATED P/L</small><strong>{paperTrades.reduce((sum,t)=>sum+Number(t.pnl||0),0).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article><article><small>WIN RATE</small><strong>{paperTrades.length?Math.round(paperTrades.filter(t=>t.outcome==="WIN").length/paperTrades.length*100)+"%":"—"}</strong></article></div><div className="botCenterTradeHistory"><h3>Recent paper trades</h3>{paperTrades.length===0?<p>No saved paper trades yet. Start a paper simulation from My Bots.</p>:paperTrades.slice(0,20).map(t=><article key={t.id}><span><b>{t.direction}</b> · {t.market_symbol} · {new Date(t.closed_at).toLocaleString()}</span><strong>{Number(t.pnl).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article>)}</div></section>:<section className="botCenterGrid">{(tab==="marketplace"?bots:myBots).map(bot=>{
+      {loading?<div className="botCenterEmpty">Loading your secure Bot Center…</div>:tab==="performance"?<section className="botCenterPerformance"><div><span className="botCenterEyebrow">PAPER PERFORMANCE</span><h2>Current-session simulation results</h2><p>These figures exist only in this browser session and are cleared when you leave or refresh. They are not saved or verified trading records.</p></div><div className="botCenterPerfGrid"><article><small>SESSION PAPER TRADES</small><strong>{paperTrades.length}</strong></article><article><small>SIMULATED P/L</small><strong>{paperTrades.reduce((sum,t)=>sum+Number(t.pnl||0),0).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article><article><small>WIN RATE</small><strong>{paperTrades.length?Math.round(paperTrades.filter(t=>t.outcome==="WIN").length/paperTrades.length*100)+"%":"—"}</strong></article></div><div className="botCenterTradeHistory"><h3>Recent paper trades</h3>{paperTrades.length===0?<p>No paper trades in this session yet. Start a paper simulation from My Bots.</p>:paperTrades.slice(0,20).map(t=><article key={t.id}><span><b>{t.direction}</b> · {t.market_symbol} · {new Date(t.closed_at).toLocaleString()}</span><strong>{Number(t.pnl).toLocaleString("en-US",{style:"currency",currency:"USD"})}</strong></article>)}</div></section>:<section className="botCenterGrid">{(tab==="marketplace"?bots:myBots).map(bot=>{
         const selection=selections.find(s=>s.bot_id===bot.id);
         const cfg=configs[bot.id]||{stake_amount:10,daily_loss_limit:20};
         return <article className="botCenterCard" key={bot.id}>
