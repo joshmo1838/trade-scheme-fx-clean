@@ -30,7 +30,7 @@ async function readJson(request: NextRequest) {
 
 function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  if (!origin) return;
+  if (!origin) throw new Error("A same-origin request is required.");
   try {
     if (new URL(origin).origin !== request.nextUrl.origin) throw new Error("Cross-origin request rejected.");
   } catch {
