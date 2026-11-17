@@ -75,7 +75,8 @@ A feature is complete only when its UI, backend behavior, authorization, error s
 ## Implemented milestone: persistent daily paper-risk enforcement
 - Added a server-maintained daily gross-loss ledger per customer and bot, keyed to the UTC calendar date.
 - Each simulated paper position reserves its full configured stake before opening; a PostgreSQL row lock serializes reservations across browser tabs and devices.
-- Server-side settlement calculates the illustrative paper result from the reserved entry, direction and stake, writes the customer-owned paper trade, releases the reservation and updates daily gross losses.
+- The API obtains fresh public Deriv entry and exit quotes server-side; browser-submitted prices are not treated as authoritative.
+- Server-side settlement calculates the illustrative paper result from the reserved entry, direction, verified exit quote and stake, writes the customer-owned paper trade, releases the reservation and updates daily gross losses.
 - New entries are rejected if the realized gross loss plus outstanding reserved exposure plus the next stake would exceed the effective daily cap.
 - Wins do not replenish the loss budget. A cap decrease takes effect immediately; a cap increase cannot loosen the in-progress UTC day.
 - Added authenticated server endpoints for daily risk status, reserve, settle and cancel; database write functions are executable only by the server service role.
