@@ -101,11 +101,14 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      active_account_id: data.active_account_id || "",
-      status: data.status
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        active_account_id: data.active_account_id || "",
+        status: data.status
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Account selection retrieval failed:", {
       errorType:
@@ -129,7 +132,24 @@ export async function POST(request: NextRequest) {
       return error!;
     }
 
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (rawBody.length > 4096) {
+      return NextResponse.json(
+        { error: "Request is too large." },
+        { status: 413 }
+      );
+    }
+
+    let body: { account_id?: unknown };
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON." },
+        { status: 400 }
+      );
+    }
+
     const accountId = body?.account_id;
 
     if (
@@ -241,7 +261,7 @@ export async function POST(request: NextRequest) {
       success: true,
       active_account_id: accountId,
       message: "Deriv account selection saved successfully."
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Account selection API failed:", {
       errorType:

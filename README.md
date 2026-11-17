@@ -85,3 +85,42 @@ Important: these are prototype interfaces. They do not connect to Deriv, execute
 
 The existing authentication, admin, messaging, bot catalogue, and bot preference code is retained from the supplied project ZIP. Existing Supabase migrations remain in `supabase/`. No new SQL migration is required for these prototype-only pages.
 \n\n## Global market ticker and market watch\nSee `MARKET-UPGRADE-SETUP.txt`. Live quotes require a server-side `TWELVEDATA_API_KEY`. No prices are invented and no trades are executed.\n\n\n## T&J Homepage Upgrade\nSee `TJ-HOMEPAGE-UPGRADE.txt` for the homepage redesign and deployment instructions.\n
+
+## SENFX account-backed strategy drafts
+1. Open your Supabase project and go to SQL Editor.
+2. Run the complete migration in `supabase/senfx-platform.sql`.
+3. Deploy the updated branch preview. Sign in and open `/builder`.
+4. Use **Save to my account** to store a strategy, then select it under **My saved strategies** to reload it on another device.
+
+Strategy drafts are private to the signed-in customer through row-level security. This feature stores configuration only; it does not place Deriv demo or real-money orders.
+
+
+## SENFX bot-management schema reconciliation
+
+After the earlier `bot-center.sql` and `bot-settings.sql` migrations, run `supabase/senfx-bot-management-v2.sql` once in Supabase SQL Editor. This migration separates each customer's Demo and Real bot selections, fixes the account-mode key for general settings, and creates the missing per-bot configuration table used by `/bots`. It is designed to be safe to rerun.
+
+After applying it, sign in with a customer account that has a Deriv account connected and selected, then open `/bots`. Published bots can be selected, paused, or stopped as saved preferences, and per-bot Demo/Real stake and loss-limit preferences can be stored independently. An administrator must publish bot catalogue entries before customers can see them.
+
+**Important:** Select, pause, and stop are currently configuration states only. They do not start, pause, or stop an automated trading process. No Deriv orders are sent by this feature; real-money execution remains disabled.
+
+## SENFX persistent daily paper-risk controls
+
+After applying `supabase/senfx-bot-management-v2.sql`, run `supabase/senfx-paper-risk-controls.sql` in the connected Supabase project's SQL Editor. The risk migration creates customer-scoped daily risk ledgers and trade reservations, and server-only database functions to reserve, settle, and cancel paper positions.
+
+Before testing the updated Preview:
+1. Confirm `SUPABASE_SERVICE_ROLE_KEY` is configured in Vercel for the Preview environment. It must remain a server-only secret and must never use a `NEXT_PUBLIC_` prefix.
+2. Sign in as a test customer and open Customer Bot Center → My Bots.
+3. Save a positive daily loss cap that is at least as large as the paper stake.
+4. Start a paper simulation and confirm the server reports a reservation before the simulator opens each position.
+5. Complete a simulated losing position; confirm the daily gross-loss amount increases and remains after refresh/sign-in from another device.
+6. Use a fresh test customer with a published synthetic bot, saved Demo stake $10, and daily cap $20. Replace the UUID placeholders in `supabase/tests/senfx-paper-risk-controls-smoke-test.sql` and run it in Supabase SQL Editor. It ends with `ROLLBACK`, so its test rows are not retained.
+
+Risk behavior:
+- The cap is per customer, per bot, per UTC calendar day and is enforced in PostgreSQL under a row lock.
+- Each open paper position reserves its full stake as maximum potential loss. Concurrent browser tabs/devices cannot spend the same risk budget.
+- A settled losing result increases daily gross losses; wins do not replenish the loss budget.
+- The daily ledger rolls over at 00:00 UTC. A cap reduction takes effect immediately; raising a cap cannot loosen the current day's ledger and takes effect on the next UTC day.
+- Customers can read only their own paper trades and risk rows. Writes use authenticated server routes and service-role-only database functions.
+- The paper engine continues to use a simplified illustrative 1:1 payout model and public quotes. It is not a Deriv contract, not verified trading performance, and it does not submit demo or real-money orders.
+
+Real-money execution remains disabled. Do not treat successful deployment or paper tests as approval for live trading.

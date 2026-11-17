@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "worker:forward": "node worker/senfx-forward-worker.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
@@ -18,5 +20,8 @@
     "@types/node": "^22.13.0",
     "@types/react": "^19.2.0",
     "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=22.4.0"
   }
 }

@@ -52,18 +52,9 @@ function clearCookies(response: NextResponse) {
   return response;
 }
 
-function redirectToDashboard(
-  status: string,
-  stage?: string
-) {
+function redirectToDashboard(status: string) {
   const url = new URL(DASHBOARD_URL);
-
   url.searchParams.set("deriv", status);
-
-  if (stage) {
-    url.searchParams.set("stage", stage);
-  }
-
   return NextResponse.redirect(url);
 }
 
@@ -95,21 +86,8 @@ export async function GET(request: NextRequest) {
 
     url.searchParams.set(
       "deriv",
-      oauthError ? "authorization_cancelled" : "state_check_failed"
+      oauthError ? "authorization_cancelled" : "connection_failed"
     );
-
-    url.searchParams.set("diag_code", String(Boolean(code)));
-    url.searchParams.set("diag_state", String(Boolean(state)));
-    url.searchParams.set(
-      "diag_cookie_state",
-      String(Boolean(expectedState))
-    );
-    url.searchParams.set(
-      "diag_state_match",
-      String(Boolean(state && expectedState && state === expectedState))
-    );
-    url.searchParams.set("diag_verifier", String(Boolean(verifier)));
-    url.searchParams.set("diag_user", String(Boolean(userId)));
 
     return clearCookies(NextResponse.redirect(url));
   }
@@ -127,10 +105,7 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user || user.id !== userId) {
       return clearCookies(
-        redirectToDashboard(
-          "connection_failed",
-          "auth_check_failed"
-        )
+        redirectToDashboard("connection_failed")
       );
     }
 
@@ -143,10 +118,7 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !serviceRole || !supabaseUrl) {
       return clearCookies(
-        redirectToDashboard(
-          "connection_failed",
-          "configuration_failed"
-        )
+        redirectToDashboard("connection_failed")
       );
     }
 
@@ -177,10 +149,7 @@ export async function GET(request: NextRequest) {
       });
 
       return clearCookies(
-        redirectToDashboard(
-          "connection_failed",
-          `token_exchange_http_${tokenResponse.status}`
-        )
+        redirectToDashboard("connection_failed")
       );
     }
 
@@ -190,10 +159,7 @@ export async function GET(request: NextRequest) {
       console.error("Deriv token response did not contain an access token.");
 
       return clearCookies(
-        redirectToDashboard(
-          "connection_failed",
-          "token_missing"
-        )
+        redirectToDashboard("connection_failed")
       );
     }
 
@@ -245,10 +211,7 @@ export async function GET(request: NextRequest) {
       });
 
       return clearCookies(
-        redirectToDashboard(
-          "connection_failed",
-          "database_save_failed"
-        )
+        redirectToDashboard("connection_failed")
       );
     }
 
@@ -269,10 +232,7 @@ export async function GET(request: NextRequest) {
     });
 
     return clearCookies(
-      redirectToDashboard(
-        "connection_failed",
-        `${stage}_failed`
-      )
+      redirectToDashboard("connection_failed")
     );
   }
 }
