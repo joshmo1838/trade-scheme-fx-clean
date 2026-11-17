@@ -1,4 +1,10 @@
-import FeatureWorkspace from "@/app/components/FeatureWorkspace";
-export default function Page() {
-  return <FeatureWorkspace title="CHARTS & MARKET DATA" eyebrow="TRADE SCHEME FX WORKSPACE" description="Your charting workspace for Deriv synthetic markets." mode="charts" />;
+import LiveCandleChart from "@/app/components/LiveCandleChart";
+
+export const metadata = {
+  title: "Live Candlestick Charts | Trade Scheme FX",
+  description: "Public Deriv synthetic index ticks displayed as observed OHLC candlesticks. Research and practice only.",
+};
+
+export default function ChartsPage() {
+  return <LiveCandleChart />;
 }
