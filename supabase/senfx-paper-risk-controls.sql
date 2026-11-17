@@ -150,11 +150,11 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'Paper stake cannot be greater than the daily loss limit.');
   end if;
 
-  insert into public.customer_paper_daily_risk (
+  insert into public.customer_paper_daily_risk as current_risk (
     customer_id, bot_id, risk_date, daily_loss_limit
   ) values (p_customer_id, p_bot_id, v_day, v_limit)
   on conflict (customer_id, bot_id, risk_date) do update
-    set daily_loss_limit = least(public.customer_paper_daily_risk.daily_loss_limit, excluded.daily_loss_limit),
+    set daily_loss_limit = least(current_risk.daily_loss_limit, excluded.daily_loss_limit),
         updated_at = now();
 
   select * into v_risk
