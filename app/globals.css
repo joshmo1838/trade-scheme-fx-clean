@@ -521,3 +521,59 @@
   }
   .botCenterCard:hover,.botCenterStats article:hover,.botCenterPerfGrid article:hover{transform:none}
 }
+
+/* Public Deriv signup call-to-action — visible before SENFX authentication */
+.derivAccountPrompt{
+  display:flex;
+  flex-direction:column;
+  gap:11px;
+  margin:18px 0 12px;
+  padding:19px 20px;
+  border:1px solid rgba(84,194,241,.38);
+  border-left:4px solid #44c5f2;
+  border-radius:13px;
+  background:linear-gradient(135deg,rgba(10,56,96,.75),rgba(4,22,44,.9));
+  box-shadow:0 12px 35px rgba(0,0,0,.16);
+}
+.derivAccountPromptCopy{min-width:0}
+.derivAccountPromptEyebrow{
+  margin:0 0 7px;
+  color:#83dafa;
+  letter-spacing:.12em;
+  font-size:10px;
+  font-weight:800;
+}
+.derivAccountPrompt h2{
+  color:#f4faff;
+  font:700 18px/1.3 'Space Grotesk',sans-serif;
+  letter-spacing:-.02em;
+  margin:0 0 5px;
+}
+.derivAccountPromptCopy>p:last-child{
+  color:#c2d8e9;
+  font-size:13px;
+  line-height:1.55;
+  margin:0;
+}
+.derivAccountPromptButton{
+  width:100%;
+  min-height:44px;
+  gap:9px;
+  text-align:center;
+}
+.derivAccountPromptNote{
+  color:#abc4d9;
+  font-size:11px;
+  line-height:1.45;
+}
+.derivAccountPromptCompact{
+  padding:15px 16px;
+  margin:18px 0 20px;
+  gap:10px;
+}
+.derivAccountPromptCompact h2{font-size:16px}
+.derivAccountPromptCompact .derivAccountPromptCopy>p:last-child{font-size:12px}
+@media(max-width:600px){
+  .derivAccountPrompt{padding:16px}
+  .derivAccountPromptCompact{padding:14px}
+}
