@@ -29,7 +29,62 @@ jobs:
         run: node scripts/check-workspace-routes.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
+      - name: Validate bot control state machine and RLS migration text
+        run: npm run test:controls
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
         run: npm run build
+
+  paper-bot-control-database:
+    name: Persistent paper bot command database smoke test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: senfx_bot_controls
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d senfx_bot_controls"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Prepare isolated Postgres roles and existing bot table shapes
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d senfx_bot_controls -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users(id uuid PRIMARY KEY);
+          CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
+            AS 'SELECT NULLIF(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
+          CREATE TABLE public.bots(id uuid PRIMARY KEY, is_published boolean NOT NULL);
+          CREATE TABLE public.customer_bots(
+            customer_id uuid NOT NULL, bot_id uuid NOT NULL, trading_mode text NOT NULL,
+            selected boolean NOT NULL, control_status text NOT NULL
+          );
+          CREATE TABLE public.customer_bot_configurations(
+            customer_id uuid NOT NULL, bot_id uuid NOT NULL, trading_mode text NOT NULL,
+            stake_amount numeric NOT NULL, daily_loss_limit numeric
+          );
+          GRANT USAGE ON SCHEMA auth,public TO authenticated,service_role;
+          GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+          SQL
+      - name: Run migration and rollback-only paper control tests
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d senfx_bot_controls -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
+          psql -h localhost -U postgres -d senfx_bot_controls -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-bot-controls-smoke-test.sql
