@@ -81,6 +81,7 @@ export default function DemoTradingConsole() {
   const requestCounter = useRef(1);
   const activeOrderRef = useRef<ActiveOrder | null>(null);
   const settleInFlight = useRef(false);
+  const reconcilingOrders = useRef<Set<string>>(new Set());
   const currencyRef = useRef("USD");
 
   useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
@@ -220,7 +221,7 @@ export default function DemoTradingConsole() {
         currencyRef.current = result.account.currency;
         setMessage("Connected to your Deriv Demo account. Real accounts are not supported in this console.");
         const existing = activeOrderRef.current;
-        if (existing?.contract_id && existing.status === "open") {
+        if (existing?.contract_id && ["open", "buy_unknown"].includes(existing.status)) {
           subscribeToContract(String(existing.contract_id));
         }
       };
@@ -247,6 +248,42 @@ export default function DemoTradingConsole() {
           const current = activeOrderRef.current;
           // Ignore any contract update that is not the active SENFX Demo contract.
           if (!current?.contract_id || String(contractData.contract_id) !== String(current.contract_id)) return;
+
+          if (current.status === "buy_unknown") {
+            // Reconcile a known contract ID against Deriv before marking it open.
+            // This never sends a second buy request.
+            if (reconcilingOrders.current.has(current.id)) return;
+            reconcilingOrders.current.add(current.id);
+            void (async () => {
+              try {
+                const response = await fetch(API, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ action: "confirm", orderId: current.id, contractId: current.contract_id }),
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                  throw new Error(result.error || "Deriv contract could not be reconciled.");
+                }
+                const reconciled = { ...current, status: "open" };
+                activeOrderRef.current = reconciled;
+                setActiveOrder(reconciled);
+                setContract(contractData);
+                setMessage("Existing Demo contract verified with Deriv. No second purchase was sent.");
+                if (contractData.is_sold === 1 || contractData.is_expired === 1) {
+                  await settleOrder(current.id);
+                }
+                await refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Could not reconcile the existing Demo contract.");
+              } finally {
+                reconcilingOrders.current.delete(current.id);
+              }
+            })();
+            return;
+          }
+
           setContract(contractData);
           if (current.id && (contractData.is_sold === 1 || contractData.is_expired === 1)) {
             void settleOrder(current.id);
