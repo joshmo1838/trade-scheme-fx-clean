@@ -264,6 +264,7 @@ language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_order public.deriv_demo_orders%rowtype;
+  v_risk public.deriv_demo_daily_risk%rowtype;
 begin
   select * into v_order from public.deriv_demo_orders
   where id=p_order_id and user_id=p_user_id for update;
@@ -273,13 +274,27 @@ begin
   if v_order.status='cancelled' then
     return jsonb_build_object('cancelled',true,'idempotent',true);
   end if;
-  if v_order.status<>'quoted' or v_order.contract_id is not null then
-    return jsonb_build_object('cancelled',false,'reason','A reserved or uncertain order cannot be cancelled this way.');
+
+  if v_order.contract_id is not null or v_order.status not in ('quoted','reserved')
+     or v_order.buy_requested_at is not null then
+    return jsonb_build_object('cancelled',false,'reason','A buy attempt has started or the order is uncertain. Use statement reconciliation instead.');
   end if;
+
+  if v_order.status='reserved' then
+    select * into v_risk from public.deriv_demo_daily_risk
+    where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_order.risk_date for update;
+    if not found then
+      return jsonb_build_object('cancelled',false,'reason','The Demo risk reservation could not be found.');
+    end if;
+    update public.deriv_demo_daily_risk
+    set reserved_loss=greatest(0,reserved_loss-v_order.stake_amount),updated_at=now()
+    where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_order.risk_date;
+  end if;
+
   update public.deriv_demo_orders
   set status='cancelled',contract_status=left(coalesce(p_reason,'Quote cancelled before purchase.'),160),updated_at=now()
   where id=p_order_id;
-  return jsonb_build_object('cancelled',true);
+  return jsonb_build_object('cancelled',true,'riskReleased',v_order.status='reserved');
 end;
 $$;
 
