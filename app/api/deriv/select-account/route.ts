@@ -153,6 +153,28 @@ export async function POST(request: NextRequest) {
 
     const accountId = body?.account_id;
 
+    const { data: activeDemoOrders, error: activeOrdersError } = await admin
+      .from("deriv_demo_orders")
+      .select("id")
+      .eq("user_id", user.id)
+      .in("status", ["reserved", "open", "buy_unknown"])
+      .limit(1);
+
+    if (activeOrdersError) {
+      console.error("Active Demo order guard failed:", activeOrdersError.code);
+      return NextResponse.json(
+        { error: "Could not verify your open Demo orders. Try again before changing accounts." },
+        { status: 503 }
+      );
+    }
+
+    if (activeDemoOrders && activeDemoOrders.length > 0) {
+      return NextResponse.json(
+        { error: "You cannot switch Deriv accounts while a SENFX Demo order is open or unresolved. Settle or reconcile it first." },
+        { status: 409 }
+      );
+    }
+
     if (
       typeof accountId !== "string" ||
       !/^[A-Za-z0-9]+$/.test(accountId)
