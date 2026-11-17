@@ -1,0 +1,357 @@
+import { randomUUID } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  DEMO_DAILY_LOSS_LIMIT,
+  DEMO_MARKETS,
+  DEMO_STAKE,
+  getDerivDemoContext,
+  getDemoWebSocketUrl,
+  requestOnDemoWebSocket,
+  safeDemoError,
+} from "@/lib/deriv/demo-server";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 20;
+
+const noStore = { "Cache-Control": "no-store, max-age=0" };
+const FINAL_STATUSES = new Set(["won", "lost", "sold"]);
+
+function jsonError(message: string, status = 400, code = "INVALID_REQUEST") {
+  return NextResponse.json({ success: false, error: message, code }, { status, headers: noStore });
+}
+
+async function readJson(request: NextRequest) {
+  const raw = await request.text();
+  if (raw.length > 8_192) throw new Error("Request is too large.");
+  try { return JSON.parse(raw); }
+  catch { throw new Error("Invalid JSON request."); }
+}
+
+function assertSameOrigin(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (!origin) return;
+  try {
+    if (new URL(origin).origin !== request.nextUrl.origin) throw new Error("Cross-origin request rejected.");
+  } catch {
+    throw new Error("Cross-origin request rejected.");
+  }
+}
+
+async function readOrder(admin: any, userId: string, orderId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(orderId)) throw new Error("Invalid Demo order ID.");
+  const { data, error } = await admin.from("deriv_demo_orders")
+    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,contract_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
+    .eq("id", orderId).eq("user_id", userId).maybeSingle();
+  if (error || !data) throw new Error("Demo order was not found.");
+  return data;
+}
+
+function safeRisk(risk: any, orders: any[]) {
+  const dailyLoss = Number(risk?.realized_loss ?? 0);
+  const reservedLoss = Number(risk?.reserved_loss ?? 0);
+  const limit = Number(risk?.daily_loss_limit ?? DEMO_DAILY_LOSS_LIMIT);
+  return {
+    dailyLoss,
+    reservedLoss,
+    dailyLossLimit: limit,
+    remainingLossBudget: Math.max(0, limit - dailyLoss - reservedLoss),
+    limitReached: dailyLoss + reservedLoss + DEMO_STAKE > limit,
+    orders,
+  };
+}
+
+export async function GET() {
+  try {
+    if (process.env.DERIV_DEMO_TRADING_ENABLED !== "true") {
+      return NextResponse.json({ enabled: false, error: "Deriv Demo execution is not enabled for this deployment." }, { status: 503, headers: noStore });
+    }
+
+    const context = await getDerivDemoContext();
+    const riskDate = new Date().toISOString().slice(0, 10);
+    const [riskResult, orderResult] = await Promise.all([
+      context.admin.from("deriv_demo_daily_risk")
+        .select("risk_date,currency,daily_loss_limit,realized_loss,reserved_loss")
+        .eq("user_id", context.user.id)
+        .eq("account_id", context.account.account_id)
+        .eq("risk_date", riskDate)
+        .maybeSingle(),
+      context.admin.from("deriv_demo_orders")
+        .select("id,market_symbol,contract_type,duration,duration_unit,stake_amount,currency,status,contract_id,buy_price,sell_price,profit,contract_status,created_at,opened_at,settled_at")
+        .eq("user_id", context.user.id)
+        .eq("account_id", context.account.account_id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    if (riskResult.error || orderResult.error) {
+      console.error("SENFX Demo dashboard lookup failed:", {
+        riskCode: riskResult.error?.code,
+        ordersCode: orderResult.error?.code,
+      });
+      return jsonError("Could not load Demo risk and order history. Apply the SENFX Demo execution migration.", 503, "DEMO_SCHEMA_MISSING");
+    }
+
+    const orders = orderResult.data || [];
+    return NextResponse.json({
+      enabled: true,
+      account: {
+        accountId: context.account.account_id,
+        accountType: "demo",
+        currency: context.account.currency,
+        balance: Number(context.account.balance),
+      },
+      riskDate,
+      ...safeRisk(riskResult.data, orders),
+      activeOrder: orders.find((order: any) => ["reserved", "open", "buy_unknown"].includes(order.status)) || null,
+    }, { headers: noStore });
+  } catch (error) {
+    const safe = safeDemoError(error);
+    return NextResponse.json({ enabled: false, error: safe.error, code: safe.code }, { status: safe.status, headers: noStore });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    assertSameOrigin(request);
+    if (process.env.DERIV_DEMO_TRADING_ENABLED !== "true") {
+      return jsonError("Deriv Demo execution is not enabled for this deployment.", 503, "DEMO_EXECUTION_DISABLED");
+    }
+
+    const body = await readJson(request);
+    const action = body?.action;
+    const context = await getDerivDemoContext();
+
+    if (action === "reserve") {
+      const requestId = body?.requestId;
+      const proposalId = body?.proposalId;
+      const marketSymbol = body?.marketSymbol;
+      const direction = body?.direction;
+      const currency = body?.currency;
+      const askPrice = Number(body?.askPrice);
+      const payout = Number(body?.payout);
+      const longcode = typeof body?.longcode === "string" ? body.longcode.slice(0, 500) : null;
+
+      if (typeof requestId !== "string" || !/^[0-9a-f-]{36}$/i.test(requestId)) return jsonError("A valid request ID is required.");
+      if (typeof proposalId !== "string" || !/^[A-Za-z0-9_-]{24,128}$/.test(proposalId)) return jsonError("Deriv returned an invalid proposal ID.");
+      if (typeof marketSymbol !== "string" || !DEMO_MARKETS.has(marketSymbol)) return jsonError("This market is not enabled for SENFX Demo execution.");
+      if (direction !== "CALL" && direction !== "PUT") return jsonError("Choose Rise (CALL) or Fall (PUT).");
+      if (currency !== context.account.currency) return jsonError("The quote currency does not match your selected Demo account.");
+      if (!Number.isFinite(askPrice) || askPrice <= 0 || askPrice > DEMO_STAKE) return jsonError("The quoted stake must not exceed 10 account-currency units.");
+      if (!Number.isFinite(payout) || payout <= 0) return jsonError("Deriv did not return a valid potential payout.");
+
+      const { data: order, error: insertError } = await context.admin.from("deriv_demo_orders")
+        .insert({
+          request_id: requestId,
+          user_id: context.user.id,
+          account_id: context.account.account_id,
+          currency: context.account.currency,
+          market_symbol: marketSymbol,
+          contract_type: direction,
+          duration: 5,
+          duration_unit: "m",
+          stake_amount: DEMO_STAKE,
+          proposal_id: proposalId,
+          ask_price: askPrice,
+          payout,
+          longcode,
+          status: "quoted",
+          quote_expires_at: new Date(Date.now() + 20_000).toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !order) {
+        console.error("SENFX Demo order quote save failed:", insertError?.code);
+        return jsonError("Could not save the Demo quote. Refresh the price and try once.", 503, "QUOTE_SAVE_FAILED");
+      }
+
+      const { data: reservation, error: reserveError } = await context.admin.rpc("senfx_demo_reserve_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+      });
+
+      if (reserveError || !reservation?.allowed) {
+        await context.admin.from("deriv_demo_orders").update({ status: "rejected", updated_at: new Date().toISOString() })
+          .eq("id", order.id).eq("user_id", context.user.id);
+        if (reserveError) {
+          console.error("SENFX Demo risk reservation failed:", reserveError.code);
+          return jsonError("The server could not reserve the Demo risk budget. No buy request was sent.", 503, "RISK_RESERVATION_FAILED");
+        }
+        return NextResponse.json({
+          success: false,
+          error: reservation?.reason || "The Demo risk limit blocked this trade.",
+          risk: reservation,
+        }, { status: 409, headers: noStore });
+      }
+
+      return NextResponse.json({
+        success: true,
+        orderId: order.id,
+        stakeAmount: DEMO_STAKE,
+        risk: reservation,
+        instruction: "Risk is reserved. Submit the proposal ID once on the currently connected Deriv Demo WebSocket.",
+      }, { headers: noStore });
+    }
+
+    if (action === "confirm") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      if (order.status !== "reserved" && order.status !== "buy_unknown") {
+        return jsonError("This Demo order is not awaiting contract confirmation.", 409, "ORDER_NOT_RESERVED");
+      }
+      const contractId = String(body?.contractId ?? "");
+      if (!/^\d{1,30}$/.test(contractId) || !Number.isSafeInteger(Number(contractId))) {
+        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
+        return jsonError("Deriv returned an invalid contract ID. The risk reservation remains held for safety.", 409, "CONTRACT_ID_INVALID");
+      }
+
+      const wsUrl = await getDemoWebSocketUrl(context);
+      const reqId = Date.now() % 2_000_000_000;
+      let verification: any;
+      try {
+        verification = await requestOnDemoWebSocket(wsUrl, {
+          proposal_open_contract: 1,
+          contract_id: Number(contractId),
+          req_id: reqId,
+        }, "proposal_open_contract");
+      } catch {
+        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
+        return jsonError("The buy response needs reconciliation. The $10 risk reservation remains held; do not retry the purchase.", 503, "BUY_CONFIRMATION_UNVERIFIED");
+      }
+
+      const contract = verification?.proposal_open_contract;
+      const actualBuyPrice = Number(contract?.buy_price);
+      if (
+        String(contract?.contract_id) !== contractId ||
+        contract?.underlying_symbol !== order.market_symbol ||
+        contract?.contract_type !== order.contract_type ||
+        contract?.currency !== order.currency ||
+        !Number.isFinite(actualBuyPrice) ||
+        actualBuyPrice <= 0 ||
+        actualBuyPrice > DEMO_STAKE
+      ) {
+        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
+        return jsonError("Deriv's contract details did not match the reserved quote. Risk remains reserved until reconciled.", 409, "CONTRACT_DETAILS_MISMATCH");
+      }
+
+      const { data: confirmed, error: confirmError } = await context.admin.rpc("senfx_demo_confirm_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+        p_contract_id: contractId,
+        p_buy_price: actualBuyPrice,
+      });
+
+      if (confirmError || !confirmed?.confirmed) {
+        await context.admin.rpc("senfx_demo_mark_buy_unknown", { p_user_id: context.user.id, p_order_id: order.id });
+        return jsonError("The contract exists but SENFX could not confirm the order record. Its risk remains reserved.", 503, "ORDER_CONFIRM_FAILED");
+      }
+
+      return NextResponse.json({
+        success: true,
+        orderId: order.id,
+        contractId,
+        status: contract?.status || "open",
+        buyPrice: actualBuyPrice,
+        isSold: contract?.is_sold === 1,
+        isExpired: contract?.is_expired === 1,
+      }, { headers: noStore });
+    }
+
+    if (action === "buy-unknown") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      const { data, error } = await context.admin.rpc("senfx_demo_mark_buy_unknown", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+      });
+      if (error || !data?.updated) return jsonError("Could not preserve the unresolved Demo reservation.", 503, "UNKNOWN_ORDER_UPDATE_FAILED");
+      return NextResponse.json({ success: true, riskRemainsReserved: true }, { headers: noStore });
+    }
+
+    if (action === "cancel") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      const { data, error } = await context.admin.rpc("senfx_demo_cancel_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+        p_reason: typeof body?.reason === "string" ? body.reason.slice(0, 160) : "Deriv rejected the Demo purchase.",
+      });
+      if (error || !data?.cancelled) return jsonError("SENFX could not release this reservation. It remains held for safety.", 409, "DEMO_RESERVATION_NOT_RELEASED");
+      return NextResponse.json({ success: true, cancelled: true }, { headers: noStore });
+    }
+
+    if (action === "settle") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      if (FINAL_STATUSES.has(order.status)) {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: risk } = await context.admin.from("deriv_demo_daily_risk")
+          .select("daily_loss_limit,realized_loss,reserved_loss")
+          .eq("user_id", context.user.id).eq("account_id", order.account_id).eq("risk_date", order.risk_date || today).maybeSingle();
+        return NextResponse.json({
+          success: true, settled: true, status: order.status, profit: Number(order.profit || 0),
+          dailyLoss: Number(risk?.realized_loss || 0), reservedLoss: Number(risk?.reserved_loss || 0),
+          dailyLossLimit: Number(risk?.daily_loss_limit || DEMO_DAILY_LOSS_LIMIT),
+          remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit || DEMO_DAILY_LOSS_LIMIT) - Number(risk?.realized_loss || 0) - Number(risk?.reserved_loss || 0)),
+        }, { headers: noStore });
+      }
+      if (order.status !== "open" || !order.contract_id) {
+        if (order.status === "buy_unknown") {
+          return jsonError("This purchase is unresolved. Its risk reservation remains held; do not place another trade.", 409, "BUY_REQUIRES_RECONCILIATION");
+        }
+        return jsonError("No confirmed open Demo contract was found.", 409, "ORDER_NOT_OPEN");
+      }
+
+      const wsUrl = await getDemoWebSocketUrl(context);
+      const reqId = Date.now() % 2_000_000_000;
+      const statusMessage: any = await requestOnDemoWebSocket(wsUrl, {
+        proposal_open_contract: 1,
+        contract_id: Number(order.contract_id),
+        req_id: reqId,
+      }, "proposal_open_contract");
+      const contract = statusMessage?.proposal_open_contract;
+
+      if (String(contract?.contract_id) !== String(order.contract_id)) {
+        return jsonError("Deriv did not confirm this contract ID.", 409, "CONTRACT_NOT_VERIFIED");
+      }
+      const isFinal = contract?.is_sold === 1 || contract?.is_expired === 1 || FINAL_STATUSES.has(String(contract?.status || "").toLowerCase());
+      if (!isFinal) {
+        return NextResponse.json({
+          success: true, settled: false, status: "open",
+          contractStatus: contract?.status || "open",
+          currentProfit: Number(contract?.profit || 0),
+          isValidToSell: contract?.is_valid_to_sell === 1,
+        }, { headers: noStore });
+      }
+
+      const profit = Number(contract?.profit);
+      if (!Number.isFinite(profit)) return jsonError("Deriv did not return a final contract profit. Reservation remains held.", 503, "FINAL_PROFIT_MISSING");
+
+      const contractStatus = String(contract?.status || (contract?.is_sold === 1 ? "sold" : profit < 0 ? "lost" : "won")).toLowerCase();
+      const finalStatus = contract?.is_sold === 1 || contractStatus === "sold" ? "sold" : profit < 0 ? "lost" : "won";
+      const sellPrice = contract?.sell_price == null ? null : Number(contract.sell_price);
+
+      const { data: settled, error: settleError } = await context.admin.rpc("senfx_demo_settle_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+        p_final_status: finalStatus,
+        p_profit: profit,
+        p_sell_price: Number.isFinite(sellPrice) ? sellPrice : null,
+        p_contract_status: contractStatus,
+      });
+
+      if (settleError || !settled?.settled) {
+        console.error("SENFX Demo settlement failed:", settleError?.code);
+        return jsonError("Deriv reports the contract finished, but SENFX could not update its risk ledger. Do not place another trade.", 503, "DEMO_SETTLEMENT_FAILED");
+      }
+
+      return NextResponse.json({ success: true, ...settled }, { headers: noStore });
+    }
+
+    return jsonError("Unsupported Demo order action.");
+  } catch (error) {
+    const safe = safeDemoError(error);
+    if (safe.status >= 500) console.error("SENFX Demo order route failure:", safe.code);
+    return NextResponse.json(
+      { success: false, error: safe.error, code: safe.code },
+      { status: safe.status },
+    );
+  }
+}
