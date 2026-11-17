@@ -124,3 +124,23 @@ Risk behavior:
 - The paper engine continues to use a simplified illustrative 1:1 payout model and public quotes. It is not a Deriv contract, not verified trading performance, and it does not submit demo or real-money orders.
 
 Real-money execution remains disabled. Do not treat successful deployment or paper tests as approval for live trading.
+
+## SENFX Deriv Demo contract execution — Phase 1
+
+This phase adds a **manual Demo-only execution console** at `/demo-trading`. It uses the user's own Deriv OAuth connection and a selected active Demo account.
+
+Before enabling it in a deployment:
+
+1. Register the exact callback URI in the Deriv OAuth developer dashboard. Production default: `https://www.tradesche.com/api/deriv/callback`. A Preview deployment needs its own exact registered callback URI and Preview values for `DERIV_REDIRECT_URI` and `DERIV_SITE_URL`.
+2. Add the server-only variables in `.env.example` to Vercel. Generate `DERIV_TOKEN_ENCRYPTION_KEY` with `openssl rand -hex 32`; never commit or share it.
+3. Keep `DERIV_OAUTH_ENABLED=false` until the OAuth app and callback are approved/configured. Keep `DERIV_DEMO_TRADING_ENABLED=false` until the migration is applied and Preview is ready.
+4. Apply `supabase/senfx-deriv-demo-execution.sql` in the target Supabase project's SQL Editor.
+5. Set both flags to `true` in the **Preview environment only** after checking the Deriv OAuth application configuration, then redeploy Preview.
+6. Connect Deriv, select an active Demo account, and open `/demo-trading`.
+
+Phase 1 deliberately uses a manual confirmation before each Deriv contract. The stake is fixed at 10 account-currency units, duration is five minutes, one active contract is allowed, and SENFX reserves risk against a 20 account-currency-unit daily gross-loss cap per connected Demo account. The full stake is reserved before the buy request. Contract existence and final P/L are checked against Deriv on the server. Ambiguous buy outcomes keep their reservation held.
+
+The Demo OTP URL is short-lived and single-use. The OAuth access token is decrypted and used only on the server; no Real WebSocket URL or Real buy/sell route is used. The daily ledger only covers trades sent through SENFX, not trades the user places directly on Deriv outside the app. A successful Demo order is not evidence of future live profitability.
+
+**Important:** This is the first actual Demo contract lifecycle, not unattended bot automation. Automatic bot execution is a subsequent milestone after the manual Demo order, contract monitoring, early sell, settlement, and risk ledger pass end-to-end testing.
+
