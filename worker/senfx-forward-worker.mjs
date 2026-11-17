@@ -107,6 +107,9 @@ let state = {
 };
 let heartbeatTimer;
 let derivPingTimer;
+let diagnosticsTimer;
+let receivedTickCount = 0;
+let lastTickEpoch = 0;
 
 async function saveState() {
   const rows = await db(`senfx_forward_runs?run_id=eq.${encodeURIComponent(RUN_ID)}`, {
@@ -252,6 +255,8 @@ function connect() {
     if (message.msg_type !== "tick" || !message.tick) return;
     const price = Number(message.tick.quote), epoch = Number(message.tick.epoch);
     if (!Number.isFinite(price) || !Number.isFinite(epoch)) return;
+    receivedTickCount += 1;
+    lastTickEpoch = epoch;
     const minuteEpoch = Math.floor(epoch / 60) * 60;
     if (!state.currentMinute || minuteEpoch > state.currentMinute.epoch) {
       if (state.currentMinute) await handleCompletedBar(state.currentMinute);
@@ -294,13 +299,23 @@ async function main() {
     return;
   }
   heartbeatTimer = setInterval(() => {
-    void saveState().catch((error) => console.error("Heartbeat persistence failed:", error));
+    void saveState()
+      .then(() => console.log("Supabase heartbeat save succeeded."))
+      .catch((error) => console.error("Heartbeat persistence failed:", error));
   }, HEARTBEAT_MS);
+  diagnosticsTimer = setInterval(() => {
+    const tickAgeSeconds = lastTickEpoch ? Math.max(0, Math.floor(Date.now() / 1000) - lastTickEpoch) : null;
+    console.log(
+      `R_100 diagnostics: ticks_received_since_start=${receivedTickCount}, last_tick_age_seconds=${tickAgeSeconds ?? "none"}, completed_trades=${state.completedTrades}/${TARGET_TRADES}, wins=${state.wins}, losses=${state.losses}, socket_ready_state=${socket?.readyState ?? "none"}.`
+    );
+    receivedTickCount = 0;
+  }, 60_000);
   connect();
 }
 process.on("SIGTERM", () => {
   stopped = true;
   clearInterval(heartbeatTimer);
+  clearInterval(diagnosticsTimer);
   clearTimeout(reconnectTimer);
   clearTimeout(connectionStableTimer);
   clearInterval(derivPingTimer);
