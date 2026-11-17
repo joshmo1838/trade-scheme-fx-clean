@@ -82,6 +82,7 @@ export default function DemoTradingConsole() {
   const activeOrderRef = useRef<ActiveOrder | null>(null);
   const settleInFlight = useRef(false);
   const reconcilingOrders = useRef<Set<string>>(new Set());
+  const forgottenContracts = useRef<Set<string>>(new Set());
   const currencyRef = useRef("USD");
 
   useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
@@ -272,6 +273,16 @@ export default function DemoTradingConsole() {
                 setContract(contractData);
                 setMessage("Existing Demo contract verified with Deriv. No second purchase was sent.");
                 if (contractData.is_sold === 1 || contractData.is_expired === 1) {
+                  const contractKey = String(contractData.contract_id);
+                  const subscriptionId = data.subscription?.id;
+                  if (
+                    subscriptionId &&
+                    socket.readyState === WebSocket.OPEN &&
+                    !forgottenContracts.current.has(contractKey)
+                  ) {
+                    socket.send(JSON.stringify({ forget: subscriptionId }));
+                    forgottenContracts.current.add(contractKey);
+                  }
                   await settleOrder(current.id);
                 }
                 await refresh();
@@ -286,6 +297,20 @@ export default function DemoTradingConsole() {
 
           setContract(contractData);
           if (current.id && (contractData.is_sold === 1 || contractData.is_expired === 1)) {
+            const contractKey = String(contractData.contract_id);
+            const subscriptionId = data.subscription?.id;
+            if (
+              subscriptionId &&
+              socket.readyState === WebSocket.OPEN &&
+              !forgottenContracts.current.has(contractKey)
+            ) {
+              try {
+                socket.send(JSON.stringify({ forget: subscriptionId }));
+                forgottenContracts.current.add(contractKey);
+              } catch {
+                setError("The contract settled, but its live update subscription could not be released. Refresh the Demo workspace.");
+              }
+            }
             void settleOrder(current.id);
           }
         }
