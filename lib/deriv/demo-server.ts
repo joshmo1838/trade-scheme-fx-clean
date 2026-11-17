@@ -362,7 +362,7 @@ export async function openDerivDemoSession(
           pending.delete(reqId);
           reject(new DemoApiError("Deriv did not respond before timeout.", 504, "DERIV_WS_TIMEOUT"));
         }, timeoutMs);
-        pending.set(reqId, { expectedType, resolve, reject, timer });
+        pending.set(reqId, { expectedType: expectedMessageType, resolve, reject, timer });
         try {
           socket.send(JSON.stringify({ ...payload, req_id: reqId }));
         } catch {
