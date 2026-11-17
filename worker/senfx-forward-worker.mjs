@@ -93,6 +93,7 @@ function getSignal(bars) {
 
 let socket;
 let reconnectTimer;
+let connectionStableTimer;
 let reconnectDelay = 1000;
 let stopped = false;
 let state = {
@@ -192,7 +193,12 @@ function connect() {
   console.log("Connecting to Deriv public R_100 feed…");
   socket = new globalThis.WebSocket(DERIV_WS_URL);
   socket.addEventListener("open", () => {
-    reconnectDelay = 1000;
+    console.log("WebSocket opened; waiting for a stable connection before resetting reconnect backoff.");
+    clearTimeout(connectionStableTimer);
+    connectionStableTimer = setTimeout(() => {
+      reconnectDelay = 1000;
+      console.log("Deriv WebSocket connection stable for 30 seconds; reconnect delay reset.");
+    }, 30_000);
     console.log("Connected; subscribing to R_100 ticks and one-minute candle history.");
     socket.send(JSON.stringify({ ticks: MARKET, subscribe: 1 }));
     socket.send(JSON.stringify({
@@ -246,9 +252,20 @@ function connect() {
       state.currentMinute.close = price;
     }
   });
-  socket.addEventListener("error", () => console.error("Deriv WebSocket error"));
-  socket.addEventListener("close", () => {
+  socket.addEventListener("error", (event) => {
+    const details = {
+      type: event?.type || "error",
+      message: event?.message || null,
+      error: event?.error?.message || event?.error?.name || null,
+    };
+    console.error("Deriv WebSocket error details:", JSON.stringify(details));
+  });
+  socket.addEventListener("close", (event) => {
+    clearTimeout(connectionStableTimer);
     if (stopped) return;
+    console.warn(
+      `Deriv WebSocket closed: code=${event?.code ?? "unknown"}, reason=${event?.reason || "(no reason supplied)"}, clean=${event?.wasClean ?? "unknown"}.`
+    );
     console.warn(`Feed disconnected. Reconnecting in ${Math.round(reconnectDelay / 1000)}s.`);
     clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connect, reconnectDelay);
@@ -272,6 +289,7 @@ process.on("SIGTERM", () => {
   stopped = true;
   clearInterval(heartbeatTimer);
   clearTimeout(reconnectTimer);
+  clearTimeout(connectionStableTimer);
   socket?.close();
   console.log("Worker shutting down; latest state was persisted on each completed candle.");
 });
