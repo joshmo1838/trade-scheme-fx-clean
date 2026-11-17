@@ -25,6 +25,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Check workspace links
+        run: node scripts/check-workspace-routes.mjs
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
