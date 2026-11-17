@@ -20,6 +20,11 @@ alter table public.deriv_connections
 alter table public.deriv_connections
   add column if not exists active_account_type text;
 
+-- OAuth tokens are only decrypted by server-side routes using the service role.
+alter table public.deriv_connections enable row level security;
+revoke all on public.deriv_connections from anon, authenticated;
+grant all on public.deriv_connections to service_role;
+
 create table if not exists public.deriv_demo_daily_risk (
   user_id uuid not null references auth.users(id) on delete cascade,
   account_id text not null,
