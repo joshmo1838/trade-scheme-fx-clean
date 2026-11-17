@@ -38,16 +38,16 @@ Demo account workflow
 1. Sign in to Trade Scheme FX.
 2. Connect Deriv through OAuth.
 3. Select an active Demo account in the dashboard. Real accounts are not selectable for SENFX Demo execution.
-4. Open /demo-trading and connect to the Demo session.
-5. Request a fresh Deriv proposal and review it.
-6. Confirm one Demo purchase. The first release fixes the stake at 10 account-currency units, duration at 5 minutes, one active contract at a time, and the daily SENFX Demo gross-loss cap at 20 account-currency units.
-7. SENFX reserves the full stake before the buy request. It verifies the created contract on Deriv and reconciles final P/L server-side before releasing the reservation.
+4. Open /demo-trading. SENFX verifies your selected Demo account from the server.
+5. Request a price. SENFX obtains the proposal on its authenticated server-side WebSocket and saves the terms for your review.
+6. Confirm one Demo purchase. SENFX opens a fresh server-side session, obtains a new streaming proposal, checks that price and payout still match the terms you reviewed, reserves the 10-unit stake, and buys that exact proposal on the same authenticated session.
+7. SENFX verifies the returned contract on Deriv, monitors it through server-side status requests, and reconciles final P/L before releasing the reservation. You can request an early sell from the Demo console when Deriv marks the contract sellable.
 
 Execution and safety boundaries
-- The app issues Demo OTP URLs only. The OTP is short-lived, single-use, and limited to Deriv's /trading/v1/options/ws/demo endpoint.
+- SENFX obtains and consumes Demo OTP URLs on the server only. The browser never receives an OTP URL or an authenticated trading WebSocket. Each OTP is short-lived, single-use, and restricted to Deriv's /trading/v1/options/ws/demo endpoint.
 - The Real WebSocket endpoint is not used by this feature. No Real-account buy or sell endpoint is provided.
 - The $20 cap tracks SENFX-originated Demo contracts in the selected account. It does not include trades placed directly on Deriv outside SENFX.
-- If a buy response is ambiguous, SENFX keeps the full stake reserved. Do not repeat the purchase until the order is reconciled.
+- If a buy response is ambiguous, SENFX keeps the full stake reserved and checks the account statement before releasing risk. Do not repeat the purchase until the order is reconciled.
 - Demo contract execution is different from the illustrative public-tick paper simulator. Their history and P/L must remain separately labelled.
 - This is a manual Demo contract test first. Automatic bot execution is a later phase after the Demo lifecycle is proven on test accounts.
 - No profit is guaranteed. Do not treat Demo outcomes as evidence of future live profitability.
