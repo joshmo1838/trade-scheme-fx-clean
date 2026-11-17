@@ -220,3 +220,21 @@ export function safeDemoError(error: unknown) {
   console.error("Unexpected SENFX Demo execution error:", error instanceof Error ? error.name : "UnknownError");
   return { error: "SENFX could not complete the Demo request.", code: "INTERNAL_ERROR", status: 500 };
 }
+
+export async function getDemoStatement(context: DerivDemoContext, dateFrom: number) {
+  const websocketUrl = await getDemoWebSocketUrl(context);
+  const reqId = (Date.now() % 1_000_000_000) + Math.floor(Math.random() * 1000);
+  return requestOnDemoWebSocket<any>(
+    websocketUrl,
+    {
+      statement: 1,
+      action_type: "buy",
+      date_from: Math.max(0, Math.floor(dateFrom) - 5),
+      description: 1,
+      limit: 999,
+      req_id: reqId,
+    },
+    "statement",
+    12_000,
+  );
+}
