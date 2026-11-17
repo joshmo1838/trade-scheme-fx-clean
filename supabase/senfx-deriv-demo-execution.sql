@@ -1,4 +1,5 @@
 -- SENFX Demo-only execution. Never enables the Real WebSocket.
+-- Educational Demo trading has no SENFX daily loss cap; the customer's available Deriv virtual balance applies.
 -- Apply after the existing Supabase foundation and Deriv OAuth token migration.
 begin;
 
@@ -31,7 +32,7 @@ create table if not exists public.deriv_demo_daily_risk (
   account_id text not null,
   risk_date date not null,
   currency text not null,
-  daily_loss_limit numeric(12,2) not null default 20 check (daily_loss_limit = 20),
+  daily_loss_limit numeric(12,2) not null default 20 check (daily_loss_limit = 20), -- legacy compatibility field; NOT ENFORCED
   realized_loss numeric(12,2) not null default 0 check (realized_loss >= 0),
   reserved_loss numeric(12,2) not null default 0 check (reserved_loss >= 0),
   created_at timestamptz not null default now(),
@@ -162,15 +163,6 @@ begin
   if v_risk.currency <> v_order.currency then
     return jsonb_build_object('allowed', false, 'reason', 'The account currency changed. Refresh the account before trading.');
   end if;
-  if v_risk.realized_loss + v_risk.reserved_loss + v_order.stake_amount > v_risk.daily_loss_limit then
-    return jsonb_build_object(
-      'allowed',false,'reason','The $20 daily Demo loss limit has been reached or fully reserved.',
-      'dailyLoss',v_risk.realized_loss,'reservedLoss',v_risk.reserved_loss,
-      'dailyLossLimit',v_risk.daily_loss_limit,
-      'remainingLossBudget',greatest(0,v_risk.daily_loss_limit-v_risk.realized_loss-v_risk.reserved_loss)
-    );
-  end if;
-
   update public.deriv_demo_daily_risk
   set reserved_loss=reserved_loss+v_order.stake_amount,updated_at=now()
   where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_day
@@ -181,8 +173,8 @@ begin
 
   return jsonb_build_object(
     'allowed',true,'orderId',p_order_id,'dailyLoss',v_risk.realized_loss,
-    'reservedLoss',v_risk.reserved_loss,'dailyLossLimit',v_risk.daily_loss_limit,
-    'remainingLossBudget',greatest(0,v_risk.daily_loss_limit-v_risk.realized_loss-v_risk.reserved_loss)
+    'reservedLoss',v_risk.reserved_loss,'dailyLossLimit',null,
+    'remainingLossBudget',null,'unlimitedDemoPractice',true
   );
 end;
 $$;
@@ -373,8 +365,7 @@ begin
     return jsonb_build_object(
       'settled',true,'idempotent',true,'profit',v_order.profit,
       'dailyLoss',coalesce(v_risk.realized_loss,0),'reservedLoss',coalesce(v_risk.reserved_loss,0),
-      'dailyLossLimit',coalesce(v_risk.daily_loss_limit,20),
-      'remainingLossBudget',greatest(0,coalesce(v_risk.daily_loss_limit,20)-coalesce(v_risk.realized_loss,0)-coalesce(v_risk.reserved_loss,0))
+      'dailyLossLimit',null,'remainingLossBudget',null,'unlimitedDemoPractice',true
     );
   end if;
   if v_order.status<>'open' then
@@ -401,9 +392,8 @@ begin
   return jsonb_build_object(
     'settled',true,'orderId',p_order_id,'status',p_final_status,'profit',p_profit,
     'dailyLoss',v_risk.realized_loss,'reservedLoss',v_risk.reserved_loss,
-    'dailyLossLimit',v_risk.daily_loss_limit,
-    'remainingLossBudget',greatest(0,v_risk.daily_loss_limit-v_risk.realized_loss-v_risk.reserved_loss),
-    'limitReached',v_risk.realized_loss+v_risk.reserved_loss>=v_risk.daily_loss_limit
+    'dailyLossLimit',null,'remainingLossBudget',null,
+    'unlimitedDemoPractice',true,'limitReached',false
   );
 end;
 $$;
@@ -427,6 +417,6 @@ grant execute on function public.senfx_demo_settle_order(uuid,uuid,text,numeric,
 comment on table public.deriv_demo_orders is
   'SENFX audit records for customer-authorized Deriv Demo contracts only. No Real account execution is supported.';
 comment on table public.deriv_demo_daily_risk is
-  'Per-customer, per-Deriv-Demo-account, UTC-date loss ledger for SENFX-originated Demo orders only.';
+  'Per-customer, per-Deriv-Demo-account, UTC-date audit ledger for SENFX-originated Demo orders. The legacy daily_loss_limit column is not enforced.';
 
 commit;
