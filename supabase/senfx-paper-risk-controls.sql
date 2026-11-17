@@ -70,6 +70,9 @@ revoke insert, update, delete on public.customer_paper_trades from anon, authent
 grant select on public.customer_paper_trades to authenticated;
 grant select on public.customer_paper_daily_risk to authenticated;
 grant select on public.customer_paper_trade_reservations to authenticated;
+grant all on public.customer_paper_trades to service_role;
+grant all on public.customer_paper_daily_risk to service_role;
+grant all on public.customer_paper_trade_reservations to service_role;
 
 drop policy if exists "Customers read own paper trades" on public.customer_paper_trades;
 create policy "Customers read own paper trades"
