@@ -23,6 +23,7 @@ const navigation = [
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
   { label: "Market Intelligence", href: "/intelligence", symbol: "◉" },
+  { label: "Backtest Research", href: "/backtest", symbol: "▥" },
   { label: "Hedging Planner", href: "/hedging", symbol: "⇄" },
   { label: "Manual Trader", href: "/manual-trader", symbol: "⌖" },
   { label: "Digit Tools", href: "/digit-tools", symbol: "％" },
