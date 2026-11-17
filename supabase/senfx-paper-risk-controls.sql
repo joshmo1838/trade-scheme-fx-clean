@@ -64,9 +64,9 @@ alter table public.customer_paper_trades enable row level security;
 alter table public.customer_paper_daily_risk enable row level security;
 alter table public.customer_paper_trade_reservations enable row level security;
 
-revoke all on public.customer_paper_daily_risk from anon, authenticated;
-revoke all on public.customer_paper_trade_reservations from anon, authenticated;
-revoke insert, update, delete on public.customer_paper_trades from anon, authenticated;
+revoke all on public.customer_paper_daily_risk from public, anon, authenticated;
+revoke all on public.customer_paper_trade_reservations from public, anon, authenticated;
+revoke insert, update, delete on public.customer_paper_trades from public, anon, authenticated;
 grant select on public.customer_paper_trades to authenticated;
 grant select on public.customer_paper_daily_risk to authenticated;
 grant select on public.customer_paper_trade_reservations to authenticated;
