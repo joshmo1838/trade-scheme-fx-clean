@@ -15,7 +15,7 @@ type Props = {
 const navigation = [
   { label: "Dashboard", href: "/dashboard", symbol: "▦" },
   { label: "Bot Builder", href: "/builder", symbol: "▧" },
-  { label: "Volt AI", href: "/ai-scanner", symbol: "✧" },
+  { label: "Market Scanner", href: "/ai-scanner", symbol: "✧" },
   { label: "Customer Bot Center", href: "/bot-center", symbol: "◈" },
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
@@ -23,12 +23,12 @@ const navigation = [
   { label: "Hedging Tool", href: "/copy-trading", symbol: "⇄" },
   { label: "Manual Trader", href: "/manual-trader", symbol: "⌖" },
   { label: "Digit Tools", href: "/digit-tools", symbol: "％" },
-  { label: "Signal AI", href: "/ai-scanner", symbol: "⌁" },
+  { label: "Paper Signals", href: "/intelligence", symbol: "⌁" },
   { label: "History", href: "/history", symbol: "◷" },
 ];
 
 const launchCards = [
-  { title: "Customer Bot Center", description: "Browse free bots, manage your selections and paper settings.", href: "/bot-center", symbol: "◈", tag: "BOT WORKSPACE" },
+  { title: "Customer Bot Center", description: "Configure and start selected public-tick paper bots, with saved results and risk controls.", href: "/bot-center", symbol: "◈", tag: "PAPER BOT WORKSPACE" },
   { title: "Free Bot Marketplace", description: "Explore strategies available to every registered customer.", href: "/bot-center", symbol: "✦", tag: "FREE ACCESS" },
   { title: "Speed Bot", description: "Quick access to your bot workspace.", href: "/builder", symbol: "ϟ", tag: "QUICK START" },
   { title: "Manual Trading", description: "Review markets and control each trade.", href: "/manual-trader", symbol: "⌖", tag: "MANUAL" },
@@ -74,7 +74,7 @@ export default function TradingWorkspace({
             >
               <span className="workspaceNavSymbol">{item.symbol}</span>
               {item.label}
-              {item.label === "Volt AI" && <em>AI</em>}
+              {item.label === "Market Scanner" && <em>LIVE</em>}
             </Link>
           ))}
           <div className="workspaceSidebarBottom">
@@ -97,7 +97,7 @@ export default function TradingWorkspace({
             <div><small>PLATFORM</small><strong>TRADE SCHEME FX</strong></div>
             <div><small>DERIV CONNECTION</small><strong className={connected ? "positiveText" : "warningText"}>{derivStatus}</strong></div>
             <div><small>TRADING MODE</small><strong>SELECT YOUR ACCOUNT</strong></div>
-            <div><small>BOT EXECUTION</small><strong className="warningText">NOT ACTIVE</strong></div>
+            <div><small>BOT EXECUTION</small><strong className="warningText">PAPER · CUSTOMER START</strong></div>
           </section>
 
           <div className="workspaceSectionHeading">
@@ -142,7 +142,7 @@ export default function TradingWorkspace({
             <article className="workspacePanel workspaceSafetyPanel">
               <p className="workspaceEyebrow">TRADING SAFETY</p>
               <h3>You're in control</h3>
-              <p>Bot execution remains disabled while we complete the execution engine, risk controls and demo testing.</p>
+              <p>You can start and pause server-verified paper simulations from Bot Center. These do not use Deriv Demo or real-money funds. Broker Demo execution remains gated while integration tests are completed.</p>
               <div className="workspaceSafetyPill">DEMO-FIRST DEVELOPMENT</div>
             </article>
           </section>
