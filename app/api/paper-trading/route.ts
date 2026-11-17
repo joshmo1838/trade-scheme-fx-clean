@@ -75,6 +75,9 @@ export async function GET(request: Request) {
     const effectiveLimit = Math.min(dailyLossLimit, Number(risk?.daily_loss_limit ?? dailyLossLimit));
     const remainingLossBudget = Math.max(0, effectiveLimit - dailyLoss - reservedLoss);
 
+    const nextReset = new Date(riskDate + "T00:00:00Z");
+    nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+
     return NextResponse.json({
       enabled: true,
       riskDate,
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
       dailyLossLimit: effectiveLimit,
       remainingLossBudget,
       limitReached: dailyLoss + reservedLoss + stakeAmount > effectiveLimit,
-      resetAt: riskDate + "T00:00:00Z",
+      resetAt: nextReset.toISOString(),
       resetTimeZone: "UTC",
     }, { headers: noStore });
   } catch (error) {
