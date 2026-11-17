@@ -71,3 +71,20 @@ A feature is complete only when its UI, backend behavior, authorization, error s
 - Visual Bot Builder can save and reload account-backed drafts across signed-in devices after applying the SQL migration.
 - Browser-local save and JSON export remain available.
 - Saving a strategy does not execute orders; real-money execution remains disabled.
+
+## Implemented milestone: persistent daily paper-risk enforcement
+- Added a server-maintained daily gross-loss ledger per customer and bot, keyed to the UTC calendar date.
+- Each simulated paper position reserves its full configured stake before opening; a PostgreSQL row lock serializes reservations across browser tabs and devices.
+- Server-side settlement calculates the illustrative paper result from the reserved entry, direction and stake, writes the customer-owned paper trade, releases the reservation and updates daily gross losses.
+- New entries are rejected if the realized gross loss plus outstanding reserved exposure plus the next stake would exceed the effective daily cap.
+- Wins do not replenish the loss budget. A cap decrease takes effect immediately; a cap increase cannot loosen the in-progress UTC day.
+- Added authenticated server endpoints for daily risk status, reserve, settle and cancel; database write functions are executable only by the server service role.
+- Bot Center history now reads persisted paper trade rows instead of session-only local state.
+- Manual Supabase migration is required: `supabase/senfx-paper-risk-controls.sql`.
+- Real-money and Deriv demo order execution remain disabled. The paper model is still illustrative and uses a simplified 1:1 outcome assumption.
+
+## Verification still required
+- Apply the risk migration in the target Supabase project.
+- Verify the Vercel Preview has the server-only `SUPABASE_SERVICE_ROLE_KEY` environment variable.
+- Test loss-limit enforcement, concurrent reservations, refresh persistence, customer isolation, and the 00:00 UTC reset using test accounts.
+- A successful TypeScript/build pipeline does not replace Supabase integration tests or paper-model validation.
