@@ -27,6 +27,8 @@ jobs:
         run: npm install
       - name: Check workspace links
         run: node scripts/check-workspace-routes.mjs
+      - name: Run deterministic bot strategy tests
+        run: npm run test:engine
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
