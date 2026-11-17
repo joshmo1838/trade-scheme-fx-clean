@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import TradingLandingVisual from "@/components/TradingLandingVisual";
 import DerivAccounts from "./deriv-accounts";
 
 type Props = {
@@ -27,11 +30,29 @@ const navigation = [
   { label: "History", href: "/history", symbol: "◷" },
 ];
 
+const videoNav = [
+  { label: "Dashboard", href: "/dashboard", icon: "⌂" },
+  { label: "Bot Builder", href: "/builder", icon: "▧" },
+  { label: "Vault AI", href: "/strategy-lab", icon: "◈" },
+  { label: "Free Bots", href: "/bot-center", icon: "♙" },
+  { label: "Bulk Trader", href: "/bulk-trader", icon: "▤" },
+  { label: "Analysis Tools", href: "/charts", icon: "⌕" },
+  { label: "Hedging Tool", href: "/hedging", icon: "⬡" },
+  { label: "Auto AI", href: "/ai-scanner", icon: "✧" },
+  { label: "Manual Trader", href: "/manual-trader", icon: "▣" },
+  { label: "Premium AI Bots", href: "/bot-center", icon: "◇" },
+  { label: "Apex Bot", href: "/bot-center", icon: "♧" },
+  { label: "Quick Bot", href: "/builder", icon: "ϟ" },
+  { label: "Signal AI", href: "/intelligence", icon: "◎" },
+];
+
+type PublishedBot = { id: string; name: string; market: string; description: string; risk_level: string };
+
 const launchCards = [
   { title: "Customer Bot Center", description: "Configure and start selected public-tick paper bots, with saved results and risk controls.", href: "/bot-center", symbol: "◈", tag: "PAPER BOT WORKSPACE" },
   { title: "Free Bot Marketplace", description: "Explore strategies available to every registered customer.", href: "/bot-center", symbol: "✦", tag: "FREE ACCESS" },
-  { title: "Strategy Simulator", description: "Build a strategy and test it against public market ticks in paper mode.", href: "/builder", symbol: "ϟ", tag: "PAPER PRACTICE" },
-  { title: "Manual Paper Practice", description: "Practice five-tick Rise/Fall decisions using public market prices.", href: "/manual-trader", symbol: "⌖", tag: "PUBLIC-TICK SIMULATOR" },
+  { title: "Speed Bot", description: "Quick access to your bot workspace.", href: "/builder", symbol: "ϟ", tag: "QUICK START" },
+  { title: "Manual Trading", description: "Review markets and control each trade.", href: "/manual-trader", symbol: "⌖", tag: "MANUAL" },
 ];
 
 export default function TradingWorkspace({
@@ -44,9 +65,32 @@ export default function TradingWorkspace({
 }: Props) {
   const connected = derivStatus === "Connected";
   const expired = derivStatus === "Expired";
+  const [openPanel, setOpenPanel] = useState<"load" | "bots" | null>(null);
+  const [publishedBots, setPublishedBots] = useState<PublishedBot[]>([]);
+  const [botsBusy, setBotsBusy] = useState(false);
+  const [botsError, setBotsError] = useState("");
+
+  async function browseBots() {
+    setOpenPanel("bots");
+    setBotsBusy(true);
+    setBotsError("");
+    try {
+      const db = createClient();
+      const { data, error } = await db.from("bots")
+        .select("id,name,market,description,risk_level")
+        .eq("is_published", true).order("name");
+      if (error) throw error;
+      setPublishedBots((data || []) as PublishedBot[]);
+    } catch {
+      setBotsError("Could not load the live bot catalogue. Open Bot Center to retry.");
+      setPublishedBots([]);
+    } finally {
+      setBotsBusy(false);
+    }
+  }
 
   return (
-    <main className="workspaceShell">
+    <main className="workspaceShell workspaceVideo">
       <header className="workspaceTopbar">
         <Link className="workspaceBrand" href="/">
           TRADE SCHEME <span>FX</span>
@@ -62,6 +106,12 @@ export default function TradingWorkspace({
           </form>
         </div>
       </header>
+
+      <nav className="videoTopNav" aria-label="Trading workspace tools">
+        {videoNav.map((item) => <Link key={item.label} href={item.href} className={item.href === "/dashboard" ? "videoTopNavItem active" : "videoTopNavItem"}>
+          <span aria-hidden="true">{item.icon}</span>{item.label}
+        </Link>)}
+      </nav>
 
       <div className="workspaceLayout">
         <aside className="workspaceSidebar">
@@ -84,6 +134,39 @@ export default function TradingWorkspace({
         </aside>
 
         <section className="workspaceMain">
+          <section className="videoHero" aria-label="Trade Scheme FX launch center">
+            <div className="videoHeroArtwork"><TradingLandingVisual /></div>
+            <div className="videoHeroVeil" />
+            <div className="videoHeroContent">
+              <p className="videoHeroEyebrow">✦ TRADESCHEME / YOUR TRADING WORKSPACE</p>
+              <h1>Welcome, {name.split("@")[0]}</h1>
+              <p>Explore your bots, build strategies and practise with public market data.</p>
+              <div className="videoHeroDots" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
+              <div className="videoLaunchGrid">
+                <button className="videoLaunchCard" type="button" onClick={() => setOpenPanel("load")}>
+                  <span className="videoNumber">01</span><span className="videoCardIcon">⇧</span>
+                  <strong>Load Bot</strong><small>Open a saved strategy or choose a bot</small>
+                  <em>Choose a bot <b>↗</b></em>
+                </button>
+                <button className="videoLaunchCard accentGold" type="button" onClick={() => { void browseBots(); }}>
+                  <span className="videoNumber">02</span><span className="videoCardIcon">◇</span>
+                  <strong>Premium Bots</strong><small>Discover available strategies · free access</small>
+                  <em>Browse available bots <b>↗</b></em>
+                </button>
+                <Link className="videoLaunchCard accentCyan" href="/bot-center">
+                  <span className="videoNumber">03</span><span className="videoCardIcon">ϟ</span>
+                  <strong>Speed Bot</strong><small>Open quick-start paper bot controls</small>
+                  <em>Open Bot Center <b>↗</b></em>
+                </Link>
+                <Link className="videoLaunchCard accentPurple" href="/manual-trader">
+                  <span className="videoNumber">04</span><span className="videoCardIcon">☷</span>
+                  <strong>Manual Trading</strong><small>Practice your decisions on public ticks</small>
+                  <em>Start paper practice <b>↗</b></em>
+                </Link>
+              </div>
+              <p className="videoHeroFootnote">Charts on this welcome screen are illustrative. Bot and manual paper results are not Deriv contracts or verified returns.</p>
+            </div>
+          </section>
           <div className="workspaceWelcome">
             <div>
               <p className="workspaceEyebrow">YOUR AUTOMATION COMMAND CENTER</p>
@@ -156,6 +239,37 @@ export default function TradingWorkspace({
           </footer>
         </section>
       </div>
+      {openPanel && (
+        <div className="videoModalBackdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpenPanel(null); }}>
+          <section className="videoBotModal" role="dialog" aria-modal="true" aria-label={openPanel === "bots" ? "Available bots" : "Load a bot"}>
+            <div className="videoBotModalHeader">
+              <div><small>TRADESCHEME BOT WORKSPACE</small><h2>{openPanel === "bots" ? "Available bots" : "Load a bot"}</h2></div>
+              <button type="button" className="videoModalClose" aria-label="Close window" onClick={() => setOpenPanel(null)}>×</button>
+            </div>
+            {openPanel === "load" ? (
+              <div className="videoModalBotGrid">
+                <Link className="videoModalChoice" href="/builder"><span>▧</span><strong>My saved strategies</strong><small>Open the Bot Builder and load a strategy saved to your account</small><em>Open Bot Builder ↗</em></Link>
+                <Link className="videoModalChoice" href="/bot-center"><span>◈</span><strong>Published paper bots</strong><small>Select an available bot and review its real configuration status</small><em>Open Bot Center ↗</em></Link>
+              </div>
+            ) : (
+              <>
+                <p className="videoModalNote">All available bots are free to explore. Only published records from your account database appear here. This list does not imply that a bot has proven returns or live execution.</p>
+                {botsBusy && <p role="status">Loading published bot catalogue…</p>}
+                {botsError && <p role="alert">{botsError}</p>}
+                {!botsBusy && !botsError && publishedBots.length === 0 && <p>No bots are published for your account yet.</p>}
+                <div className="videoModalBotGrid">
+                  {!botsBusy && publishedBots.map(bot => (
+                    <Link key={bot.id} href="/bot-center" className="videoModalChoice">
+                      <span>✦</span><strong>{bot.name}</strong><small>{bot.market} · {bot.risk_level} risk</small><p>{bot.description}</p><em>Review in Bot Center ↗</em>
+                    </Link>
+                  ))}
+                </div>
+                <Link href="/bot-center" className="videoBrowseAll">View Bot Center and controls ↗</Link>
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
