@@ -92,10 +92,10 @@ A feature is complete only when its UI, backend behavior, authorization, error s
 
 ## Implemented milestone: Deriv Demo execution foundation (manual Phase 1)
 
-- Added an authenticated server route that issues a Deriv OTP URL only for the customer's selected active Demo account. The returned URL is validated to the Deriv Demo WebSocket path; the Real endpoint is never returned.
+- Added server-owned Deriv Demo WebSocket sessions. OTP URLs and authenticated trading sockets never leave the SENFX server; there is no browser-facing Demo session endpoint. The server validates every OTP URL against the Demo WebSocket path; the Real endpoint is never used.
 - Added a manual Demo trading console at `/demo-trading` for a fixed 10 account-currency-unit, five-minute Rise/Fall proposal.
-- The customer reviews a fresh Deriv proposal and manually confirms each purchase. The app reserves the full stake against a 20 account-currency-unit per-account daily loss cap before sending a buy.
-- A server-side order record tracks quote, reservation, contract ID, and status. The server verifies the newly purchased contract and retrieves final contract P/L from Deriv before updating the loss ledger.
+- SENFX obtains and persists the displayed quote on the server. At confirmation it requests a fresh streaming proposal on the same server-owned authenticated session used for the buy, verifies the price and payout still match the reviewed terms, and only then reserves the full stake against the 20 account-currency-unit per-account daily loss cap and sends the buy.
+- A server-side order record tracks quote, reservation, contract ID, and status. The server verifies the newly purchased contract and retrieves final contract P/L from Deriv before updating the loss ledger. Status checks and early sells also use server-owned Demo sessions, so the browser cannot bypass the risk ledger by issuing direct WebSocket trading requests.
 - Added a per-customer, per-Demo-account UTC daily gross-loss ledger. It allows one active contract at a time, reserves the full stake, does not replenish the loss budget after wins, and retains reserved risk after ambiguous purchase responses.
 - The account selector now allows only active Demo accounts for SENFX Demo execution. Real account selection is blocked in this workflow.
 - OAuth redirect URI and site URL are environment-configurable for Production and Preview. The OAuth request now asks only for the `trade` scope.
