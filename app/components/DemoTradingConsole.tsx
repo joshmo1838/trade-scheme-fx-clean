@@ -372,6 +372,9 @@ export default function DemoTradingConsole() {
       socket.onclose = () => {
         setConnected(false);
         if (socketRef.current === socket) socketRef.current = null;
+        proposalSubscriptionRef.current = null;
+        contractSubscriptions.current.clear();
+        setQuote(null);
         pendingRef.current.forEach(pending => {
           clearTimeout(pending.timer);
           pending.reject(new Error("Deriv Demo connection closed."));
@@ -451,13 +454,16 @@ export default function DemoTradingConsole() {
         underlying_symbol: market,
       });
       const proposal = response?.proposal;
+      const proposalStreamId = String(response?.subscription?.id || proposal?.id || "");
+      if (proposalStreamId) {
+        forgetProposalSubscription();
+        proposalSubscriptionRef.current = proposalStreamId;
+      }
       const askPrice = Number(proposal?.ask_price);
       const payout = Number(proposal?.payout);
-      if (!proposal?.id || !Number.isFinite(askPrice) || askPrice <= 0 || askPrice > 10 || !Number.isFinite(payout) || payout <= 0) {
+      if (!proposal?.id || !proposalStreamId || !Number.isFinite(askPrice) || askPrice <= 0 || askPrice > 10 || !Number.isFinite(payout) || payout <= 0) {
         throw new Error("Deriv returned a quote that does not meet SENFX's $10 Demo stake guard.");
       }
-      forgetProposalSubscription();
-      proposalSubscriptionRef.current = String(response?.subscription?.id || proposal.id);
       setQuote({
         id: String(proposal.id),
         askPrice,
@@ -466,6 +472,8 @@ export default function DemoTradingConsole() {
       });
       setMessage("Fresh Deriv Demo price received. Review the terms, then confirm the Demo purchase.");
     } catch (err) {
+      forgetProposalSubscription();
+      setQuote(null);
       setError(err instanceof Error ? err.message.replace("DERIV_REJECTED: ", "") : "Could not get a Deriv quote.");
     } finally {
       setBusy(false);
