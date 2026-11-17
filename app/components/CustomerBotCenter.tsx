@@ -248,7 +248,6 @@ export default function CustomerBotCenter() {
                 body: JSON.stringify({
                   action: "settle",
                   reservationId: completed.reservationId,
-                  exitPrice: price,
                 }),
               });
               const result = await response.json();
@@ -261,10 +260,10 @@ export default function CustomerBotCenter() {
               const trade: PaperTrade = {
                 id: result.tradeId,
                 bot_id: bot.id,
-                market_symbol: market,
+                market_symbol: result.marketSymbol || market,
                 direction: completed.direction,
-                entry_price: completed.entry,
-                exit_price: price,
+                entry_price: Number(result.entryPrice),
+                exit_price: Number(result.exitPrice),
                 stake_amount: completed.stake,
                 pnl: Number(result.pnl),
                 outcome: result.outcome,
@@ -317,7 +316,6 @@ export default function CustomerBotCenter() {
                   botId: bot.id,
                   marketSymbol: market,
                   direction,
-                  entryPrice: price,
                 }),
               });
               const reservation = await response.json();
@@ -332,11 +330,11 @@ export default function CustomerBotCenter() {
                 return;
               }
               runtime.open = {
-                entry: price,
+                entry: Number(reservation.entryPrice),
                 direction,
                 stake: Number(reservation.stakeAmount),
                 remaining: 5,
-                openedAt: new Date().toISOString(),
+                openedAt: reservation.openedAt || new Date().toISOString(),
                 reservationId: reservation.reservationId,
               };
               setEngineStatus(current => ({
@@ -479,7 +477,7 @@ export default function CustomerBotCenter() {
         </div>
 
         <div className="botCenterNotice">
-          <b>Daily risk protection.</b> Paper positions reserve their full stake as potential loss before opening. Closed losses are recorded on the server and remain counted across refreshes and devices. Wins do not replenish the daily loss budget. The cap resets at 00:00 UTC. This simulator remains illustrative paper trading only; it does not submit Deriv orders or use account funds.
+          <b>Daily risk protection.</b> Each bot has a separate daily loss cap. Paper positions reserve their full stake as potential loss before opening. The server verifies public Deriv entry and exit quotes, records closed losses across refreshes and devices, and blocks entries that exceed the bot's daily budget. Wins do not replenish the budget. The cap resets at 00:00 UTC. This remains illustrative paper trading, not a Deriv contract or order.
         </div>
 
         <div className="botCenterStats">
