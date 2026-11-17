@@ -1,4 +1,4 @@
--- SENFX Deriv Demo risk ledger smoke test.
+-- SENFX Deriv Demo unlimited-learning audit ledger smoke test.
 -- Uses a dedicated temporary Demo account ID and rolls all data back.
 -- Replace the one test-user UUID with a real Supabase Auth user UUID.
 -- Do not run against a busy production user: the script temporarily changes that user's
@@ -126,7 +126,7 @@ begin
     raise exception 'First 10 Demo loss should settle: %', v_result;
   end if;
 
-  -- Trade 2: a second sequential 10 loss exhausts the 20 daily cap.
+  -- Trade 2: a second sequential 10 Demo loss must be logged without a daily lockout.
   insert into public.deriv_demo_orders (
     request_id, user_id, account_id, currency, market_symbol, contract_type,
     duration, duration_unit, stake_amount, proposal_id, ask_price, payout,
@@ -157,7 +157,7 @@ begin
     raise exception 'Second 10 Demo loss should settle: %', v_result;
   end if;
 
-  -- Trade 3: must be denied after the daily loss reaches 20.
+  -- Trade 3: allowed after 20 cumulative Demo loss; no SENFX daily-loss lockout.
   insert into public.deriv_demo_orders (
     request_id, user_id, account_id, currency, market_symbol, contract_type,
     duration, duration_unit, stake_amount, proposal_id, ask_price, payout,
@@ -169,8 +169,31 @@ begin
   ) returning id into v_order_three;
 
   v_result := public.senfx_demo_reserve_order(p_user_id, v_order_three);
+  if coalesce((v_result->>'allowed')::boolean, false) is not true then
+    raise exception 'Third Demo reservation must be allowed after 20 cumulative loss: %', v_result;
+  end if;
+  if coalesce((v_result->>'unlimitedDemoPractice')::boolean, false) is not true
+     or v_result->>'dailyLossLimit' is not null
+     or v_result->>'remainingLossBudget' is not null then
+    raise exception 'Unlimited Demo practice must not advertise a daily loss cap: %', v_result;
+  end if;
+
+  -- Still reject a duplicate reservation even when daily losses are unlimited.
+  v_result := public.senfx_demo_reserve_order(p_user_id, v_order_three);
   if coalesce((v_result->>'allowed')::boolean, true) is not false then
-    raise exception 'Third 10 Demo risk reservation must be denied: %', v_result;
+    raise exception 'Unlimited mode must still reject duplicate reservations: %', v_result;
+  end if;
+  v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_three);
+  if coalesce((v_result->>'marked')::boolean, false) is not true then
+    raise exception 'Third Demo purchase attempt must be recorded once: %', v_result;
+  end if;
+  v_result := public.senfx_demo_confirm_order(p_user_id, v_order_three, '91000000003', '92000000003', 10);
+  if coalesce((v_result->>'confirmed')::boolean, false) is not true then
+    raise exception 'Third contract confirmation failed: %', v_result;
+  end if;
+  v_result := public.senfx_demo_settle_order(p_user_id, v_order_three, 'lost', -10, 0, 'lost');
+  if coalesce((v_result->>'settled')::boolean, false) is not true then
+    raise exception 'Third Demo contract must settle after daily loss exceeds 20: %', v_result;
   end if;
 
   select * into v_risk
@@ -179,12 +202,12 @@ begin
     and account_id = v_account_id
     and risk_date = (now() at time zone 'UTC')::date;
 
-  if v_risk.realized_loss <> 20 or v_risk.reserved_loss <> 0 then
-    raise exception 'Expected realized loss 20 and reserved loss 0. Got % / %',
+  if v_risk.realized_loss <> 30 or v_risk.reserved_loss <> 0 then
+    raise exception 'Expected three logged Demo losses totaling 30 and zero reserved. Got % / %',
       v_risk.realized_loss, v_risk.reserved_loss;
   end if;
 
-  raise notice 'PASS: two sequential 10 Demo losses were recorded, the 20 daily cap was reached, and a third reservation was denied.';
+  raise notice 'PASS: unlimited Demo learning allowed three 10-unit losses; accounting, duplicate-buy protection and reservation cleanup remained intact.';
 end;
 $$;
 
