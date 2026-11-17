@@ -237,11 +237,178 @@ begin
     return jsonb_build_object('confirmed', true, 'idempotent', true, 'contractId', p_contract_id);
   end if;
 
-  if v_order.status <> 'reserved' then
+  if v_order.status not in ('reserved','buy_unknown') then
     return jsonb_build_object('confirmed', false, 'reason', 'The demo order has no active risk reservation.');
   end if;
 
-  if p_contract_id !~ '^[0-9]{1,30}$' or p_buy_price is null or p_buy_price <= 0 or p_buy_price > v_order.stake_amount then
+  if v_order.contract_id is not null and v_order.contract_id <> p_contract_id then
+    return jsonb_build_object('confirmed', false, 'reason', 'The unresolved order already references a different contract.');
+  end if;
+
+  if p_contract_id !~ '^[0-9]{1,30}    return jsonb_build_object('confirmed', false, 'reason', 'Deriv returned invalid contract details.');
+  end if;
+
+  update public.deriv_demo_orders
+  set status = 'open', contract_id = p_contract_id, buy_price = p_buy_price,
+      opened_at = now(), updated_at = now()
+  where id = p_order_id;
+
+  return jsonb_build_object('confirmed', true, 'contractId', p_contract_id);
+end;
+$$;
+
+create or replace function public.senfx_demo_cancel_order(
+  p_user_id uuid,
+  p_order_id uuid,
+  p_reason text default 'Deriv rejected the purchase.'
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order public.deriv_demo_orders%rowtype;
+  v_risk public.deriv_demo_daily_risk%rowtype;
+begin
+  select * into v_order from public.deriv_demo_orders
+  where id = p_order_id and user_id = p_user_id for update;
+
+  if not found then
+    return jsonb_build_object('cancelled', false, 'reason', 'Demo order was not found.');
+  end if;
+
+  if v_order.status = 'cancelled' then
+    return jsonb_build_object('cancelled', true, 'idempotent', true);
+  end if;
+
+  -- Only an unused quote can be cancelled. Once risk is reserved, never release it
+  -- solely because the browser reports an error; the buy outcome may be ambiguous.
+  if v_order.status <> 'quoted' or v_order.contract_id is not null then
+    return jsonb_build_object('cancelled', false, 'reason', 'A reserved or uncertain order cannot release risk automatically.');
+  end if;
+
+  update public.deriv_demo_orders
+  set status = 'cancelled', contract_status = left(coalesce(p_reason,'Deriv rejected the purchase.'),160),
+      updated_at = now()
+  where id = p_order_id;
+
+  return jsonb_build_object('cancelled', true);
+end;
+$$;
+
+create or replace function public.senfx_demo_mark_buy_unknown(
+  p_user_id uuid,
+  p_order_id uuid
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order public.deriv_demo_orders%rowtype;
+begin
+  select * into v_order from public.deriv_demo_orders
+  where id = p_order_id and user_id = p_user_id for update;
+
+  if not found or v_order.status not in ('reserved','buy_unknown') then
+    return jsonb_build_object('updated', false, 'reason', 'No unresolved reserved purchase was found.');
+  end if;
+
+  update public.deriv_demo_orders
+  set status = 'buy_unknown', updated_at = now()
+  where id = p_order_id;
+
+  return jsonb_build_object('updated', true, 'riskRemainsReserved', true);
+end;
+$$;
+
+create or replace function public.senfx_demo_settle_order(
+  p_user_id uuid,
+  p_order_id uuid,
+  p_final_status text,
+  p_profit numeric,
+  p_sell_price numeric default null,
+  p_contract_status text default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_order public.deriv_demo_orders%rowtype;
+  v_risk public.deriv_demo_daily_risk%rowtype;
+begin
+  select * into v_order from public.deriv_demo_orders
+  where id = p_order_id and user_id = p_user_id for update;
+
+  if not found then
+    return jsonb_build_object('settled', false, 'reason', 'Demo order was not found.');
+  end if;
+
+  if v_order.status in ('won','lost','sold') then
+    select * into v_risk from public.deriv_demo_daily_risk
+    where user_id = p_user_id and account_id = v_order.account_id and risk_date = v_order.risk_date;
+    return jsonb_build_object('settled', true, 'idempotent', true, 'profit', v_order.profit,
+      'dailyLoss', coalesce(v_risk.realized_loss,0), 'reservedLoss', coalesce(v_risk.reserved_loss,0),
+      'dailyLossLimit', coalesce(v_risk.daily_loss_limit,20),
+      'remainingLossBudget', greatest(0, coalesce(v_risk.daily_loss_limit,20)-coalesce(v_risk.realized_loss,0)-coalesce(v_risk.reserved_loss,0)));
+  end if;
+
+  if v_order.status <> 'open' then
+    return jsonb_build_object('settled', false, 'reason', 'Only a verified open demo contract can be settled.');
+  end if;
+
+  if p_final_status not in ('won','lost','sold') or p_profit is null then
+    return jsonb_build_object('settled', false, 'reason', 'Final Deriv contract information is incomplete.');
+  end if;
+
+  select * into v_risk from public.deriv_demo_daily_risk
+  where user_id = p_user_id and account_id = v_order.account_id and risk_date = v_order.risk_date
+  for update;
+
+  if not found then
+    return jsonb_build_object('settled', false, 'reason', 'The demo risk ledger was not found.');
+  end if;
+
+  update public.deriv_demo_daily_risk
+  set reserved_loss = greatest(0, reserved_loss - v_order.stake_amount),
+      realized_loss = realized_loss + greatest(0, -p_profit),
+      updated_at = now()
+  where user_id = p_user_id and account_id = v_order.account_id and risk_date = v_order.risk_date
+  returning * into v_risk;
+
+  update public.deriv_demo_orders
+  set status = p_final_status, profit = p_profit, sell_price = p_sell_price,
+      contract_status = left(coalesce(p_contract_status,p_final_status),160),
+      settled_at = now(), updated_at = now()
+  where id = p_order_id;
+
+  return jsonb_build_object(
+    'settled', true, 'orderId', p_order_id, 'status', p_final_status,
+    'profit', p_profit, 'dailyLoss', v_risk.realized_loss,
+    'reservedLoss', v_risk.reserved_loss, 'dailyLossLimit', v_risk.daily_loss_limit,
+    'remainingLossBudget', greatest(0, v_risk.daily_loss_limit-v_risk.realized_loss-v_risk.reserved_loss),
+    'limitReached', v_risk.realized_loss + v_risk.reserved_loss >= v_risk.daily_loss_limit
+  );
+end;
+$$;
+
+revoke all on function public.senfx_demo_reserve_order(uuid,uuid) from public, anon, authenticated;
+revoke all on function public.senfx_demo_confirm_order(uuid,uuid,text,numeric) from public, anon, authenticated;
+revoke all on function public.senfx_demo_cancel_order(uuid,uuid,text) from public, anon, authenticated;
+revoke all on function public.senfx_demo_mark_buy_unknown(uuid,uuid) from public, anon, authenticated;
+revoke all on function public.senfx_demo_settle_order(uuid,uuid,text,numeric,numeric,text) from public, anon, authenticated;
+grant execute on function public.senfx_demo_reserve_order(uuid,uuid) to service_role;
+grant execute on function public.senfx_demo_confirm_order(uuid,uuid,text,numeric) to service_role;
+grant execute on function public.senfx_demo_cancel_order(uuid,uuid,text) to service_role;
+grant execute on function public.senfx_demo_mark_buy_unknown(uuid,uuid) to service_role;
+grant execute on function public.senfx_demo_settle_order(uuid,uuid,text,numeric,numeric,text) to service_role;
+
+comment on table public.deriv_demo_orders is
+  'SENFX audit records for customer-authorized Deriv Demo contracts only. No Real account execution is supported.';
+comment on table public.deriv_demo_daily_risk is
+  'Per-customer, per-Deriv-Demo-account, UTC-date loss ledger for SENFX-originated demo contracts only.';
+ or p_buy_price is null or p_buy_price <= 0 or p_buy_price > v_order.stake_amount then
     return jsonb_build_object('confirmed', false, 'reason', 'Deriv returned invalid contract details.');
   end if;
 
