@@ -74,10 +74,26 @@ export default function CustomerBotCenter() {
         let msg:any;try{msg=JSON.parse(event.data);}catch{return;}if(msg.error){stopPaper(bot.id,"Feed error: "+msg.error.message);return;}if(msg.msg_type!=="tick"||!msg.tick)return;
         const price=Number(msg.tick.quote);if(!Number.isFinite(price)||!runtime.running||runtime.closing)return;
         setLivePrices(v=>({...v,[bot.id]:price}));runtime.prices=[...runtime.prices,price].slice(-22);
-        if(runtime.open){runtime.open.remaining-=1;if(runtime.open.remaining<=0){runtime.closing=true;const completed=runtime.open;runtime.open=null;const won=completed.direction==="CALL"?price>completed.entry:price<completed.entry;const pnl=won?completed.stake:-completed.stake;const closedAt=new Date().toISOString();const trade={customer_id:user.id,bot_id:bot.id,market_symbol:market,direction:completed.direction,entry_price:completed.entry,exit_price:price,stake_amount:completed.stake,pnl,outcome:won?"WIN":"LOSS",opened_at:completed.openedAt,closed_at:closedAt};
-          runtime.closing=false;stopPaper(bot.id,"Could not save paper trade: "+error.message);return;}runtime.loss=Math.max(0,runtime.loss-pnl);runtime.trades+=1;runtime.cooldown=10;setPaperTrades(v=>[{id:crypto.randomUUID(),...trade},...v].slice(0,100));runtime.closing=false;
-          if(cfg.daily_loss_limit!==null&&runtime.loss>=cfg.daily_loss_limit){stopPaper(bot.id,"Daily paper loss limit reached. Simulation stopped.");}else if(runtime.trades>=20){stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");}
-        }}else if(runtime.cooldown>0){runtime.cooldown-=1;}else if(runtime.prices.length>=21&&runtime.trades<20){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
+        if(runtime.open){
+          runtime.open.remaining -= 1;
+          if(runtime.open.remaining <= 0){
+            const completed = runtime.open;
+            runtime.open = null;
+            const won = completed.direction === "CALL" ? price > completed.entry : price < completed.entry;
+            const pnl = won ? completed.stake : -completed.stake;
+            const closedAt = new Date().toISOString();
+            const trade = {id:crypto.randomUUID(),bot_id:bot.id,market_symbol:market,direction:completed.direction,entry_price:completed.entry,exit_price:price,stake_amount:completed.stake,pnl,outcome:won ? "WIN" : "LOSS",opened_at:completed.openedAt,closed_at:closedAt};
+            runtime.loss = Math.max(0, runtime.loss - pnl);
+            runtime.trades += 1;
+            runtime.cooldown = 10;
+            setPaperTrades(v => [trade,...v].slice(0,100));
+            if(cfg.daily_loss_limit !== null && runtime.loss >= cfg.daily_loss_limit){
+              stopPaper(bot.id,"Session loss limit reached. Simulation stopped.");
+            } else if(runtime.trades >= 20){
+              stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");
+            }
+          }
+        }else if(runtime.cooldown>0){runtime.cooldown-=1;}else if(runtime.prices.length>=21&&runtime.trades<20){const p=runtime.prices;const ema=(arr:number[])=>arr.reduce((a,b)=>a+b,0)/arr.length;const fast=ema(p.slice(-9)),slow=ema(p.slice(-21));if(Math.abs(fast-slow)>0){runtime.open={entry:price,direction:fast>slow?"CALL":"PUT",stake:cfg.stake_amount,remaining:5,openedAt:new Date().toISOString()};}}
       };
       ws.onerror=()=>stopPaper(bot.id,"Market data connection failed.");ws.onclose=()=>{if(runtime.running){runtime.running=false;setEngineStatus(v=>({...v,[bot.id]:"Feed disconnected. Simulation stopped."}));}sockets.delete(bot.id);};
     }catch{stopPaper(bot.id,"Could not start paper feed.");}
