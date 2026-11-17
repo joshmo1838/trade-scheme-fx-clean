@@ -17,6 +17,7 @@ const navigation = [
   { label: "Bot Builder", href: "/builder", symbol: "▧" },
   { label: "Volt AI", href: "/ai-scanner", symbol: "✧" },
   { label: "Customer Bot Center", href: "/bot-center", symbol: "◈" },
+  { label: "Deriv Demo Trading", href: "/demo-trading", symbol: "▣" },
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
   { label: "Market Intelligence", href: "/intelligence", symbol: "◉" },
@@ -32,6 +33,7 @@ const launchCards = [
   { title: "Free Bot Marketplace", description: "Explore strategies available to every registered customer.", href: "/bot-center", symbol: "✦", tag: "FREE ACCESS" },
   { title: "Speed Bot", description: "Quick access to your bot workspace.", href: "/builder", symbol: "ϟ", tag: "QUICK START" },
   { title: "Manual Trading", description: "Review markets and control each trade.", href: "/manual-trader", symbol: "⌖", tag: "MANUAL" },
+  { title: "Deriv Demo Trading", description: "Request live Deriv proposals and place guarded Demo-only contracts.", href: "/demo-trading", symbol: "▣", tag: "DEMO ONLY" },
 ];
 
 export default function TradingWorkspace({
@@ -119,6 +121,7 @@ export default function TradingWorkspace({
 
           <div className="workspaceSectionHeading workspaceLowerHeading">
             <div><p className="workspaceEyebrow">ACCOUNT CONNECTION</p><h2>Your Deriv account</h2></div>
+            <Link href="/demo-trading" className="workspaceViewAll">Open Demo Trading ↗</Link>
           </div>
 
           <section className="workspaceAccountGrid">
