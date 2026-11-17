@@ -121,15 +121,10 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'Demo order was not found.');
   end if;
 
-  if v_order.status in ('reserved','buy_unknown') then
-    select * into v_risk from public.deriv_demo_daily_risk
-    where user_id = p_user_id and account_id = v_order.account_id and risk_date = v_order.risk_date;
+  if v_order.status in ('reserved','buy_unknown','open') then
     return jsonb_build_object(
-      'allowed', true, 'idempotent', true, 'orderId', v_order.id,
-      'dailyLoss', coalesce(v_risk.realized_loss,0),
-      'reservedLoss', coalesce(v_risk.reserved_loss,0),
-      'dailyLossLimit', coalesce(v_risk.daily_loss_limit,20),
-      'remainingLossBudget', greatest(0,coalesce(v_risk.daily_loss_limit,20)-coalesce(v_risk.realized_loss,0)-coalesce(v_risk.reserved_loss,0))
+      'allowed', false,
+      'reason', 'This Demo order has already reserved risk or started a buy attempt. Reconcile its existing status; do not submit another buy.'
     );
   end if;
 
@@ -206,7 +201,7 @@ begin
     return jsonb_build_object('marked',false,'reason','Demo order was not found.');
   end if;
   if v_order.status='buy_unknown' and v_order.buy_requested_at is not null then
-    return jsonb_build_object('marked',true,'idempotent',true,'buyRequestedAt',v_order.buy_requested_at);
+    return jsonb_build_object('marked',false,'idempotent',true,'reason','A buy attempt has already been recorded for this order.');
   end if;
   if v_order.status <> 'reserved' then
     return jsonb_build_object('marked',false,'reason','The Demo order is not reserved for purchase.');
