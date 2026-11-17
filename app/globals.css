@@ -814,3 +814,79 @@
 .videoAuthPage .authCard{background:rgba(4,20,41,.88);border:1px solid rgba(88,217,248,.35);box-shadow:0 28px 100px #030716,inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(22px)}
 @media(max-width:900px){.videoLaunchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.videoTopNav{top:54px}.videoHero{min-height:580px}}
 @media(max-width:560px){.workspaceVideo .workspaceTopbar{padding:0 12px}.workspaceVideo .workspaceTopActions{gap:8px}.workspaceVideo .workspaceConnection{font-size:8px;max-width:112px}.workspaceVideo .workspaceTopLink{display:none}.workspaceVideo .workspaceMain>.workspaceWelcome,.workspaceVideo .workspaceMain>.workspaceMarketStrip,.workspaceVideo .workspaceMain>.workspaceSectionHeading,.workspaceVideo .workspaceMain>.workspaceLaunchGrid,.workspaceVideo .workspaceMain>.workspaceAccountGrid,.workspaceVideo .workspaceMain>.workspaceDerivAccounts,.workspaceVideo .workspaceMain>.workspaceFooter{width:calc(100% - 24px)}.videoHeroContent{padding:35px 0}.videoHero{min-height:630px}.videoLaunchGrid{gap:8px}.videoLaunchCard{padding:14px 12px;min-height:190px}.videoLaunchCard strong{font-size:13px}.videoLaunchCard small{font-size:9px}.videoCardIcon{top:10px;right:10px;width:30px;height:30px;font-size:18px}.videoModalBotGrid{grid-template-columns:1fr}.videoBotModal{padding:16px}}
+
+
+/* Single-screen customer dashboard: one viewport, currency-aware Deriv balance top right. */
+.workspaceVideo{min-height:0}
+.workspaceVideo .workspaceLayout{min-height:0;display:block}
+.workspaceVideo .workspaceMain{padding:0;width:100%;max-width:none;min-height:0}
+.workspaceVideo .workspaceTopbar{position:relative;z-index:65;height:54px;gap:12px}
+.workspaceVideo .workspaceTopActions{gap:12px}
+.workspaceVideo .videoTopNav{position:relative;top:auto;z-index:62;overflow:visible;justify-content:center;min-height:43px}
+.workspaceVideo .videoTopNavItem{flex:0 0 auto;padding:9px clamp(7px,.95vw,14px);font-size:clamp(9px,.74vw,11px)}
+.workspaceVideo .videoHero{height:calc(100svh - 141px);min-height:0;max-height:none;overflow:hidden}
+.workspaceVideo .videoHeroContent{padding:18px 0 24px}
+.workspaceVideo .videoHero h1{font-size:clamp(28px,3.1vw,44px);margin:9px auto 6px}
+.workspaceVideo .videoHeroDots{margin:14px 0 20px}
+.workspaceVideo .videoLaunchGrid{max-width:980px;gap:12px}
+.workspaceVideo .videoLaunchCard{min-height:152px;padding:16px}
+.workspaceVideo .videoLaunchCard strong{margin:20px 0 5px}
+.workspaceVideo .videoHeroFootnote{margin:16px auto 0}
+.videoNavMore{position:relative;flex:0 0 auto;z-index:75}
+.videoNavMore summary{min-height:43px;display:flex;align-items:center;gap:8px;padding:10px 15px;font-size:11px;font-weight:700;cursor:pointer;color:#c8e5ff;list-style:none}
+.videoNavMore summary::-webkit-details-marker{display:none}
+.videoNavMore summary:hover,.videoNavMore[open] summary{background:#0b5d88;color:#fff}
+.videoNavMoreList{position:absolute;top:100%;right:0;min-width:210px;padding:8px;background:#071e38;border:1px solid #215876;border-radius:0 0 12px 12px;box-shadow:0 18px 45px rgba(0,0,0,.55);display:grid;gap:3px;z-index:77}
+.videoNavMoreList a{padding:10px 12px;color:#d8f0ff;font-size:12px;border-radius:5px}
+.videoNavMoreList a:hover{background:#12446a}
+.senfxBalanceWrap{position:relative;z-index:90}
+.senfxBalanceButton{display:flex;align-items:center;gap:9px;min-width:180px;max-width:280px;text-align:left;border:1px solid rgba(104,222,238,.4);background:linear-gradient(135deg,#0b2a47,#051727);padding:6px 10px;border-radius:9px;color:#effaff;cursor:pointer;font-family:inherit}
+.senfxBalanceButton:hover,.senfxBalanceButton:focus-visible{border-color:#57e2ff}
+.senfxBalanceFlag{font-size:23px;line-height:1}
+.senfxBalanceText{display:flex;flex-direction:column;min-width:0;flex:1}
+.senfxBalanceText small{font-size:8px;letter-spacing:.13em;color:#8ad6ef;font-weight:750}
+.senfxBalanceText strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:750;font-variant-numeric:tabular-nums}
+.senfxBalanceChevron{color:#80bada}
+.senfxAccountMenu{position:absolute;top:calc(100% + 9px);right:0;width:min(365px,calc(100vw - 24px));max-height:min(65svh,540px);overflow:auto;background:#071d33;border:1px solid #337399;border-radius:12px;box-shadow:0 28px 65px rgba(0,0,0,.6);padding:16px;z-index:100;color:#ecf8ff}
+.senfxAccountMenuTop{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.senfxAccountMenuTop button{background:#0b4366;color:#d6f5ff;border:1px solid #3980a4;border-radius:5px;padding:6px 9px;cursor:pointer;font-size:11px}
+.senfxAccountMenuTop button:disabled,.senfxAccountOption:disabled{opacity:.5;cursor:not-allowed}
+.senfxAccountHint,.senfxAccountMenu>p{font-size:11px;color:#a3bdd3;line-height:1.5}
+.senfxBalanceError{color:#ffa1b5!important}
+.senfxAccountOption{display:flex;width:100%;align-items:center;gap:10px;cursor:pointer;text-align:left;padding:12px 9px;margin:7px 0;background:#0e2c48;color:#fff;border:1px solid #294d69;border-radius:8px;font-family:inherit}
+.senfxAccountOption.selected{border-color:#45cfba;background:#0a3d43}
+.senfxAccountOption>span:first-child{font-size:21px}
+.senfxAccountOption>span:nth-child(2){display:flex;flex-direction:column;flex:1;min-width:0}
+.senfxAccountOption strong{font-size:14px;font-variant-numeric:tabular-nums}
+.senfxAccountOption small{color:#a2c2d8;font-size:10px;overflow-wrap:anywhere}
+.senfxAccountOption em{font-size:10px;color:#67ded0;font-style:normal}
+.senfxAccountConnect{display:inline-block;margin-top:12px;color:#79e8ff;font-size:12px;font-weight:750}
+@media(max-height:650px) and (min-width:901px){
+ .workspaceVideo .videoHeroContent{padding:8px 0}
+ .workspaceVideo .videoHero h1{font-size:28px}
+ .workspaceVideo .videoHeroDots{margin:8px 0 12px}
+ .workspaceVideo .videoLaunchCard{min-height:120px}
+ .workspaceVideo .videoLaunchCard strong{margin:10px 0 4px}
+ .workspaceVideo .videoHeroFootnote{margin:8px 0 0}
+}
+@media(max-width:900px){
+ .workspaceVideo .videoTopNav{justify-content:flex-start;overflow-x:auto;overflow-y:visible}
+ .workspaceVideo .videoHero{height:auto;min-height:calc(100svh - 141px);overflow:hidden}
+ .workspaceVideo .videoLaunchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .workspaceVideo .videoHeroContent{padding:28px 0}
+}
+@media(max-width:560px){
+ .workspaceVideo .workspaceTopbar{height:54px;padding:0 10px}
+ .workspaceVideo .workspaceBrand{font-size:11px;letter-spacing:0}
+ .workspaceVideo .workspaceTopActions{gap:6px}
+ .workspaceVideo .workspaceSignout{padding:8px;font-size:9px}
+ .senfxBalanceButton{min-width:116px;max-width:175px;padding:5px 7px;gap:4px}
+ .senfxBalanceFlag{font-size:17px}
+ .senfxBalanceText small{font-size:7px}
+ .senfxBalanceText strong{font-size:11px}
+ .workspaceVideo .videoHero{height:auto;min-height:calc(100svh - 141px)}
+ .workspaceVideo .videoHeroContent{width:calc(100% - 24px);padding:24px 0}
+ .workspaceVideo .videoLaunchGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .workspaceVideo .videoLaunchCard{min-height:160px;padding:12px}
+ .workspaceVideo .videoLaunchCard strong{font-size:12px}
+}
