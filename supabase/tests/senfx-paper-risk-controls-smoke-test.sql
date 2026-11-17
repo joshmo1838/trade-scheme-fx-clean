@@ -16,7 +16,19 @@ declare
   v_settle_first jsonb;
   v_settle_second jsonb;
   v_risk public.customer_paper_daily_risk%rowtype;
+  v_stake numeric(12,2);
+  v_limit numeric(12,2);
 begin
+  select stake_amount, daily_loss_limit into v_stake, v_limit
+  from public.customer_bot_configurations
+  where customer_id = p_customer_id
+    and bot_id = p_bot_id
+    and trading_mode = 'demo';
+
+  if not found or v_stake <> 10 or v_limit <> 20 then
+    raise exception 'Test bot must have saved Demo stake $10 and daily paper loss limit $20.';
+  end if;
+
   if exists (
     select 1 from public.customer_paper_daily_risk
     where customer_id = p_customer_id
