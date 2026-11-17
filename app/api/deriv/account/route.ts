@@ -167,11 +167,12 @@ export async function GET() {
           success: false,
           derivStatus: derivResponse.status,
           derivCode: derivError?.code || "Unknown",
-          error:
-            derivError?.message ||
-            "Deriv rejected the account request."
+          error: "Deriv rejected the account request. Please reconnect or try again later."
         },
-        { status: derivResponse.status }
+        {
+          status: derivResponse.status,
+          headers: { "Cache-Control": "no-store" }
+        }
       );
     }
 
