@@ -10,6 +10,7 @@ do $$
 declare
   p_user_id uuid := 'REPLACE-WITH-TEST-USER-UUID';
   v_account_id text := 'SENFX_TEST_DEMO_' || left(gen_random_uuid()::text, 8);
+  v_order_rejected uuid;
   v_order_one uuid;
   v_order_two uuid;
   v_order_three uuid;
@@ -36,6 +37,51 @@ begin
     status = excluded.status,
     active_account_id = excluded.active_account_id,
     active_account_type = excluded.active_account_type;
+
+  -- A quote reserved but never submitted must be cancellable without a loss.
+  insert into public.deriv_demo_orders (
+    request_id, user_id, account_id, currency, market_symbol, contract_type,
+    duration, duration_unit, stake_amount, proposal_id, ask_price, payout,
+    status, quote_expires_at
+  ) values (
+    gen_random_uuid(), p_user_id, v_account_id, 'USD', 'R_100', 'CALL',
+    5, 'm', 10, replace(gen_random_uuid()::text, '-', ''), 10, 19,
+    'quoted', now() + interval '1 minute'
+  ) returning id into v_order_rejected;
+
+  v_result := public.senfx_demo_reserve_order(p_user_id, v_order_rejected);
+  if coalesce((v_result->>'allowed')::boolean, false) is not true then
+    raise exception 'Unused Demo reservation should be allowed: %', v_result;
+  end if;
+
+  v_result := public.senfx_demo_cancel_order(p_user_id, v_order_rejected, 'Test: no buy request was sent.');
+  if coalesce((v_result->>'cancelled')::boolean, false) is not true then
+    raise exception 'Unused Demo reservation should cancel: %', v_result;
+  end if;
+
+  -- A submitted buy without a contract response stays reserved until statement reconciliation.
+  insert into public.deriv_demo_orders (
+    request_id, user_id, account_id, currency, market_symbol, contract_type,
+    duration, duration_unit, stake_amount, proposal_id, ask_price, payout,
+    status, quote_expires_at
+  ) values (
+    gen_random_uuid(), p_user_id, v_account_id, 'USD', 'R_100', 'PUT',
+    5, 'm', 10, replace(gen_random_uuid()::text, '-', ''), 10, 19,
+    'quoted', now() + interval '1 minute'
+  ) returning id into v_order_rejected;
+
+  v_result := public.senfx_demo_reserve_order(p_user_id, v_order_rejected);
+  if coalesce((v_result->>'allowed')::boolean, false) is not true then
+    raise exception 'Uncertain Demo order should be reservable: %', v_result;
+  end if;
+  v_result := public.senfx_demo_mark_buy_attempt(p_user_id, v_order_rejected);
+  if coalesce((v_result->>'marked')::boolean, false) is not true then
+    raise exception 'Uncertain Demo buy attempt should be marked: %', v_result;
+  end if;
+  v_result := public.senfx_demo_reject_order(p_user_id, v_order_rejected, 'Test: statement found no buy.');
+  if coalesce((v_result->>'rejected')::boolean, false) is not true then
+    raise exception 'Unmatched Demo buy should release reservation after statement verification: %', v_result;
+  end if;
 
   -- Trade 1: reserve 10, confirm the test contract, settle a 10 loss.
   insert into public.deriv_demo_orders (
