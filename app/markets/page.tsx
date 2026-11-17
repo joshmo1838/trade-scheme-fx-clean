@@ -18,16 +18,22 @@ const groups = [
   { title: "MAJOR FOREX", symbols: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD"] },
   { title: "METALS", symbols: ["XAU/USD", "XAG/USD"] },
   { title: "CRYPTO & INDICES", symbols: ["BTC/USD", "ETH/USD", "NAS100", "US30", "SPX500"] },
-  { title: "DERIV SYNTHETIC INDICES", symbols: ["Volatility 10", "Volatility 25", "Volatility 50", "Volatility 75", "Volatility 100"] },
+  { title: "DERIV SYNTHETIC INDICES", symbols: ["R_10", "R_25", "R_50", "R_75", "R_100"] },
 ];
 
 const DERIV_SYMBOL = "R_100";
+const DERIV_SYMBOLS = new Set(["R_10", "R_25", "R_50", "R_75", "R_100"]);
+const DERIV_LABELS: Record<string,string> = {
+  R_10: "Volatility 10", R_25: "Volatility 25",
+  R_50: "Volatility 50", R_75: "Volatility 75", R_100: "Volatility 100",
+};
 
 export default function MarketsPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [live, setLive] = useState(false);
   const [updated, setUpdated] = useState("");
-  const [syntheticTick, setSyntheticTick] = useState<SyntheticTick | null>(null);
+  const [syntheticTicks, setSyntheticTicks] = useState<Record<string,SyntheticTick>>({});
+  const syntheticTick = syntheticTicks[DERIV_SYMBOL] ?? null;
   const [syntheticStatus, setSyntheticStatus] = useState("CONNECTING TO DERIV");
 
   useEffect(() => {
@@ -77,7 +83,9 @@ export default function MarketsPage() {
       socket.onopen = () => {
         if (!active || !socket) return;
         attempts = 0;
-        socket.send(JSON.stringify({ ticks: DERIV_SYMBOL, subscribe: 1, req_id: 1 }));
+        DERIV_SYMBOLS.forEach(symbol => {
+          socket?.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+        });
       };
 
       socket.onmessage = (event) => {
@@ -88,11 +96,15 @@ export default function MarketsPage() {
             setSyntheticStatus("FEED UNAVAILABLE");
             return;
           }
-          if (message.msg_type === "tick" && message.tick?.symbol === DERIV_SYMBOL) {
+          if (message.msg_type === "tick" && DERIV_SYMBOLS.has(String(message.tick?.symbol || ""))) {
             const price = Number(message.tick.quote);
             const epoch = Number(message.tick.epoch);
-            if (Number.isFinite(price) && Number.isFinite(epoch)) {
-              setSyntheticTick({ price, epoch });
+            if (Number.isFinite(price) && price > 0 && Number.isFinite(epoch)) {
+              const symbol = String(message.tick.symbol);
+              setSyntheticTicks(previous => ({
+                ...previous,
+                [symbol]: { price, epoch },
+              }));
               setSyntheticStatus("LIVE DERIV TICKS");
             }
           }
@@ -138,7 +150,7 @@ export default function MarketsPage() {
   }, []);
 
   const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
-  const feedLive = live || syntheticTick !== null;
+  const feedLive = live || syntheticStatus === "LIVE DERIV TICKS";
 
   return (
     <main className="appShell marketPage">
@@ -187,8 +199,8 @@ export default function MarketsPage() {
               {syntheticTick ? syntheticTick.price.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "— — —"}
             </div>
             <div className="marketCardBottom">
-              <span>{syntheticTick ? `Tick time: ${new Date(syntheticTick.epoch * 1000).toLocaleTimeString()}` : "Waiting for first Deriv tick"}</span>
-              <b className={syntheticTick ? "positive" : ""}>{syntheticTick ? "LIVE PRICE" : "NO LIVE PRICE"}</b>
+              <span>{syntheticTick ? `Last observed: ${new Date(syntheticTick.epoch * 1000).toLocaleTimeString()}` : "Waiting for first Deriv tick"}</span>
+              <b className={syntheticStatus === "LIVE DERIV TICKS" ? "positive" : ""}>{syntheticStatus === "LIVE DERIV TICKS" ? "LIVE PUBLIC PRICE" : "LAST KNOWN / OFFLINE"}</b>
             </div>
           </article>
         </section>
@@ -199,27 +211,27 @@ export default function MarketsPage() {
               <div><div className="eyebrow">TRADE SCHEME FX</div><h2>{group.title}</h2></div>
             </div>
             <div className="marketGrid">
-              {group.symbols.map((symbol, index) => {
+              {group.symbols.map((symbol) => {
                 const quote = quoteMap.get(symbol);
-                const hasPrice = quote?.price !== null && quote?.price !== undefined;
+                const synthetic = group.title === "DERIV SYNTHETIC INDICES" ? syntheticTicks[symbol] : undefined;
+                const shownPrice = synthetic?.price ?? quote?.price ?? null;
+                const hasPrice = shownPrice !== null;
+                const syntheticLive = group.title === "DERIV SYNTHETIC INDICES" && syntheticStatus === "LIVE DERIV TICKS";
                 return (
                   <article className="marketCard" key={symbol}>
                     <div className="marketCardTop">
                       <span className="marketIcon">↗</span>
-                      <span className="marketPair">{symbol}</span>
-                      <span className="marketSpark">
-                        {[18, 26, 14, 32, 23, 38, 29, 44, 35, 51, 41, 58].map((height, i) => (
-                          <i key={i} style={{ height: `${height + ((index * 3 + i) % 9)}px` }} />
-                        ))}
-                      </span>
+                      <span className="marketPair">{DERIV_LABELS[symbol] ? DERIV_LABELS[symbol] + " · " + symbol : symbol}</span>
                     </div>
                     <div className="marketValue">
-                      {hasPrice ? quote!.price!.toLocaleString("en-US", { maximumFractionDigits: symbol.includes("JPY") ? 3 : 5 }) : "— — —"}
+                      {hasPrice ? shownPrice!.toLocaleString("en-US", { maximumFractionDigits: symbol.includes("JPY") ? 3 : 5 }) : "— — —"}
                     </div>
                     <div className="marketCardBottom">
-                      <span>{hasPrice ? "Provider quote" : "Feed not connected"}</span>
-                      <b className={quote?.change == null ? "" : quote.change >= 0 ? "positive" : "negative"}>
-                        {quote?.change == null ? "Awaiting data" : `${quote.change >= 0 ? "+" : ""}${quote.change.toFixed(2)}%`}
+                      <span>{synthetic ? "Last tick " + new Date(synthetic.epoch * 1000).toLocaleTimeString() :
+                        hasPrice ? "Licensed provider quote" : "Market data provider not configured"}</span>
+                      <b className={syntheticLive ? "positive" : quote?.change == null ? "" : quote.change >= 0 ? "positive" : "negative"}>
+                        {synthetic ? (syntheticLive ? "LIVE PUBLIC TICK" : "OFFLINE · LAST OBSERVED") :
+                          quote?.change == null ? "NO FEED" : `${quote.change >= 0 ? "+" : ""}${quote.change.toFixed(2)}%`}
                       </b>
                     </div>
                   </article>
@@ -230,7 +242,7 @@ export default function MarketsPage() {
         ))}
 
         <div className="notice marketNotice">
-          Volatility 100 is streamed directly from Deriv using public tick data. The feed is for informational and internal simulation use only; it does not place trades. Other synthetic index cards remain placeholders until their feeds are connected. Prices may change rapidly and are not investment advice.
+Volatility 10, 25, 50, 75 and 100 are streamed from the Deriv public market-data WebSocket. Their prices are observed ticks, not broker order quotes. Forex, metals and crypto cards require a separately configured licensed provider and deliberately show no invented prices. No trade execution occurs on this page.
         </div>
       </div>
     </main>
