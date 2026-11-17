@@ -1,4 +1,10 @@
-import FeatureWorkspace from "@/app/components/FeatureWorkspace";
+import BulkRiskPlanner from "@/app/components/BulkRiskPlanner";
+
+export const metadata = {
+  title: "Bulk Risk Planner | Trade Scheme FX",
+  description: "Compare virtual batch exposure and contract scenarios without placing any trades.",
+};
+
 export default function Page() {
-  return <FeatureWorkspace title="BULK TRADER" eyebrow="TRADE SCHEME FX WORKSPACE" description="Plan batches of contracts and review total exposure before execution." mode="bulk" />;
+  return <BulkRiskPlanner />;
 }

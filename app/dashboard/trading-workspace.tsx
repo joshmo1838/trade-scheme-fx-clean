@@ -20,7 +20,7 @@ const navigation = [
   { label: "Bulk Trader", href: "/bulk-trader", symbol: "▤" },
   { label: "Analysis Tools", href: "/charts", symbol: "⌁" },
   { label: "Market Intelligence", href: "/intelligence", symbol: "◉" },
-  { label: "Hedging Tool", href: "/copy-trading", symbol: "⇄" },
+  { label: "Hedging Planner", href: "/hedging", symbol: "⇄" },
   { label: "Manual Trader", href: "/manual-trader", symbol: "⌖" },
   { label: "Digit Tools", href: "/digit-tools", symbol: "％" },
   { label: "Paper Signals", href: "/intelligence", symbol: "⌁" },
@@ -30,8 +30,8 @@ const navigation = [
 const launchCards = [
   { title: "Customer Bot Center", description: "Configure and start selected public-tick paper bots, with saved results and risk controls.", href: "/bot-center", symbol: "◈", tag: "PAPER BOT WORKSPACE" },
   { title: "Free Bot Marketplace", description: "Explore strategies available to every registered customer.", href: "/bot-center", symbol: "✦", tag: "FREE ACCESS" },
-  { title: "Speed Bot", description: "Quick access to your bot workspace.", href: "/builder", symbol: "ϟ", tag: "QUICK START" },
-  { title: "Manual Trading", description: "Review markets and control each trade.", href: "/manual-trader", symbol: "⌖", tag: "MANUAL" },
+  { title: "Strategy Simulator", description: "Build a strategy and test it against public market ticks in paper mode.", href: "/builder", symbol: "ϟ", tag: "PAPER PRACTICE" },
+  { title: "Manual Paper Practice", description: "Practice five-tick Rise/Fall decisions using public market prices.", href: "/manual-trader", symbol: "⌖", tag: "PUBLIC-TICK SIMULATOR" },
 ];
 
 export default function TradingWorkspace({
