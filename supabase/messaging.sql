@@ -30,9 +30,19 @@ using (customer_id = (select auth.uid()) or public.is_admin());
 
 drop policy if exists "Customers and admins can create conversations" on public.conversations;
 drop policy if exists "Customers can create their own conversation" on public.conversations;
-create policy "Customers can create their own conversation"
+create policy "Customers and admins can create valid conversations"
 on public.conversations for insert to authenticated
-with check (customer_id = (select auth.uid()));
+with check (
+  customer_id = (select auth.uid())
+  or (
+    public.is_admin()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = conversations.customer_id
+        and p.role = 'user'
+    )
+  )
+);
 
 drop policy if exists "Participants can read messages" on public.messages;
 create policy "Participants can read messages"
