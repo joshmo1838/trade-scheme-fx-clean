@@ -151,6 +151,22 @@ export default function DemoTradingConsole() {
     return () => window.clearInterval(interval);
   }, [activeOrder, checkOrderStatus]);
 
+  async function discardCurrentQuote() {
+    const current = quote;
+    setQuote(null);
+    if (!current) return;
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "cancel-quote", orderId: current.orderId }),
+      });
+    } catch {
+      // The next quote request also expires all earlier unsubmitted quotes.
+    }
+  }
+
   async function requestQuote() {
     if (!ready || busy || activeOrder || risk.remainingLossBudget < DEMO_STAKE) return;
     setBusy(true);
@@ -366,12 +382,12 @@ export default function DemoTradingConsole() {
           <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 10, five-minute Rise/Fall, one open position, daily gross-loss cap 20.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginTop: 18 }}>
             <label className="muted">Market
-              <select value={market} onChange={e => { setMarket(e.target.value); setQuote(null); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
+              <select value={market} onChange={e => { setMarket(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
                 {MARKETS.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}
               </select>
             </label>
             <label className="muted">Direction
-              <select value={direction} onChange={e => { setDirection(e.target.value as "CALL" | "PUT"); setQuote(null); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
+              <select value={direction} onChange={e => { setDirection(e.target.value as "CALL" | "PUT"); void discardCurrentQuote(); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
                 <option value="CALL">Rise (CALL)</option>
                 <option value="PUT">Fall (PUT)</option>
               </select>
@@ -397,7 +413,7 @@ export default function DemoTradingConsole() {
               <button className="workspacePrimaryButton" onClick={() => void buyDemoContract()} disabled={busy || !ready || locked}>
                 {busy ? "Submitting…" : "Confirm and buy on DEMO"}
               </button>
-              <button className="button secondary" style={{ marginLeft: 10 }} onClick={() => setQuote(null)} disabled={busy}>Cancel quote</button>
+              <button className="button secondary" style={{ marginLeft: 10 }} onClick={() => void discardCurrentQuote()} disabled={busy}>Cancel quote</button>
             </div>
           )}
         </section>
