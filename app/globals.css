@@ -577,3 +577,181 @@
   .derivAccountPrompt{padding:16px}
   .derivAccountPromptCompact{padding:14px}
 }
+
+/* SENFX video-inspired public landing workspace. Scoped to the home page. */
+.senfxLanding{
+  --senfx-white:#f5faff;
+  --senfx-cyan:#2bdbef;
+  --senfx-dim:#9eb7d4;
+  min-height:100vh;
+  background:#030b1f;
+  color:var(--senfx-white);
+  overflow-x:clip;
+  isolation:isolate;
+}
+.senfxLandingTop{
+  height:78px;
+  width:100%;
+  position:relative;
+  z-index:30;
+  background:linear-gradient(180deg,#04112c,#040b22);
+  border-bottom:1px solid rgba(90,145,207,.16);
+}
+.senfxTopInner{height:100%;width:min(1480px,calc(100% - 64px));margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px}
+.senfxWordmark{display:flex;align-items:center;gap:9px;color:#f4fbff;min-width:194px}
+.senfxWordmark:hover{color:#f4fbff}
+.senfxWordmarkSymbol{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:rgba(11,63,115,.38);color:#24dbf5;font-size:25px}
+.senfxWordmarkText{display:flex;flex-direction:column;gap:2px}
+.senfxWordmarkText strong{font:800 21px/.95 'Space Grotesk',sans-serif;letter-spacing:-.065em;color:#edf7ff}
+.senfxWordmarkText strong span{color:#70e0ff}
+.senfxWordmarkText small{letter-spacing:.18em;font-weight:700;font-size:8px;color:#7797c1}
+.senfxLandingNav{display:flex;align-items:center;gap:32px;justify-content:center;flex:1}
+.senfxLandingNav a{font:700 11px 'DM Sans',sans-serif;color:#c2cfe3;white-space:nowrap;transition:color .2s ease}
+.senfxLandingNav a:hover,.senfxLandingNav a:focus-visible{color:#45d8f8}
+.senfxLandingAuth{display:flex;align-items:center;gap:11px}
+.senfxOutlineButton,.senfxTopButton{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:39px;padding:0 18px;border-radius:10px;font-size:12px;font-weight:700;white-space:nowrap}
+.senfxOutlineButton{border:1px solid #304366;color:#e6f3fc;background:rgba(4,16,37,.72)}
+.senfxOutlineButton:hover{color:#fff;background:#162541}
+.senfxTopButton{border:1px solid #23bde5;background:linear-gradient(105deg,#10bed8,#258de9);color:#03142a;box-shadow:0 0 18px rgba(9,189,240,.13)}
+.senfxTopButton:hover{color:#03142a;filter:brightness(1.1)}
+.senfxLandingMarketWatch{height:35px;position:relative;z-index:20;background:#020b1c;border-bottom:1px solid #12234f}
+.senfxLandingMarketWatch .marketTicker{height:35px;background:transparent;border:0;padding:0 16px;gap:12px}
+.senfxLandingMarketWatch .tickerHead{font-size:8px}
+.senfxLandingMarketWatch .tickerItem{padding:0 21px;font-size:9px}
+.senfxLandingMarketWatch .tickerPrice{font-size:10px}
+.senfxLandingMarketWatch .tickerMore{font-size:8px}
+.senfxLandingHero{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:max(590px,calc(100svh - 113px));
+  padding:115px 20px 162px;
+  background:#040b24;
+  overflow:hidden;
+}
+.senfxMarketArt{position:absolute;z-index:0;inset:0;width:100%;height:100%;pointer-events:none;filter:saturate(1.18)}
+.senfxLeftCandles{opacity:.42;filter:drop-shadow(0 0 6px rgba(21,130,241,.14))}
+.senfxRightCandles{opacity:.85;filter:drop-shadow(0 0 5px rgba(13,192,160,.12))}
+.senfxSignal{animation:senfxSignalGlow 7s ease-in-out infinite alternate}
+.senfxRightCandles{animation:senfxCandleGlow 8s ease-in-out infinite alternate}
+.senfxLandingScrim{
+  position:absolute;z-index:1;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 48% 41% at 51% 50%,rgba(1,7,28,.87) 0%,rgba(2,9,30,.67) 46%,rgba(2,10,33,.06) 100%),
+    linear-gradient(180deg,rgba(3,7,29,.04),transparent 54%,rgba(2,9,30,.16));
+}
+.senfxHeroCenter{position:relative;z-index:3;width:min(920px,100%);text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;transform:translateY(-8px)}
+.senfxHeroTag{
+  display:inline-flex;align-items:center;gap:8px;
+  margin:0;border:1px solid rgba(31,179,223,.38);border-radius:100px;
+  background:rgba(1,20,41,.7);padding:8px 13px;
+  font-size:10px;font-weight:800;letter-spacing:.105em;color:#b8e4f1;
+  box-shadow:0 0 25px rgba(12,154,204,.09);
+}
+.senfxHeroTagDot,.senfxTileDot{display:inline-block;flex-shrink:0;width:7px;height:7px;background:#38ecc3;border-radius:50%;box-shadow:0 0 10px rgba(54,231,175,.8)}
+.senfxHeadlineStage{animation:senfxHeadEnter .55s ease-out both;width:100%}
+.senfxHeadlineStage h1{margin:0;font:800 clamp(37px,4.3vw,64px)/1.16 'Space Grotesk',sans-serif;letter-spacing:-.052em;color:#f5f8ff;text-wrap:balance;text-shadow:0 3px 22px rgba(0,0,0,.45)}
+.senfxHeadlineStage h1 span{color:#45dcef}
+.senfxHeadlineStage p{margin:13px auto 0;max-width:700px;color:#c2d3e9;font-size:13px;line-height:1.7;text-wrap:pretty}
+.senfxHeroActions{margin-top:27px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:13px}
+.senfxHeroPrimary,.senfxHeroSecondary{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:51px;padding:0 23px;border-radius:10px;white-space:nowrap;font:700 12px 'DM Sans',sans-serif;transition:transform .2s,box-shadow .2s,background .2s}
+.senfxHeroPrimary{background:linear-gradient(105deg,#10c4e4,#248ee9);border:1px solid #48edff;color:#04213e;box-shadow:0 0 30px rgba(9,179,243,.4),inset 0 1px rgba(255,255,255,.44)}
+.senfxHeroPrimary:hover{color:#04213e;transform:translateY(-2px);box-shadow:0 0 36px rgba(9,179,243,.57)}
+.senfxHeroSecondary{background:linear-gradient(#edf5ff,#cddff0);color:#152843;border:1px solid #d7eeff;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.senfxHeroSecondary:hover{color:#152843;transform:translateY(-2px);background:#fff}
+.senfxHeroSubtle{font-size:11px;font-weight:700;color:#d7e6fa;padding:13px}
+.senfxHeroSubtle:hover{color:#5cdafa}
+.senfxDerivSignup{margin:0;max-width:760px;color:#93b3d4;font-size:11px;line-height:1.7}
+.senfxDerivSignup a{color:#7be9ff;text-decoration:underline;text-decoration-color:#14769c;text-underline-offset:3px;font-weight:800}
+.senfxDerivSignup a:hover{color:#fff}
+.senfxDerivSignup span:last-child{color:#809bbd}
+.senfxLandingBottom{position:absolute;z-index:4;bottom:0;left:0;right:0;display:flex;flex-direction:column;align-items:flex-start;padding:0 15px 10px;gap:6px}
+.senfxRiskDetails{position:relative;z-index:8;color:#ffd875;width:max-content;max-width:min(440px,95vw)}
+.senfxRiskDetails summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;border:1px solid #ad7515;background:rgba(28,19,11,.92);border-radius:100px;padding:6px 11px;box-shadow:0 0 16px rgba(237,176,27,.23);font-size:10px;font-weight:800}
+.senfxRiskDetails summary::-webkit-details-marker{display:none}
+.senfxRiskDetails p{position:absolute;bottom:calc(100% + 8px);left:0;min-width:min(370px,90vw);border:1px solid #9b8040;padding:15px;border-radius:10px;font-size:12px;line-height:1.6;color:#e8eef8;background:#06192e;box-shadow:0 20px 50px #0007}
+.senfxLandingTiles{width:100%;display:flex;gap:8px;flex-wrap:wrap}
+.senfxLandingTiles>div{min-width:130px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 14px;border:1px solid #24436f;border-radius:10px;background:rgba(4,20,45,.84);box-shadow:inset 0 1px rgba(174,225,255,.04)}
+.senfxLandingTiles strong{display:flex;align-items:center;gap:7px;font:800 13px 'Space Grotesk',sans-serif;color:#f8fcff;letter-spacing:-.02em}
+.senfxLandingTiles small{font-size:8px;letter-spacing:.1em;font-weight:800;color:#87a9ce}
+.senfxArtworkNote{position:absolute;right:18px;bottom:17px;letter-spacing:.015em;font-size:9px;color:#7ca2ce}
+.senfxLandingBelow,.senfxLandingLearn,.senfxLandingFaq{position:relative;z-index:1;width:min(1170px,calc(100% - 48px));margin:auto}
+.senfxLandingBelow{padding:92px 0 82px}
+.senfxBelowIntro{max-width:760px}
+.senfxSectionEyebrow{font-size:10px;letter-spacing:.18em;font-weight:800;color:#39d5ea;margin:0 0 12px}
+.senfxLandingBelow h2,.senfxLandingLearn h2,.senfxLandingFaq h2{font:750 clamp(27px,3.2vw,41px)/1.2 'Space Grotesk',sans-serif;letter-spacing:-.035em;color:#f4faff;margin:0 0 15px}
+.senfxLandingBelow p,.senfxLandingLearn p,.senfxLandingFaq p{color:#9fb9d4;line-height:1.75;font-size:14px}
+.senfxLearningGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:31px}
+.senfxLearningCard{border:1px solid #1b4169;border-radius:15px;background:linear-gradient(140deg,rgba(11,48,84,.71),rgba(5,19,45,.85));padding:26px;box-shadow:0 20px 50px #0001}
+.senfxLearningCard>span{font:800 13px 'Space Grotesk',sans-serif;color:#46d8ef}
+.senfxLearningCard h3{font:700 19px 'Space Grotesk',sans-serif;color:#f0faff;margin:20px 0 10px}
+.senfxLearningCard p{font-size:13px;line-height:1.7;margin:0}
+.senfxLandingLearn{display:flex;justify-content:space-between;align-items:center;gap:28px;border-top:1px solid #1c3554;border-bottom:1px solid #1c3554;padding:60px 0}
+.senfxLandingLearn>div:first-child{max-width:670px}
+.senfxLearnActions{display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap}
+.senfxLandingFaq{padding:78px 0 90px}
+.senfxLandingFaq h2{margin-bottom:24px}
+.senfxLandingFaq details{border-bottom:1px solid #28415e;padding:20px 4px;max-width:850px}
+.senfxLandingFaq summary{cursor:pointer;color:#e6f4ff;font-size:15px;font-weight:700}
+.senfxLandingFaq details[open] summary{color:#41d6e9}
+.senfxLandingFaq details p{margin:12px 0 0;max-width:740px}
+.senfxLandingFooter{background:#020b1a;border-top:1px solid #1b3154;padding:31px max(24px,calc((100% - 1170px)/2));display:flex;align-items:flex-start;gap:26px;flex-wrap:wrap}
+.senfxLandingFooter strong{font:800 16px 'Space Grotesk',sans-serif;color:#d6efff}
+.senfxLandingFooter strong span{color:#55ccec;font-size:11px}
+.senfxLandingFooter p{flex:1;min-width:250px;color:#7799be;font-size:11px;line-height:1.7;margin:0}
+.senfxLandingFooter>div{display:flex;gap:17px}
+.senfxLandingFooter>div a{color:#a8c6df;font-size:11px;font-weight:700}
+@keyframes senfxSignalGlow{from{opacity:.48}to{opacity:.85}}
+@keyframes senfxCandleGlow{from{opacity:.6}to{opacity:.95}}
+@keyframes senfxHeadEnter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1050px){
+  .senfxLandingNav{gap:16px}
+  .senfxTopInner{width:calc(100% - 34px)}
+  .senfxWordmark{min-width:155px}
+  .senfxLandingTiles>div{min-width:115px}
+  .senfxLandingLearn{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:760px){
+  .senfxLandingTop{height:68px}
+  .senfxLandingNav{display:none}
+  .senfxWordmark{min-width:0}
+  .senfxWordmarkText strong{font-size:19px}
+  .senfxLandingAuth .senfxOutlineButton{display:none}
+  .senfxLandingMarketWatch,.senfxLandingMarketWatch .marketTicker{height:34px}
+  .senfxLandingMarketWatch .tickerHead{display:none}
+  .senfxLandingHero{min-height:690px;padding:70px 18px 180px}
+  .senfxMarketArt{width:160%;left:-30%;max-width:none}
+  .senfxLandingScrim{background:radial-gradient(ellipse 69% 42% at 50% 45%,rgba(1,7,28,.96),rgba(2,8,29,.7) 63%,rgba(2,8,29,.17) 100%)}
+  .senfxHeroCenter{transform:none;gap:15px}
+  .senfxHeadlineStage h1{font-size:clamp(37px,8vw,56px)}
+  .senfxHeadlineStage p{font-size:13px}
+  .senfxHeroActions{margin-top:20px}
+  .senfxArtworkNote{display:none}
+  .senfxLandingTiles>div{min-width:calc(50% - 4px);flex:1}
+  .senfxLandingBottom{padding:0 10px 10px}
+  .senfxLearningGrid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .senfxWordmarkSymbol{display:none}
+  .senfxTopInner{gap:10px;width:calc(100% - 26px)}
+  .senfxWordmarkText small{font-size:7px}
+  .senfxLandingAuth .senfxTopButton{font-size:10px;padding:0 10px;min-height:36px}
+  .senfxHeroTag{font-size:8px;letter-spacing:.04em;padding:7px 10px}
+  .senfxLandingHero{min-height:730px;padding:66px 16px 201px}
+  .senfxHeadlineStage h1{font-size:clamp(34px,10vw,47px)}
+  .senfxHeroActions{flex-direction:column;width:100%;gap:10px}
+  .senfxHeroPrimary,.senfxHeroSecondary{width:100%;max-width:290px}
+  .senfxHeroSubtle{padding:5px}
+  .senfxDerivSignup{font-size:11px}
+  .senfxLandingTiles>div{min-height:42px;padding:7px 9px}
+  .senfxLandingTiles strong{font-size:12px}
+  .senfxLandingTiles small{font-size:7px}
+  .senfxLandingBelow,.senfxLandingLearn,.senfxLandingFaq{width:calc(100% - 32px)}
+  .senfxLandingBelow{padding:64px 0}
+  .senfxLandingFaq{padding:55px 0}
+}
+@media(prefers-reduced-motion:reduce){
+  .senfxMarketArt *, .senfxHeadlineStage{animation:none!important;transition:none!important}
+  .senfxHeroPrimary,.senfxHeroSecondary{transition:none}
+}
