@@ -21,7 +21,7 @@ export default function CustomerBotCenter() {
   const [engineStatus,setEngineStatus]=useState<Record<string,string>>({});
   const [livePrices,setLivePrices]=useState<Record<string,number>>({});
   const sockets=useMemo(()=>new Map<string,WebSocket>(),[]);
-  const runtimes=useMemo(()=>new Map<string,{prices:number[];open:{entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null;running:boolean;loss:number;cooldown:number;trades:number;closing:boolean}>(),[]);
+  const runtimes=useMemo(()=>new Map<string,{prices:number[];open:{entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null;running:boolean;netLoss:number;cooldown:number;trades:number;closing:boolean}>(),[]);
   const supabase=useMemo(()=>createClient(),[]);
 
   const load=useCallback(async()=>{
