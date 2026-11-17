@@ -63,8 +63,7 @@ export default function CustomerBotCenter() {
     const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return;}
     const market=bot.market.toLowerCase().includes("synthetic")?"R_100":bot.market.toLowerCase().includes("forex")?"frxEURUSD":"R_100";
     // Session-only simulation; no customer-submitted history is trusted as a risk baseline.
-    const initialLoss=0; // Each simulation starts with a fresh session loss counter.
-    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,loss:initialLoss,cooldown:0,trades:0,closing:false};
+    const runtime={prices:[] as number[],open:null as {entry:number;direction:string;stake:number;remaining:number;openedAt:string}|null,running:true,netLoss:0,cooldown:0,trades:0,closing:false};
     runtimes.set(bot.id,runtime);setEngineStatus(v=>({...v,[bot.id]:"Connecting to public market data…"}));
     try{
       const ws=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");sockets.set(bot.id,ws);
@@ -82,12 +81,12 @@ export default function CustomerBotCenter() {
             const pnl = won ? completed.stake : -completed.stake;
             const closedAt = new Date().toISOString();
             const trade = {id:crypto.randomUUID(),bot_id:bot.id,market_symbol:market,direction:completed.direction,entry_price:completed.entry,exit_price:price,stake_amount:completed.stake,pnl,outcome:won ? "WIN" : "LOSS",opened_at:completed.openedAt,closed_at:closedAt};
-            runtime.loss = Math.max(0, runtime.loss - pnl);
+            runtime.netLoss = Math.max(0, runtime.netLoss - pnl);
             runtime.trades += 1;
             runtime.cooldown = 10;
             setPaperTrades(v => [trade,...v].slice(0,100));
-            if(cfg.daily_loss_limit !== null && runtime.loss >= cfg.daily_loss_limit){
-              stopPaper(bot.id,"Session loss limit reached. Simulation stopped.");
+            if(cfg.daily_loss_limit !== null && runtime.netLoss >= cfg.daily_loss_limit){
+              stopPaper(bot.id,"Session net-loss limit reached. Simulation stopped.");
             } else if(runtime.trades >= 20){
               stopPaper(bot.id,"20-trade session cap reached. Simulation stopped.");
             }
