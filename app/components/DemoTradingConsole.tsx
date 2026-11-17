@@ -260,13 +260,13 @@ export default function DemoTradingConsole() {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   credentials: "same-origin",
-                  body: JSON.stringify({ action: "confirm", orderId: current.id, contractId: current.contract_id }),
+                  body: JSON.stringify({ action: "reconcile", orderId: current.id, contractId: current.contract_id }),
                 });
                 const result = await response.json();
                 if (!response.ok || !result.success) {
                   throw new Error(result.error || "Deriv contract could not be reconciled.");
                 }
-                const reconciled = { ...current, status: "open" };
+                const reconciled = { ...current, status: "open", contract_id: result.contractId || current.contract_id };
                 activeOrderRef.current = reconciled;
                 setActiveOrder(reconciled);
                 setContract(contractData);
@@ -306,6 +306,53 @@ export default function DemoTradingConsole() {
       setConnecting(false);
     }
   }, [connected, connecting, settleOrder, subscribeToContract]);
+
+  async function reconcileUnknownOrder(orderId: string, contractId?: string, transactionId?: string) {
+    if (reconcilingOrders.current.has(orderId)) return;
+    reconcilingOrders.current.add(orderId);
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "reconcile", orderId, contractId, transactionId }),
+      });
+      const result = await response.json();
+      if (result.state === "rejected" && result.success) {
+        activeOrderRef.current = null;
+        setActiveOrder(null);
+        setContract(null);
+        setQuote(null);
+        setMessage(result.reason || "Deriv confirms no contract was purchased. The reservation is released.");
+        await refresh();
+        return;
+      }
+      if (!response.ok || !result.success || result.state !== "open") {
+        throw new Error(result.error || result.reason || "Purchase is still unresolved. Risk remains reserved; do not retry.");
+      }
+      const reopened: ActiveOrder = {
+        id: orderId,
+        status: "open",
+        contract_id: result.contractId,
+        market_symbol: activeOrderRef.current?.market_symbol || market,
+        contract_type: activeOrderRef.current?.contract_type || direction,
+        stake_amount: 10,
+        currency: currencyRef.current,
+      };
+      activeOrderRef.current = reopened;
+      setActiveOrder(reopened);
+      setMessage("Deriv statement and contract details confirm the existing Demo purchase. No second buy was sent.");
+      if (socketRef.current?.readyState === WebSocket.OPEN) subscribeToContract(String(result.contractId));
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reconcile the existing Demo purchase.");
+    } finally {
+      reconcilingOrders.current.delete(orderId);
+      setBusy(false);
+    }
+  }
 
   async function requestQuote() {
     if (!connected || busy || activeOrder || risk.remainingLossBudget < 10) return;
@@ -382,69 +429,60 @@ export default function DemoTradingConsole() {
         remainingLossBudget: Number(reserved.remainingLossBudget || 0),
       });
 
+      const attemptResponse = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "buy-attempt", orderId }),
+      });
+      const attempt = await attemptResponse.json();
+      if (!attemptResponse.ok || !attempt.success) {
+        await refresh();
+        throw new Error(attempt.error || "SENFX could not mark the buy attempt. No purchase was sent.");
+      }
+
+      const unresolved: ActiveOrder = {
+        id: orderId,
+        status: "buy_unknown",
+        market_symbol: market,
+        contract_type: direction,
+        stake_amount: 10,
+        currency: currencyRef.current,
+      };
+      activeOrderRef.current = unresolved;
+      setActiveOrder(unresolved);
+
       let bought: any;
       try {
         bought = await sendRequest("buy", { buy: quote.id, price: quote.askPrice });
       } catch (buyError) {
-        const reason = buyError instanceof Error ? buyError.message : "Unknown buy response.";
-        if (reason.startsWith("DERIV_REJECTED:")) {
-          // Keep the reservation even when the browser sees a rejection:
-          // only the server may release it after a verified reconciliation.
-          await fetch(API, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify({ action: "buy-unknown", orderId }),
-          });
-          setActiveOrder({
-            id: orderId,
-            status: "buy_unknown",
-            market_symbol: market,
-            contract_type: direction,
-            stake_amount: 10,
-            currency: currencyRef.current,
-          });
-          await refresh();
-          throw new Error("Deriv rejected or did not conclusively confirm the buy. SENFX kept the 10 " + currencyRef.current + " risk reservation. Do not retry; check the contract status before continuing.");
+        const reason = buyError instanceof Error ? buyError.message.replace("DERIV_REJECTED: ", "") : "Unknown buy response.";
+        await reconcileUnknownOrder(orderId);
+        if (activeOrderRef.current?.status === "open") {
+          setMessage("Deriv purchase reconciled successfully. No second buy was sent.");
+        } else if (activeOrderRef.current?.status === "buy_unknown") {
+          setError(reason + " SENFX kept the 10 " + currencyRef.current + " reservation. Use Check Deriv statement; do not retry.");
         }
-        await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ action: "buy-unknown", orderId }),
-        });
-        setActiveOrder({ id: orderId, status: "buy_unknown", market_symbol: market, contract_type: direction, stake_amount: 10, currency: currencyRef.current });
-        throw new Error("Deriv did not confirm whether the purchase completed. SENFX has held the $10 risk reservation. Do not retry; reconnect and contact support to reconcile.");
+        return;
       }
 
       const contractId = String(bought?.buy?.contract_id || "");
-      if (!/^\d{1,30}$/.test(contractId)) {
-        await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ action: "buy-unknown", orderId }),
-        });
-        setActiveOrder({ id: orderId, status: "buy_unknown", market_symbol: market, contract_type: direction, stake_amount: 10, currency: currencyRef.current });
-        throw new Error("Deriv returned an unclear purchase response. The risk reservation remains held; do not retry.");
+      const transactionId = String(bought?.buy?.transaction_id || "");
+      if (!/^\d{1,30}$/.test(contractId) || !/^\d{1,30}$/.test(transactionId)) {
+        await reconcileUnknownOrder(orderId);
+        return;
       }
 
       const confirmResponse = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "confirm", orderId, contractId }),
+        body: JSON.stringify({ action: "confirm", orderId, contractId, transactionId }),
       });
       const confirmation = await confirmResponse.json();
       if (!confirmResponse.ok || !confirmation.success) {
-        await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ action: "buy-unknown", orderId }),
-        });
-        setActiveOrder({ id: orderId, status: "buy_unknown", contract_id: contractId, market_symbol: market, contract_type: direction, stake_amount: 10, currency: currencyRef.current });
-        throw new Error(confirmation.error || "The contract may exist, but SENFX could not verify it. The risk reservation remains held.");
+        await reconcileUnknownOrder(orderId, contractId, transactionId);
+        return;
       }
 
       setActiveOrder({
@@ -578,7 +616,10 @@ export default function DemoTradingConsole() {
             <p className="workspaceEyebrow">ACTIVE DEMO CONTRACT</p>
             <h2>{activeOrder.market_symbol} · {activeOrder.contract_type}</h2>
             {activeOrder.status === "buy_unknown" || activeOrder.status === "reserved" ? (
-              <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. The buy may not have reached Deriv, or its response may have been lost. Do not retry this trade; reconnect and contact support so the contract can be reconciled safely.</p>
+              <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. SENFX checks Deriv's account statement before releasing it. Do not retry the purchase.</p>
+              <button className="workspacePrimaryButton" onClick={() => void reconcileUnknownOrder(activeOrder.id, activeOrder.contract_id || undefined)} disabled={busy}>
+                {busy ? "Checking…" : "Check Deriv statement"}
+              </button>
             ) : (
               <>
                 <p>Contract ID: {activeOrder.contract_id}</p>
