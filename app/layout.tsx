@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import MarketTicker from "../components/MarketTicker";
+import GlobalTicker from "../components/GlobalTicker";
 
 export const metadata: Metadata = {
   title: "Trade Scheme FX | T&J AI Market Assistant",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><MarketTicker />{children}</body></html>;
+  return <html lang="en"><body><GlobalTicker />{children}</body></html>;
 }
