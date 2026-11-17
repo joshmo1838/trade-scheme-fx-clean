@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  DEMO_DAILY_LOSS_LIMIT,
   DEMO_MARKETS,
   DEMO_STAKE,
   DemoApiError,
@@ -276,15 +275,13 @@ async function getVerifiedContract(
 }
 
 function safeRisk(risk: any, orders: any[]) {
-  const dailyLoss = Number(risk?.realized_loss ?? 0);
-  const reservedLoss = Number(risk?.reserved_loss ?? 0);
-  const limit = Number(risk?.daily_loss_limit ?? DEMO_DAILY_LOSS_LIMIT);
   return {
-    dailyLoss,
-    reservedLoss,
-    dailyLossLimit: limit,
-    remainingLossBudget: Math.max(0, limit - dailyLoss - reservedLoss),
-    limitReached: dailyLoss + reservedLoss + DEMO_STAKE > limit,
+    dailyLoss: Number(risk?.realized_loss ?? 0),
+    reservedLoss: Number(risk?.reserved_loss ?? 0),
+    unlimitedDemoPractice: true,
+    dailyLossLimit: null,
+    remainingLossBudget: null,
+    limitReached: false,
     orders,
   };
 }
@@ -298,7 +295,7 @@ export async function GET() {
     const riskDate = new Date().toISOString().slice(0, 10);
     const [riskResult, orderResult] = await Promise.all([
       context.admin.from("deriv_demo_daily_risk")
-        .select("risk_date,currency,daily_loss_limit,realized_loss,reserved_loss")
+        .select("risk_date,currency,realized_loss,reserved_loss")
         .eq("user_id", context.user.id)
         .eq("account_id", context.account.account_id)
         .eq("risk_date", riskDate)
@@ -463,6 +460,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "buy") {
+      const availableVirtualFunds = Number(context.account.balance);
+      if (!Number.isFinite(availableVirtualFunds) || availableVirtualFunds < DEMO_STAKE) {
+        return jsonError("This Deriv Demo account needs at least 10 virtual " + context.account.currency + " units to place a Demo trade. Refresh or top up the Demo account in Deriv.", 409, "DEMO_INSUFFICIENT_VIRTUAL_FUNDS");
+      }
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
       if (order.account_id !== context.account.account_id) return jsonError("This quote belongs to a different Demo account.", 409, "DEMO_ACCOUNT_MISMATCH");
       if (order.status !== "quoted") return jsonError("This quote is no longer available. Request a new price.", 409, "QUOTE_NOT_AVAILABLE");
@@ -554,7 +555,7 @@ export async function POST(request: NextRequest) {
       });
       if (reserveError || !reservation?.allowed) {
         if (reserveError) console.error("SENFX Demo risk reservation failed:", reserveError.code);
-        return jsonError(reservation?.reason || "SENFX could not reserve the Demo risk budget. No buy request was sent.", reserveError ? 503 : 409, "RISK_RESERVATION_FAILED");
+        return jsonError(reservation?.reason || "SENFX could not safely reserve this Demo order. No buy request was sent.", reserveError ? 503 : 409, "RISK_RESERVATION_FAILED");
       }
 
       const { data: attempt, error: attemptError } = await context.admin.rpc("senfx_demo_mark_buy_attempt", {
