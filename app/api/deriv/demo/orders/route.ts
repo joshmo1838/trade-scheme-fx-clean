@@ -5,6 +5,7 @@ import {
   DEMO_MARKETS,
   DEMO_STAKE,
   getDerivDemoContext,
+  getDemoStatement,
   getDemoWebSocketUrl,
   requestOnDemoWebSocket,
   safeDemoError,
@@ -41,10 +42,136 @@ function assertSameOrigin(request: NextRequest) {
 async function readOrder(admin: any, userId: string, orderId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) throw new Error("Invalid Demo order ID.");
   const { data, error } = await admin.from("deriv_demo_orders")
-    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,contract_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
+    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,buy_requested_at,contract_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error || !data) throw new Error("Demo order was not found.");
   return data;
+}
+
+
+async function reconcileBuyOrder(
+  context: Awaited<ReturnType<typeof getDerivDemoContext>>,
+  order: any,
+  submittedContractId?: string,
+  submittedTransactionId?: string,
+) {
+  if (order.status === "open" && order.contract_id && order.buy_transaction_id) {
+    if (submittedContractId && submittedContractId !== String(order.contract_id)) {
+      return { state: "mismatch" as const, reason: "The supplied contract does not match the saved Demo order." };
+    }
+    return {
+      state: "open" as const,
+      orderId: order.id,
+      contractId: String(order.contract_id),
+      transactionId: String(order.buy_transaction_id),
+      buyPrice: Number(order.buy_price),
+    };
+  }
+
+  if (!["reserved", "buy_unknown"].includes(order.status) || !order.buy_requested_at) {
+    return { state: "waiting" as const, reason: "This order has no recorded buy attempt yet. Risk remains reserved." };
+  }
+
+  const appId = process.env.DERIV_CLIENT_ID;
+  if (!appId) return { state: "waiting" as const, reason: "Deriv application ID is not configured. Risk remains reserved." };
+
+  const buyRequestedAt = new Date(order.buy_requested_at).getTime();
+  if (!Number.isFinite(buyRequestedAt)) return { state: "waiting" as const, reason: "The buy-attempt timestamp is invalid. Risk remains reserved." };
+
+  const statementMessage = await getDemoStatement(context, Math.floor(buyRequestedAt / 1000));
+  const transactions = statementMessage?.statement?.transactions;
+  if (!Array.isArray(transactions)) return { state: "waiting" as const, reason: "Deriv did not return a usable statement. Risk remains reserved." };
+
+  const earliest = Math.floor(buyRequestedAt / 1000) - 8;
+  const latest = Math.floor(Date.now() / 1000) + 5;
+  const matches = transactions.filter((transaction: any) => {
+    const transactionTime = Number(transaction.transaction_time);
+    const amount = Math.abs(Number(transaction.amount));
+    return transaction.action_type === "buy" &&
+      String(transaction.app_id) === String(appId) &&
+      Math.abs(amount - Number(order.stake_amount)) <= 0.01 &&
+      typeof transaction.longcode === "string" &&
+      transaction.longcode === order.longcode &&
+      Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest &&
+      /^\\d{1,30}$/.test(String(transaction.contract_id || "")) &&
+      /^\\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
+      (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
+      (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId);
+  });
+
+  if (matches.length === 0) {
+    if (Date.now() - buyRequestedAt < 15_000) {
+      return { state: "waiting" as const, reason: "No matching buy appears in Deriv statement yet. Wait a few seconds and check again; do not retry the purchase." };
+    }
+    const { data: rejected, error: rejectError } = await context.admin.rpc("senfx_demo_reject_order", {
+      p_user_id: context.user.id,
+      p_order_id: order.id,
+      p_reason: "Deriv statement returned no matching buy transaction after the reconciliation window.",
+    });
+    if (rejectError || !rejected?.rejected) {
+      return { state: "waiting" as const, reason: "No buy was found, but SENFX could not safely release the reservation. Contact support before continuing." };
+    }
+    return { state: "rejected" as const, reason: "Deriv statement confirms no Demo contract was purchased. The reservation has been released." };
+  }
+
+  if (matches.length !== 1) {
+    return { state: "waiting" as const, reason: "More than one matching Deriv buy was found. SENFX kept the risk reserved for manual reconciliation." };
+  }
+
+  const transaction = matches[0];
+  const contractId = String(transaction.contract_id);
+  const transactionId = String(transaction.transaction_id);
+  const wsUrl = await getDemoWebSocketUrl(context);
+  const reqId = Date.now() % 2_000_000_000;
+  const verification: any = await requestOnDemoWebSocket(wsUrl, {
+    proposal_open_contract: 1,
+    contract_id: Number(contractId),
+    req_id: reqId,
+  }, "proposal_open_contract");
+  const contract = verification?.proposal_open_contract;
+
+  const dateStart = Number(contract?.date_start);
+  const dateExpiry = Number(contract?.date_expiry);
+  const actualBuyPrice = Number(contract?.buy_price);
+  const transactionAmount = Math.abs(Number(transaction.amount));
+  const durationSeconds = dateExpiry - dateStart;
+
+  if (
+    String(contract?.contract_id) !== contractId ||
+    contract?.underlying_symbol !== order.market_symbol ||
+    contract?.contract_type !== order.contract_type ||
+    contract?.currency !== order.currency ||
+    typeof contract?.longcode !== "string" ||
+    contract.longcode !== order.longcode ||
+    !Number.isFinite(actualBuyPrice) ||
+    Math.abs(actualBuyPrice - transactionAmount) > 0.01 ||
+    actualBuyPrice <= 0 || actualBuyPrice > DEMO_STAKE ||
+    !Number.isFinite(durationSeconds) || Math.abs(durationSeconds - 300) > 2
+  ) {
+    return { state: "waiting" as const, reason: "Deriv found a buy, but its contract details do not match the saved 5-minute Demo quote. Risk remains reserved while the order is reviewed." };
+  }
+
+  const { data: confirmed, error: confirmError } = await context.admin.rpc("senfx_demo_confirm_order", {
+    p_user_id: context.user.id,
+    p_order_id: order.id,
+    p_contract_id: contractId,
+    p_transaction_id: transactionId,
+    p_buy_price: actualBuyPrice,
+  });
+  if (confirmError || !confirmed?.confirmed) {
+    return { state: "waiting" as const, reason: "Deriv confirmed the contract, but SENFX could not save the order. Risk remains reserved; do not purchase again." };
+  }
+
+  return {
+    state: "open" as const,
+    orderId: order.id,
+    contractId,
+    transactionId,
+    buyPrice: actualBuyPrice,
+    contractStatus: contract.status || "open",
+    isSold: contract.is_sold === 1,
+    isExpired: contract.is_expired === 1,
+  };
 }
 
 function safeRisk(risk: any, orders: any[]) {
