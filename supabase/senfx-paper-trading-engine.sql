@@ -19,23 +19,11 @@ create table if not exists public.customer_paper_trades (
 create index if not exists customer_paper_trades_owner_closed_idx
   on public.customer_paper_trades(customer_id, closed_at desc);
 alter table public.customer_paper_trades enable row level security;
-grant select, insert on public.customer_paper_trades to authenticated;
+grant select on public.customer_paper_trades to authenticated;
+revoke insert, update, delete on public.customer_paper_trades from anon, authenticated;
 drop policy if exists "Customers read own paper trades" on public.customer_paper_trades;
 create policy "Customers read own paper trades"
 on public.customer_paper_trades for select to authenticated
 using (customer_id = (select auth.uid()));
-drop policy if exists "Customers insert own paper trades for selected bots" on public.customer_paper_trades;
-create policy "Customers insert own paper trades for selected bots"
-on public.customer_paper_trades for insert to authenticated
-with check (
-  customer_id = (select auth.uid())
-  and exists (
-    select 1 from public.customer_bots cb
-    where cb.customer_id = (select auth.uid())
-      and cb.bot_id = customer_paper_trades.bot_id
-      and cb.trading_mode = 'demo'
-      and cb.control_status = 'selected'
-  )
-);
 comment on table public.customer_paper_trades is
   'Illustrative customer-owned paper simulation history. Not exchange or broker executions.';
