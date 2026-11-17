@@ -238,3 +238,141 @@ export async function getDemoStatement(context: DerivDemoContext, dateFrom: numb
     12_000,
   );
 }
+
+export type DemoSocketSession = {
+  request<T = any>(
+    expectedMessageType: string,
+    payload: Record<string, unknown>,
+    timeoutMs?: number,
+  ): Promise<T>;
+  close(): void;
+};
+
+export async function openDerivDemoSession(
+  context: DerivDemoContext,
+): Promise<DemoSocketSession> {
+  const url = await getDemoWebSocketUrl(context);
+  let socket: WebSocket;
+  try {
+    socket = new WebSocket(url);
+  } catch {
+    throw new DemoApiError("Could not open the Deriv Demo WebSocket.", 502, "DERIV_WS_CONNECT_FAILED");
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    let complete = false;
+    const timer = setTimeout(() => {
+      if (complete) return;
+      complete = true;
+      try { socket.close(); } catch { /* Already closed. */ }
+      reject(new DemoApiError("Deriv Demo connection timed out.", 504, "DERIV_WS_CONNECT_TIMEOUT"));
+    }, 10_000);
+
+    socket.addEventListener("open", () => {
+      if (complete) return;
+      complete = true;
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+
+    socket.addEventListener("error", () => {
+      if (complete) return;
+      complete = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch { /* Already closed. */ }
+      reject(new DemoApiError("Deriv Demo connection failed.", 502, "DERIV_WS_CONNECT_FAILED"));
+    }, { once: true });
+
+    socket.addEventListener("close", () => {
+      if (complete) return;
+      complete = true;
+      clearTimeout(timer);
+      reject(new DemoApiError("Deriv closed the Demo session before it opened.", 502, "DERIV_WS_CLOSED"));
+    }, { once: true });
+  });
+
+  const pending = new Map<number, {
+    expectedType: string;
+    resolve: (value: any) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
+  let counter = 1;
+  let closed = false;
+
+  socket.addEventListener("message", (event: MessageEvent) => {
+    let message: any;
+    try { message = JSON.parse(String(event.data)); } catch { return; }
+    const reqId = Number(message.req_id);
+    const waiter = pending.get(reqId);
+    if (!waiter) return;
+
+    if (message.error) {
+      clearTimeout(waiter.timer);
+      pending.delete(reqId);
+      waiter.reject(new DemoApiError(
+        String(message.error.message || "Deriv rejected the Demo request."),
+        400,
+        String(message.error.code || "DERIV_REQUEST_REJECTED"),
+      ));
+      return;
+    }
+
+    if (message.msg_type === waiter.expectedType) {
+      clearTimeout(waiter.timer);
+      pending.delete(reqId);
+      waiter.resolve(message);
+    }
+  });
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    pending.forEach(waiter => {
+      clearTimeout(waiter.timer);
+      waiter.reject(new DemoApiError("Demo session closed.", 502, "DERIV_WS_CLOSED"));
+    });
+    pending.clear();
+    try { socket.close(); } catch { /* Already closed. */ }
+  };
+
+  socket.addEventListener("close", () => {
+    if (closed) return;
+    closed = true;
+    pending.forEach(waiter => {
+      clearTimeout(waiter.timer);
+      waiter.reject(new DemoApiError("Deriv Demo session closed unexpectedly.", 502, "DERIV_WS_CLOSED"));
+    });
+    pending.clear();
+  });
+
+  socket.addEventListener("error", () => {
+    if (closed) return;
+    // Let individual requests time out or receive their matching error response.
+  });
+
+  return {
+    request<T = any>(expectedMessageType: string, payload: Record<string, unknown>, timeoutMs = 10_000): Promise<T> {
+      if (closed || socket.readyState !== WebSocket.OPEN) {
+        return Promise.reject(new DemoApiError("Deriv Demo session is not open.", 502, "DERIV_WS_NOT_OPEN"));
+      }
+      const reqId = (Date.now() % 1_000_000_000) + counter++;
+      return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(reqId);
+          reject(new DemoApiError("Deriv did not respond before timeout.", 504, "DERIV_WS_TIMEOUT"));
+        }, timeoutMs);
+        pending.set(reqId, { expectedType, resolve, reject, timer });
+        try {
+          socket.send(JSON.stringify({ ...payload, req_id: reqId }));
+        } catch {
+          clearTimeout(timer);
+          pending.delete(reqId);
+          reject(new DemoApiError("Could not send the request to Deriv.", 502, "DERIV_WS_SEND_FAILED"));
+        }
+      });
+    },
+    close,
+  };
+}
+
