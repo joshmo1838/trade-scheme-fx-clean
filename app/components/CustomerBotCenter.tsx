@@ -41,6 +41,7 @@ export default function CustomerBotCenter() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const sockets = useMemo(() => new Map<string, WebSocket>(), []);
   const runtimes = useMemo(() => new Map<string, Runtime>(), []);
+  const startingBots = useMemo(() => new Set<string>(), []);
   const supabase = useMemo(() => createClient(), []);
 
   const load = useCallback(async () => {
@@ -161,11 +162,12 @@ export default function CustomerBotCenter() {
       setMessage("Mark this bot selected before starting its paper simulation.");
       return;
     }
-    if (sockets.has(bot.id)) {
-      setMessage("This bot's paper feed is already running in this browser tab.");
+    if (sockets.has(bot.id) || startingBots.has(bot.id)) {
+      setMessage("This bot's paper feed is already running or starting in this browser tab.");
       return;
     }
-
+    startingBots.add(bot.id);
+    try {
     setMessage("");
     setEngineStatus(current => ({ ...current, [bot.id]: "Checking today's server-enforced loss budget…" }));
 
@@ -360,6 +362,9 @@ export default function CustomerBotCenter() {
       };
     } catch {
       stopPaper(bot.id, "Could not start paper feed.");
+    }
+    } finally {
+      startingBots.delete(bot.id);
     }
   }
 
