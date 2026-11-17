@@ -698,10 +698,12 @@ export default function DemoTradingConsole() {
             <p className="workspaceEyebrow">ACTIVE DEMO CONTRACT</p>
             <h2>{activeOrder.market_symbol} · {activeOrder.contract_type}</h2>
             {activeOrder.status === "buy_unknown" || activeOrder.status === "reserved" ? (
-              <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. SENFX checks Deriv's account statement before releasing it. Do not retry the purchase.</p>
-              <button className="workspacePrimaryButton" onClick={() => void reconcileUnknownOrder(activeOrder.id, activeOrder.contract_id || undefined)} disabled={busy}>
-                {busy ? "Checking…" : "Check Deriv statement"}
-              </button>
+              <>
+                <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. SENFX checks Deriv's account statement before releasing it. Do not retry the purchase.</p>
+                <button className="workspacePrimaryButton" onClick={() => void reconcileUnknownOrder(activeOrder.id, activeOrder.contract_id || undefined)} disabled={busy}>
+                  {busy ? "Checking…" : "Check Deriv statement"}
+                </button>
+              </>
             ) : (
               <>
                 <p>Contract ID: {activeOrder.contract_id}</p>
