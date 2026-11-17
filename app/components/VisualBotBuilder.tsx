@@ -30,6 +30,41 @@ export default function VisualBotBuilder(){
  const add=(item:Block,index=blocks.length)=>{setBlocks(v=>{const n=[...v];n.splice(index,0,{...item,id:"b-"+Date.now()+"-"+Math.random()});return n;});setSaved(false);};
  const reorder=(from:string,to:string)=>setBlocks(v=>{const a=v.findIndex(x=>x.id===from),b=v.findIndex(x=>x.id===to);if(a<0||b<0||a===b)return v;const n=[...v],item=n.splice(a,1)[0];n.splice(b,0,item);return n;});
  const save=()=>{try{localStorage.setItem(key,JSON.stringify({blocks,blockRules,triggerInterval,conditionRules,sellRules,riskRules,market,contract,duration,stake,tp,sl,martingale}));setSaved(true);setNotice("Draft saved in this browser on this device; it is not synced to your account.");}catch{setNotice("Could not save draft in browser storage.");}};
+ const importDraft=async(file:File)=>{
+   if(file.size>512000){setNotice("The strategy file is too large (maximum 500 KB).");return;}
+   try{
+     const parsed:unknown=JSON.parse(await file.text());
+     if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))throw new Error("Strategy must be a JSON object.");
+     const d=parsed as Record<string,unknown>;
+     const allowedKinds=new Set<Kind>(["trigger","market","contract","condition","risk","action"]);
+     if(!Array.isArray(d.blocks)||d.blocks.length===0||d.blocks.length>100||
+        !d.blocks.every((b:unknown)=>b&&typeof b==="object"&&
+          typeof (b as Block).id==="string"&&typeof (b as Block).title==="string"&&
+          typeof (b as Block).detail==="string"&&allowedKinds.has((b as Block).kind)))
+       throw new Error("This file is not a compatible Trade Scheme FX JSON strategy draft.");
+     setBlocks((d.blocks as Block[]).map((b,index)=>({
+       id:"import-"+index+"-"+Date.now(),
+       kind:b.kind,
+       title:b.title.slice(0,100),
+       detail:b.detail.slice(0,200)
+     })));
+     if(typeof d.market==="string"&&markets.some(m=>m[1]===d.market))setMarket(d.market);
+     if(typeof d.contract==="string"&&["CALL","PUT","DIGITOVER","DIGITUNDER","DIGITMATCH","DIGITDIFF"].includes(d.contract))setContract(d.contract);
+     if(typeof d.duration==="string")setDuration(d.duration.slice(0,8));
+     if(typeof d.stake==="string")setStake(d.stake.slice(0,20));
+     if(typeof d.tp==="string")setTp(d.tp.slice(0,20));
+     if(typeof d.sl==="string")setSl(d.sl.slice(0,20));
+     if(typeof d.martingale==="boolean")setMartingale(d.martingale);
+     setBlockRules({});
+     setConditionRules({});
+     setSellRules({});
+     setRiskRules({});
+     setSelectedCloudId("");
+     setSaved(false);
+     setValidation({errors:[],warnings:[],checked:false});
+     setNotice("Strategy JSON imported. Review every parameter, validate, and save it before any paper practice. No orders were placed.");
+   }catch(err){setNotice(err instanceof Error?err.message:"Could not import the strategy file.");}
+ };
  const exportDraft=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({blocks,blockRules,triggerInterval,conditionRules,sellRules,riskRules,market,contract,duration,stake,tp,sl,martingale},null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="trade-scheme-strategy-draft.json";a.click();URL.revokeObjectURL(url);setNotice("Draft exported. Nothing was sent to Deriv.");};
  const reset=()=>{setBlocks(initial);setMarket("R_100");setContract("CALL");setDuration("5");setStake("1");setTp("10");setSl("5");setMartingale(false);setSaved(false);setNotice("Starter strategy restored.");};
  const validateStrategy=()=>{const errors:string[]=[];const warnings:string[]=[];const required:[Kind,string][]=[["trigger","On every new tick"],["market","Select market"],["contract","Contract type"],["condition","Purchase condition"],["risk","Risk limits"],["action","Purchase contract"]];for(const [kind,title] of required){if(!blocks.some(b=>b.kind===kind&&(kind!=="condition"||b.title===title)))errors.push("Add the "+title+" block.");}const durationN=Number(duration),stakeN=Number(stake),tpN=Number(tp),slN=Number(sl);if(!Number.isFinite(durationN)||!Number.isInteger(durationN)||durationN<1||durationN>100)errors.push("Duration must be a whole number from 1 to 100 ticks.");if(!Number.isFinite(stakeN)||stakeN<0.35)errors.push("Stake must be at least $0.35.");if(!Number.isFinite(tpN)||tpN<0)errors.push("Take profit must be zero or greater.");if(!Number.isFinite(slN)||slN<0)errors.push("Stop loss must be zero or greater.");const conditionBlocks=blocks.filter(b=>b.title==="Purchase condition");for(const b of conditionBlocks){const r=conditionRules[b.id]||{indicator:"last_digit",operator:"gt",value:"5"};const n=Number(r.value);if(!Number.isInteger(n)||n<0||n>9)errors.push("Purchase condition value must be a whole digit from 0 to 9.");}const riskBlocks=blocks.filter(b=>b.kind==="risk");if(riskBlocks.length===0)errors.push("Add a Risk limits block.");for(const b of riskBlocks){const r=riskRules[b.id]||{maxStake:"2",maxSessionLoss:"10",maxTrades:"10",stopAtProfit:true};const maxStakeN=Number(r.maxStake),lossN=Number(r.maxSessionLoss),tradesN=Number(r.maxTrades);if(!Number.isFinite(maxStakeN)||maxStakeN<0.35)errors.push("Maximum stake in Risk limits must be at least $0.35.");if(Number.isFinite(maxStakeN)&&stakeN>maxStakeN)errors.push("Trade stake cannot exceed the Risk limits maximum stake.");if(!Number.isFinite(lossN)||lossN<=0)errors.push("Maximum session loss must be greater than $0.");if(!Number.isInteger(tradesN)||tradesN<1)errors.push("Maximum trades per session must be a whole number of at least 1.");}const sellBlocks=blocks.filter(b=>b.title==="Sell condition");if(sellBlocks.length===0)warnings.push("No Sell condition block is included; an exit rule has not been configured.");for(const b of sellBlocks){const r=sellRules[b.id]||{exitType:"profit_target",operator:"gte",value:"1"};const n=Number(r.value);if(!Number.isFinite(n)||n<=0)errors.push("Sell condition threshold must be greater than $0.");}if(martingale)warnings.push("Martingale is enabled. It can increase losses quickly and is not covered by an active execution safeguard.");if(tpN===0)warnings.push("Take profit is set to $0; no positive profit target is configured.");if(slN===0)warnings.push("Stop loss is set to $0; no positive stop-loss amount is configured.");setValidation({errors,warnings,checked:true});setNotice(errors.length?"Validation found items to fix.":"Validation completed. This is a configuration check only; no trades were placed.");};
@@ -37,7 +72,7 @@ export default function VisualBotBuilder(){
  return <main className="appShell visualBuilderPage"><header className="dashNav"><a className="brand" href="/">TRADE SCHEME <span>FX</span></a><a className="button secondary small" href="/dashboard">Dashboard</a></header>
  <section className="dashContent visualBuilderContent"><div className="builderHeading"><div><p className="eyebrow">TRADE SCHEME FX / STRATEGY STUDIO</p><h1>Visual Bot Builder</h1><p className="muted">Drag logic blocks into your strategy, arrange the flow and configure trade settings.</p></div><span className="builderPreviewBadge">● DEMO DESIGN MODE</span></div>
  <div className="builderNotice"><strong>Safety mode:</strong> This editor saves local drafts only. It does not connect to Deriv, generate signals, or place demo or real orders.</div>
- <div className="builderToolbar"><div><span className="builderTinyLabel">CURRENT STRATEGY</span><strong>My Synthetic Strategy</strong><small>{blocks.length} blocks · {saved?"Saved locally":"Unsaved changes"}</small></div><div className="builderToolbarActions"><button className="button secondary small" onClick={reset}>Reset</button><button className="button secondary small" onClick={exportDraft}>Export JSON</button><button className="button small" onClick={save}>Save draft</button></div></div>
+ <div className="builderToolbar"><div><span className="builderTinyLabel">CURRENT STRATEGY</span><strong>My Synthetic Strategy</strong><small>{blocks.length} blocks · {saved?"Saved locally":"Unsaved changes"}</small></div><div className="builderToolbarActions"><button className="button secondary small" onClick={reset}>Reset</button><label className="button secondary small" style={{cursor:"pointer"}}>Import JSON<input type="file" accept=".json,application/json" style={{display:"none"}} onChange={e=>{const file=e.currentTarget.files?.[0];if(file)void importDraft(file);e.currentTarget.value="";}} /></label><button className="button secondary small" onClick={exportDraft}>Export JSON</button><button className="button small" onClick={save}>Save draft</button></div></div>
  <section className="panel" style={{marginBottom:18,padding:18}}>
   <div className="builderPanelTitle"><div><span className="builderTinyLabel">ACCOUNT SYNC</span><h2>My saved strategies</h2></div><span className="builderLiveLabel">● PRIVATE TO YOUR ACCOUNT</span></div>
   <p className="builderHelp">Save a strategy to your signed-in account and reopen it on another device. Browser-local save and JSON export remain available.</p>
