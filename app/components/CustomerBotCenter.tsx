@@ -27,6 +27,24 @@ type Runtime = {
 
 const PAPER_RISK_ENDPOINT = "/api/paper-trading";
 
+/**
+ * Distinct, unvalidated learning presets. These use public ticks for paper
+ * simulations only; they are NOT production trading strategies or advice.
+ */
+function paperPreset(bot: Bot) {
+  const label = bot.name.toLowerCase();
+  if (label.includes("trend scout")) {
+    return { market: "R_50", fast: 5, slow: 18, thresholdBps: .35, description: "5/18 simple-moving-average trend learning rule" };
+  }
+  if (label.includes("volatility watch")) {
+    return { market: "R_75", fast: 10, slow: 21, thresholdBps: .45, description: "10/21 simple-moving-average learning rule" };
+  }
+  if (bot.market.toLowerCase().includes("forex")) {
+    return { market: "frxEURUSD", fast: 9, slow: 21, thresholdBps: .3, description: "9/21 simple-moving-average forex learning rule" };
+  }
+  return { market: "R_100", fast: 9, slow: 21, thresholdBps: .25, description: "9/21 simple-moving-average synthetic learning rule" };
+}
+
 export default function CustomerBotCenter() {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
@@ -202,7 +220,8 @@ export default function CustomerBotCenter() {
       return;
     }
 
-    const market = bot.market.toLowerCase().includes("forex") ? "frxEURUSD" : "R_100";
+    const preset = paperPreset(bot);
+    const market = preset.market;
     const runtime: Runtime = {
       prices: [], open: null, running: true, cooldown: 0, trades: 0,
       closing: false, reserving: false,
@@ -303,12 +322,13 @@ export default function CustomerBotCenter() {
           return;
         } else if (runtime.cooldown > 0) {
           runtime.cooldown -= 1;
-        } else if (runtime.prices.length >= 21 && runtime.trades < 20) {
+        } else if (runtime.prices.length >= preset.slow && runtime.trades < 20) {
           const prices = runtime.prices;
           const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
-          const fast = average(prices.slice(-9));
-          const slow = average(prices.slice(-21));
-          if (Math.abs(fast - slow) > 0) {
+          const fast = average(prices.slice(-preset.fast));
+          const slow = average(prices.slice(-preset.slow));
+          const spreadBps = Math.abs(fast - slow) / Math.max(0.000001, Math.abs(slow)) * 10_000;
+          if (spreadBps >= preset.thresholdBps) {
             const direction: "CALL" | "PUT" = fast > slow ? "CALL" : "PUT";
             runtime.reserving = true;
             try {
@@ -403,10 +423,29 @@ export default function CustomerBotCenter() {
       customer_id: user.id, bot_id: bot.id, trading_mode: "demo",
       selected: true, control_status: "selected",
     }, { onConflict: "customer_id,bot_id,trading_mode" });
-    if (error) setMessage("Could not add bot: " + error.message);
-    else {
-      setMessage(bot.name + " added to My Bots in paper configuration mode.");
+    if (error) {
+      setMessage("Could not add bot: " + error.message);
+    } else {
+      // Starting a paper engine requires persisted settings. Create safe
+      // defaults while preserving any previously saved customer preferences.
+      const { error: configError } = await supabase
+        .from("customer_bot_configurations")
+        .upsert({
+          customer_id: user.id,
+          bot_id: bot.id,
+          trading_mode: "demo",
+          stake_amount: 10,
+          daily_loss_limit: 20,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "customer_id,bot_id,trading_mode",
+          ignoreDuplicates: true,
+        });
       await load();
+      setMessage(configError
+        ? bot.name + " was added, but paper settings could not be initialized. Open My Bots and save paper settings before starting."
+        : bot.name + " added with a 10 USD virtual stake and a 20 USD daily paper-loss cap. Open My Bots to begin."
+      );
     }
     setBusy(null);
   }
@@ -474,6 +513,32 @@ export default function CustomerBotCenter() {
   }
 
   const myBots = bots.filter(bot => selections.some(selection => selection.bot_id === bot.id));
+  const selectedPaperBots = myBots.filter(bot =>
+    selections.some(selection => selection.bot_id === bot.id && selection.control_status === "selected" && selection.selected !== false)
+  );
+  const runningPaperBots = Array.from(sockets.values()).filter(socket =>
+    socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING
+  ).length;
+
+  async function startAllSelectedPaperBots() {
+    if (selectedPaperBots.length === 0) {
+      setMessage("Add and select a paper bot first. No trading session was started.");
+      return;
+    }
+    setTab("mybots");
+    for (const bot of selectedPaperBots) {
+      if (!sockets.has(bot.id) && !startingBots.has(bot.id)) {
+        await startPaper(bot);
+      }
+    }
+  }
+
+  function pauseAllPaperBots() {
+    for (const bot of myBots) {
+      if (sockets.has(bot.id)) stopPaper(bot.id, "Paper bot paused by customer.");
+    }
+    setMessage("All paper feeds in this browser tab have been stopped.");
+  }
   const activeCount = selections.filter(selection => selection.control_status === "selected").length;
   const pausedCount = selections.filter(selection => selection.control_status === "paused").length;
   const paperPnl = paperTrades.reduce((sum, trade) => sum + Number(trade.pnl || 0), 0);
@@ -514,6 +579,20 @@ export default function CustomerBotCenter() {
           <article><small>PAUSED PREFERENCES</small><strong>{pausedCount}</strong></article>
         </div>
 
+        <div className="botCenterNotice" style={{ marginTop: 14 }}>
+          <b>Paper bots can run in your browser.</b> Start only your selected bots.
+          They use public market ticks and never buy Deriv contracts or spend Demo funds.
+          Closing this tab stops the paper feeds. Deriv Demo execution is a separate, customer-authorized feature.
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
+            <button className="botCenterPrimary"
+              disabled={loading || busy !== null || selectedPaperBots.length === 0 || runningPaperBots === selectedPaperBots.length}
+              onClick={() => void startAllSelectedPaperBots()}>
+              Start all selected paper bots ({selectedPaperBots.length})
+            </button>
+            <button className="botCenterSecondary" disabled={runningPaperBots === 0}
+              onClick={pauseAllPaperBots}>Pause all paper bots</button>
+          </div>
+        </div>
         <div className="botCenterTabs" role="tablist" aria-label="Bot Center sections">
           <button className={tab === "marketplace" ? "active" : ""} onClick={() => setTab("marketplace")}>Free Marketplace</button>
           <button className={tab === "mybots" ? "active" : ""} onClick={() => setTab("mybots")}>My Bots ({myBots.length})</button>
@@ -562,6 +641,10 @@ export default function CustomerBotCenter() {
                   </div>
                   <h2>{bot.name}</h2>
                   <p>{bot.description || "No strategy description has been provided."}</p>
+                  <p className="muted" style={{ fontSize: 12 }}>
+                    Paper learning preset: {paperPreset(bot).market} · {paperPreset(bot).description}.
+                    Not validated for profit or broker execution.
+                  </p>
                   <div className="botCenterStatus">
                     <span>Status preference</span>
                     <b>{selection?.control_status || "Not added"}</b>

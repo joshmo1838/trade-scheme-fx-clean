@@ -430,14 +430,15 @@ export default function CustomerBotsPage() {
         <p className="eyebrow">YOUR BOT WORKSPACE</p>
         <h1>Trading bots</h1>
 
-        <p>
-          <Link
-            className="button secondary small"
-            href="/bot-settings"
-          >
-            General bot settings
-          </Link>
+        <p style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <Link className="button small" href="/bot-center">Open free paper bot marketplace</Link>
+          <Link className="button secondary small" href="/bot-settings">General account-specific bot settings</Link>
         </p>
+        <div className="notice">
+          <strong>Try bots without a Deriv connection:</strong> The Bot Center runs local public-tick
+          paper simulations. Your own Deriv Demo balance is separate and requires
+          account authorization and a verified Demo execution release.
+        </div>
 
         <article className="panel">
           <p className="eyebrow">ACTIVE DERIV ACCOUNT</p>

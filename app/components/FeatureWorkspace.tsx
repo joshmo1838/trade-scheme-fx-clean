@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 type Props = { title: string; eyebrow: string; description: string; mode: "builder"|"bulk"|"manual"|"copy"|"digits"|"charts"|"scanner"|"history" };
 const modules = [
-  ["Free Bots","/bots"],["Bot Builder","/builder"],["Bulk Trader","/bulk-trader"],["Manual Trader","/manual-trader"],
+  ["Free Bots","/bot-center"],["Bot Builder","/builder"],["Bulk Trader","/bulk-trader"],["Manual Trader","/manual-trader"],
   ["Copy Trading","/copy-trading"],["Digit Tools","/digit-tools"],["Charts","/charts"],["AI Scanner","/ai-scanner"],["Trading History","/history"]
 ];
 
