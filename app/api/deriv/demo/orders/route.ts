@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   DEMO_DAILY_LOSS_LIMIT,
@@ -42,7 +41,7 @@ function assertSameOrigin(request: NextRequest) {
 async function readOrder(admin: any, userId: string, orderId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) throw new Error("Invalid Demo order ID.");
   const { data, error } = await admin.from("deriv_demo_orders")
-    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,buy_requested_at,contract_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
+    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,buy_requested_at,contract_id,buy_transaction_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error || !data) throw new Error("Demo order was not found.");
   return data;
@@ -319,6 +318,18 @@ export async function POST(request: NextRequest) {
         risk: reservation,
         instruction: "Risk is reserved. Submit the proposal ID once on the currently connected Deriv Demo WebSocket.",
       }, { headers: noStore });
+    }
+
+    if (action === "buy-attempt") {
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      const { data, error } = await context.admin.rpc("senfx_demo_mark_buy_attempt", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+      });
+      if (error || !data?.marked) {
+        return jsonError("SENFX could not mark the buy attempt. No purchase should be sent.", 409, "BUY_ATTEMPT_NOT_MARKED");
+      }
+      return NextResponse.json({ success: true, buyRequestedAt: data.buyRequestedAt }, { headers: noStore });
     }
 
     if (action === "buy-attempt") {
