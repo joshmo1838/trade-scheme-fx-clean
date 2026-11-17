@@ -105,23 +105,16 @@ async function reconcileBuyOrder(
     return transaction.action_type === "buy" &&
       String(transaction.app_id) === String(appId) &&
       Math.abs(amount - Number(order.stake_amount)) <= 0.01 &&
-      Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest;
+      Number.isFinite(transactionTime) && transactionTime >= earliest && transactionTime <= latest &&
+      /^\d{1,30}$/.test(String(transaction.contract_id || "")) &&
+      /^\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
+      (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
+      (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId);
   });
 
-  const matches = recentBuys.filter((transaction: any) =>
-    typeof transaction.longcode === "string" &&
-    transaction.longcode === order.longcode &&
-    /^\d{1,30}$/.test(String(transaction.contract_id || "")) &&
-    /^\d{1,30}$/.test(String(transaction.transaction_id || "")) &&
-    (!submittedContractId || String(transaction.contract_id) === submittedContractId) &&
-    (!submittedTransactionId || String(transaction.transaction_id) === submittedTransactionId)
-  );
-
-  if (matches.length === 0) {
-    if (recentBuys.length > 0) {
-      // There is a plausible buy for this app/stake/time but the statement does not
-      // expose enough detail to prove it is this order. Never release risk here.
-      return { state: "waiting" as const, reason: "Deriv shows a recent buy for this app and stake, but SENFX cannot safely identify which contract it belongs to. The reservation remains held for manual review." };
+  if (recentBuys.length === 0) {
+    if (submittedContractId || submittedTransactionId) {
+      return { state: "waiting" as const, reason: "The supplied Deriv contract is not yet present in the account statement. Its risk reservation remains held; check again without placing another buy." };
     }
     if (Date.now() - buyRequestedAt < 15_000) {
       return { state: "waiting" as const, reason: "No matching buy appears in Deriv statement yet. Wait a few seconds and check again; do not retry the purchase." };
@@ -129,7 +122,7 @@ async function reconcileBuyOrder(
     const { data: rejected, error: rejectError } = await context.admin.rpc("senfx_demo_reject_order", {
       p_user_id: context.user.id,
       p_order_id: order.id,
-      p_reason: "Complete Deriv statement returned no buy for this application, stake and time window.",
+      p_reason: "Deriv statement returned no buy for this application, stake and time window.",
     });
     if (rejectError || !rejected?.rejected) {
       return { state: "waiting" as const, reason: "No buy was found, but SENFX could not safely release the reservation. Contact support before continuing." };
@@ -137,13 +130,14 @@ async function reconcileBuyOrder(
     return { state: "rejected" as const, reason: "Deriv statement confirms no Demo contract was purchased. The reservation has been released." };
   }
 
-  if (matches.length !== 1) {
-    return { state: "waiting" as const, reason: "More than one matching Deriv buy was found. SENFX kept the risk reserved for manual reconciliation." };
+  if (recentBuys.length !== 1) {
+    return { state: "waiting" as const, reason: "Multiple recent Demo purchases match this application, stake and time window. SENFX kept the risk reserved for manual reconciliation." };
   }
 
-  const transaction = matches[0];
+  const transaction = recentBuys[0];
   const contractId = String(transaction.contract_id);
   const transactionId = String(transaction.transaction_id);
+
   const wsUrl = await getDemoWebSocketUrl(context);
   const reqId = Date.now() % 2_000_000_000;
   const verification: any = await requestOnDemoWebSocket(wsUrl, {
@@ -157,6 +151,9 @@ async function reconcileBuyOrder(
   const dateExpiry = Number(contract?.date_expiry);
   const actualBuyPrice = Number(contract?.buy_price);
   const transactionAmount = Math.abs(Number(transaction.amount));
+  const transactionShortcode = typeof transaction.shortcode === "string" ? transaction.shortcode : "";
+  const contractShortcode = typeof contract?.shortcode === "string" ? contract.shortcode : "";
+  const actualPayout = Number(contract?.payout);
   const durationSeconds = dateExpiry - dateStart;
 
   if (
@@ -164,10 +161,16 @@ async function reconcileBuyOrder(
     contract?.underlying_symbol !== order.market_symbol ||
     contract?.contract_type !== order.contract_type ||
     contract?.currency !== order.currency ||
+    !transactionShortcode ||
+    !contractShortcode ||
+    transactionShortcode !== contractShortcode ||
     typeof contract?.longcode !== "string" ||
     contract.longcode !== order.longcode ||
     !Number.isFinite(actualBuyPrice) ||
     Math.abs(actualBuyPrice - transactionAmount) > 0.01 ||
+    Math.abs(actualBuyPrice - Number(order.ask_price)) > 0.01 ||
+    !Number.isFinite(actualPayout) ||
+    Math.abs(actualPayout - Number(order.payout)) > 0.02 ||
     actualBuyPrice <= 0 || actualBuyPrice > DEMO_STAKE ||
     !Number.isFinite(durationSeconds) || Math.abs(durationSeconds - 300) > 2
   ) {
