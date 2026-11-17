@@ -106,6 +106,7 @@ declare
   v_limit numeric(12,2);
   v_risk public.customer_paper_daily_risk%rowtype;
   v_reservation_id uuid;
+  v_opened_at timestamptz;
 begin
   if p_customer_id is null or p_bot_id is null then
     return jsonb_build_object('allowed', false, 'reason', 'Customer or bot is missing.');
@@ -177,7 +178,7 @@ begin
     customer_id, bot_id, risk_date, market_symbol, direction, entry_price, stake_amount
   ) values (
     p_customer_id, p_bot_id, v_day, p_market_symbol, p_direction, p_entry_price, v_stake
-  ) returning id into v_reservation_id;
+  ) returning id, created_at into v_reservation_id, v_opened_at;
 
   update public.customer_paper_daily_risk
   set reserved_loss = reserved_loss + v_stake, updated_at = now()
@@ -187,6 +188,9 @@ begin
   return jsonb_build_object(
     'allowed', true,
     'reservationId', v_reservation_id,
+    'marketSymbol', p_market_symbol,
+    'entryPrice', p_entry_price,
+    'openedAt', v_opened_at,
     'stakeAmount', v_stake,
     'dailyLoss', v_risk.realized_loss,
     'reservedLoss', v_risk.reserved_loss,
@@ -276,6 +280,9 @@ begin
     'tradeId', v_trade_id,
     'outcome', v_outcome,
     'pnl', v_pnl,
+    'marketSymbol', v_res.market_symbol,
+    'entryPrice', v_res.entry_price,
+    'exitPrice', p_exit_price,
     'openedAt', v_res.created_at,
     'closedAt', v_closed_at,
     'dailyLoss', v_risk.realized_loss,
