@@ -6,8 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 type Risk = {
   dailyLoss: number;
   reservedLoss: number;
-  dailyLossLimit: number;
-  remainingLossBudget: number;
 };
 type DemoAccount = {
   accountId: string;
@@ -56,12 +54,7 @@ export default function DemoTradingConsole() {
   const [enabled, setEnabled] = useState(false);
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState<DemoAccount | null>(null);
-  const [risk, setRisk] = useState<Risk>({
-    dailyLoss: 0,
-    reservedLoss: 0,
-    dailyLossLimit: 20,
-    remainingLossBudget: 20,
-  });
+  const [risk, setRisk] = useState<Risk>({ dailyLoss: 0, reservedLoss: 0 });
   const [market, setMarket] = useState("R_100");
   const [direction, setDirection] = useState<"CALL" | "PUT">("CALL");
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -90,8 +83,6 @@ export default function DemoTradingConsole() {
       setRisk({
         dailyLoss: Number(data.dailyLoss || 0),
         reservedLoss: Number(data.reservedLoss || 0),
-        dailyLossLimit: Number(data.dailyLossLimit || 20),
-        remainingLossBudget: Number(data.remainingLossBudget ?? 20),
       });
       setHistory(data.orders || []);
       setActiveOrder(data.activeOrder || null);
@@ -119,8 +110,6 @@ export default function DemoTradingConsole() {
         setRisk({
           dailyLoss: Number(result.dailyLoss || 0),
           reservedLoss: Number(result.reservedLoss || 0),
-          dailyLossLimit: Number(result.dailyLossLimit || 20),
-          remainingLossBudget: Number(result.remainingLossBudget || 0),
         });
         setMessage(
           "Deriv contract finished. Final result: " +
@@ -168,7 +157,7 @@ export default function DemoTradingConsole() {
   }
 
   async function requestQuote() {
-    if (!ready || busy || activeOrder || risk.remainingLossBudget < DEMO_STAKE) return;
+    if (!ready || busy || activeOrder) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -194,7 +183,7 @@ export default function DemoTradingConsole() {
   }
 
   async function buyDemoContract() {
-    if (!quote || !ready || busy || activeOrder || risk.remainingLossBudget < DEMO_STAKE) return;
+    if (!quote || !ready || busy || activeOrder || !account || Number(account.balance) < DEMO_STAKE) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -221,8 +210,6 @@ export default function DemoTradingConsole() {
       setRisk({
         dailyLoss: Number(result.risk?.dailyLoss ?? risk.dailyLoss),
         reservedLoss: Number(result.risk?.reservedLoss ?? risk.reservedLoss),
-        dailyLossLimit: Number(result.risk?.dailyLossLimit ?? risk.dailyLossLimit),
-        remainingLossBudget: Number(result.risk?.remainingLossBudget ?? risk.remainingLossBudget),
       });
       setActiveOrder({
         id: result.orderId,
@@ -298,8 +285,6 @@ export default function DemoTradingConsole() {
         setRisk({
           dailyLoss: Number(result.dailyLoss || 0),
           reservedLoss: Number(result.reservedLoss || 0),
-          dailyLossLimit: Number(result.dailyLossLimit || 20),
-          remainingLossBudget: Number(result.remainingLossBudget || 0),
         });
         setActiveOrder(null);
         setContract(null);
@@ -318,7 +303,8 @@ export default function DemoTradingConsole() {
     }
   }
 
-  const locked = Boolean(activeOrder) || risk.remainingLossBudget < DEMO_STAKE;
+  const locked = Boolean(activeOrder);
+  const insufficientVirtualFunds = account !== null && (!Number.isFinite(Number(account.balance)) || Number(account.balance) < DEMO_STAKE);
   const openProfit = contract ? Number(contract.profit) : null;
 
   return (
@@ -356,13 +342,10 @@ export default function DemoTradingConsole() {
         <section className="workspaceAccountGrid" style={{ marginTop: 18 }}>
           <article className="workspacePanel">
             <div className="workspacePanelTop">
-              <div><p className="workspaceEyebrow">DAILY DEMO LOSS CAP</p><h2>{risk.remainingLossBudget.toFixed(2)} / {risk.dailyLossLimit.toFixed(2)} {account?.currency || ""} remaining</h2></div>
-              <span className={risk.remainingLossBudget >= DEMO_STAKE ? "workspaceStatusDot online" : "workspaceStatusDot"} />
+              <div><p className="workspaceEyebrow">UNLIMITED DAILY DEMO PRACTICE</p><h2>No SENFX daily loss cap</h2></div>
+              <span className={ready ? "workspaceStatusDot online" : "workspaceStatusDot"} />
             </div>
-            <div style={{ height: 9, borderRadius: 10, background: "#1f2937", overflow: "hidden", margin: "14px 0" }}>
-              <div style={{ width: Math.min(100, (risk.dailyLoss + risk.reservedLoss) / Math.max(1, risk.dailyLossLimit) * 100) + "%", height: "100%", background: risk.remainingLossBudget >= DEMO_STAKE ? "#16a34a" : "#dc2626" }} />
-            </div>
-            <p className="muted">SENFX reserves the full 10 {account?.currency || "account-currency units"} stake before each contract. Wins do not restore the gross-loss budget. This ledger covers trades sent through SENFX, not trades placed directly on Deriv outside SENFX.</p>
+            <p className="muted">Practice using virtual funds in your own connected Deriv Demo account. SENFX does not stop Demo learning after a daily loss threshold. Your available Demo balance and Deriv's own rules still apply. Losses and outstanding reservations are recorded for your learning history.</p>
           </article>
 
           <article className="workspacePanel">
@@ -379,7 +362,7 @@ export default function DemoTradingConsole() {
         <section className="workspacePanel" style={{ marginTop: 18 }}>
           <p className="workspaceEyebrow">MANUAL DEMO CONTRACT TEST</p>
           <h2>Request a price and confirm one Demo trade</h2>
-          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 10, five-minute Rise/Fall, one open position, daily gross-loss cap 20.</p>
+          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 10, five-minute Rise/Fall, one open position, no SENFX daily loss cap. Trades use only your connected Deriv Demo account's virtual balance.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginTop: 18 }}>
             <label className="muted">Market
               <select value={market} onChange={e => { setMarket(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
@@ -400,6 +383,7 @@ export default function DemoTradingConsole() {
             </label>
           </div>
 
+          {insufficientVirtualFunds && <p role="alert" className="muted">Your connected Deriv Demo balance is below the required 10 {account?.currency || ""} virtual units. Top up your Demo account in Deriv before placing a trade.</p>}
           {!quote ? (
             <button className="workspacePrimaryButton" onClick={() => void requestQuote()} disabled={!ready || busy || locked}>
               {busy ? "Working…" : "Get Deriv price"}
@@ -410,7 +394,7 @@ export default function DemoTradingConsole() {
               <h3>Stake {quote.askPrice.toFixed(2)} {quote.currency}</h3>
               <p>Potential payout shown by Deriv: <strong>{quote.payout.toFixed(2)} {quote.currency}</strong></p>
               <p className="muted">{quote.longcode}</p>
-              <button className="workspacePrimaryButton" onClick={() => void buyDemoContract()} disabled={busy || !ready || locked}>
+              <button className="workspacePrimaryButton" onClick={() => void buyDemoContract()} disabled={busy || !ready || locked || insufficientVirtualFunds}>
                 {busy ? "Submitting…" : "Confirm and buy on DEMO"}
               </button>
               <button className="button secondary" style={{ marginLeft: 10 }} onClick={() => void discardCurrentQuote()} disabled={busy}>Cancel quote</button>
@@ -466,7 +450,7 @@ export default function DemoTradingConsole() {
           )}
         </section>
 
-        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full 10 stake is reserved before purchase; the daily gross-loss cap is 20. Demo results are not evidence of future live performance.</p>
+        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full 10 stake is reserved before purchase; there is no SENFX daily loss cap for virtual-money practice. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
       </div>
     </main>
   );
