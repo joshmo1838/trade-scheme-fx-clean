@@ -28,3 +28,28 @@ test("OAuth cookies are host-only and do not expose credentials", () => {
   assert.match(callback, /clearCookies\(/);
   assert.doesNotMatch(connect, /console\.log\([^)]*verifier/);
 });
+
+const disconnect = readFileSync("app/api/deriv/disconnect/route.ts", "utf8");
+const workspace = readFileSync("app/dashboard/trading-workspace.tsx", "utf8");
+
+test("disconnect is authenticated, same-origin and blocked when trading controls are enabled", () => {
+  assert.match(disconnect, /request\.headers\.get\("origin"\) !== request\.nextUrl\.origin/);
+  assert.match(disconnect, /supabase\.auth\.getUser\(\)/);
+  assert.match(disconnect, /SENFX_BOT_CONTROL_ENABLED/);
+  assert.match(disconnect, /DERIV_DEMO_TRADING_ENABLED/);
+  assert.match(disconnect, /DERIV_LIVE_TRADING_ENABLED/);
+  assert.match(disconnect, /\.delete\(\)\.eq\("user_id", user\.id\)/);
+});
+
+test("connected account menu has functional disconnect with confirmation and separate reconnect", () => {
+  assert.match(workspace, /window\.confirm\("Disconnect this Deriv account/);
+  assert.match(workspace, /fetch\("\/api\/deriv\/disconnect"/);
+  assert.match(workspace, /Disconnect Deriv/);
+  assert.match(workspace, /Reconnect Deriv/);
+  assert.match(workspace, /Connect Deriv/);
+});
+
+test("missing token expiry does not cause immediate expiry on callback", () => {
+  assert.match(callback, /Number\(tokenData\.expires_in\) > 0/);
+  assert.doesNotMatch(callback, /Number\(tokenData\.expires_in \|\| 0\)/);
+});
