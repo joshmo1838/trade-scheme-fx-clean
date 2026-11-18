@@ -6,9 +6,13 @@ import {
  type DigitSymbol,type DigitSummary
 } from "@/lib/bots/digit-matrix";
 import styles from "@/app/digit-matrix/digit-matrix.module.css";
+import {
+ armDigitPaperBatch, observeDigitPaperTick, stopDigitPaperBatch,
+ paperBatchSummary, type DigitPaperBatch, type PaperParitySide,
+} from "@/lib/bots/digit-bulk-paper";
 
 const ENDPOINT="wss://api.derivws.com/trading/v1/options/ws/public";
-type Observed={quote:string;updated:number;digits:number[];received:number;lastKey:string};
+type Observed={quote:string;updated:number;digits:number[];received:number;lastKey:string;epoch:number};
 type View={quote:string;updated:number;received:number;stats:DigitSummary|null};
 const dollars=(n:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);
 
@@ -24,15 +28,55 @@ export default function DigitMatrixScanner(){
  const [stake,setStake]=useState(10);
  const [bulk,setBulk]=useState(1);
  const [cap,setCap]=useState(20);
+ const [side,setSide]=useState<PaperParitySide>("EVEN");
+ const [batch,setBatch]=useState<DigitPaperBatch|null>(null);
+ const [bulkNotice,setBulkNotice]=useState("Choose a market and wait for a fresh tick before starting a paper batch.");
+ const batchRef=useRef<DigitPaperBatch|null>(null);
  const buffer=useRef(new Map<DigitSymbol,Observed>());
  const plan=useMemo(()=>plannedExposure(stake,bulk,cap),[stake,bulk,cap]);
  const current=view[selected];
  const stats=current?.stats;
  const fresh=!!current&&Date.now()-current.updated<15_000;
  const confirmed=activeMarkets.includes(selected);
+ const batchInfo=batch?paperBatchSummary(batch):null;
+ const stopBatch=(reason="Emergency Stop requested. No further paper observations will be recorded.")=>{
+  const old=batchRef.current;
+  if(!old||old.state!=="running")return;
+  const next=stopDigitPaperBatch(old,reason);
+  batchRef.current=next;setBatch(next);
+  setBulkNotice(reason);
+ };
+ const selectMarket=(symbol:DigitSymbol)=>{
+  if(symbol!==selected)stopBatch("Market changed. Previous paper batch stopped.");
+  setSelected(symbol);
+ };
+ const startPaperBatch=()=>{
+  if(batchRef.current?.state==="running"){
+   setBulkNotice("Finish or stop the current batch before starting another.");return;
+  }
+  if(!running||!confirmed){
+   setBulkNotice("Public market feed is not verified online. No paper batch started.");return;
+  }
+  const last=buffer.current.get(selected);
+  const now=Date.now();
+  const result=armDigitPaperBatch({
+   symbol:selected,side,stake,count:bulk,dailyCap:cap,
+   lastObservedEpoch:last?.epoch||0,lastObservedAtMs:last?.updated||0,nowMs:now,
+  });
+  if(!result.ok){setBulkNotice(result.reason);return;}
+  batchRef.current=result.batch;setBatch(result.batch);
+  setBulkNotice("PAPER batch armed. Each new, distinct future tick records one parity observation. No order or payout.");
+ };
 
  useEffect(()=>{
-  if(!running){setStatus("Stopped — no market subscriptions active.");return;}
+  if(!running){
+   const active=batchRef.current;
+   if(active?.state==="running"){
+    const stopped=stopDigitPaperBatch(active,"Scanner stopped. Paper batch automatically stopped.");
+    batchRef.current=stopped;setBatch(stopped);
+   }
+   setStatus("Stopped — no market subscriptions active.");return;
+  }
   let mounted=true,ws:WebSocket|null=null,attempt=0;
   let connectedAt=0, lastObservedAt=0, directoryReceived=false;
   let retryTimer:ReturnType<typeof setTimeout>|undefined;
@@ -41,6 +85,15 @@ export default function DigitMatrixScanner(){
   buffer.current=new Map();setView({});setActiveMarkets([]);setError("");
   const update=()=>{
    if(!mounted)return;
+   // Fail closed if all market data have become stale during an active batch.
+   const activeBatch=batchRef.current;
+   if(activeBatch?.state==="running"){
+    const market=buffer.current.get(activeBatch.symbol);
+    if(!market || Date.now()-market.updated>18_000){
+     const stopped=stopDigitPaperBatch(activeBatch,"Public feed stale. Paper batch stopped automatically.");
+     batchRef.current=stopped;setBatch(stopped);
+    }
+   }
    // A socket can be OPEN but fail to deliver a usable directory or ticks.
    // Close stale connections so the backoff loop can recover autonomously.
    if(ws?.readyState===WebSocket.OPEN && connectedAt && !directoryReceived &&
@@ -127,15 +180,32 @@ export default function DigitMatrixScanner(){
     if(previous?.lastKey===key)return;
     lastObservedAt=Date.now();
     buffer.current.set(tick.symbol,{
-     quote:tick.quoteText,updated:Date.now(),received:(previous?.received||0)+1,
+     quote:tick.quoteText,updated:Date.now(),epoch:tick.epoch,received:(previous?.received||0)+1,
      digits:[...(previous?.digits||[]),tick.digit].slice(-DIGIT_WINDOW),lastKey:key,
     });
+    const activeBatch=batchRef.current;
+    if(activeBatch?.state==="running"){
+     const nextBatch=observeDigitPaperTick(activeBatch,tick,Date.now());
+     if(nextBatch!==activeBatch){
+      batchRef.current=nextBatch;setBatch(nextBatch);
+      if(nextBatch.state==="completed"){
+       setBulkNotice("PAPER batch completed using only observed future ticks. No contracts or broker payouts.");
+      } else if(nextBatch.state==="stopped"){
+       setBulkNotice(nextBatch.stopReason||"Paper batch stopped.");
+      }
+     }
+    }
     setStatus(previous=>previous.startsWith("LIVE")?previous:
       "LIVE · authentic Deriv public ticks ("+subscribed.size+" markets)");
    };
    socket.onerror=()=>{if(mounted)setStatus("Feed error. Reconnecting…");};
    socket.onclose=()=>{
     if(!mounted)return;
+    const activeBatch=batchRef.current;
+    if(activeBatch?.state==="running"){
+     const stopped=stopDigitPaperBatch(activeBatch,"Feed disconnected. Paper batch stopped automatically.");
+     batchRef.current=stopped;setBatch(stopped);
+    }
     subscribed.clear();setActiveMarkets([]);
     setStatus("Disconnected. Retrying public market subscriptions…");
     retryTimer=setTimeout(connect,Math.min(30000,1500*2**Math.min(attempt++,4)));
@@ -167,10 +237,10 @@ export default function DigitMatrixScanner(){
     <span className={running?styles.liveBadge:styles.offBadge}>
      {running?"● SCANNER ON":"● SCANNER OFF"}
     </span>
-    <button className={styles.primary} onClick={()=>setRunning(x=>!x)}>
+    <button className={styles.primary} onClick={()=>{if(running)stopBatch("Scanner stopped. Paper batch stopped.");setRunning(x=>!x);}}>
      {running?"Stop scanner":"Start scanner"}
     </button>
-    <button className={styles.secondary} disabled={!running} onClick={()=>setReset(x=>x+1)}>
+    <button className={styles.secondary} disabled={!running} onClick={()=>{stopBatch("Market connection reset. Paper batch stopped.");setReset(x=>x+1);}}>
      Reconnect
     </button>
    </div>
@@ -195,7 +265,7 @@ export default function DigitMatrixScanner(){
      return <button key={market.symbol}
       className={[styles.marketTile,selected===market.symbol?styles.picked:""].join(" ")}
       aria-pressed={selected===market.symbol}
-      onClick={()=>setSelected(market.symbol)}>
+      onClick={()=>selectMarket(market.symbol)}>
       <span className={styles.tileHeader}><b>{market.symbol}</b>
        <em className={live?styles.green:styles.dim}>{live?"LIVE":active?"WAIT":"OFF"}</em>
       </span>
@@ -257,7 +327,7 @@ export default function DigitMatrixScanner(){
        <input type="number" min="1" max="10" step="1" value={bulk}
         onChange={event=>setBulk(Number(event.target.value))}/>
       </label>
-      <label>Daily hypothetical loss cap (USD)
+      <label>Maximum exposure for this paper batch (USD)
        <input type="number" min="1" step="1" value={cap}
         onChange={event=>setCap(Number(event.target.value))}/>
       </label>
@@ -265,7 +335,58 @@ export default function DigitMatrixScanner(){
      <div className={styles.total}><small>FULL STAKE EXPOSURE</small>
       <strong>{plan.valid?dollars(plan.total):"—"}</strong></div>
      <p className={plan.withinCap?styles.safe:styles.blocked}>{plan.reason}</p>
-     <small className={styles.muted}>Calculator only. No contracts, payouts or customer balances.</small>
+     <small className={styles.muted}>This is a per-batch hypothetical exposure ceiling, NOT a persistent daily account loss limit. Browser refresh resets the paper session. No contracts, payouts or customer balances.</small>
+    </section>
+    <section className={styles.panel} aria-label="Bulk paper trader controls">
+     <p className={styles.kicker}>AUTOMATED BULK PAPER SIMULATION</p>
+     <h2>SENFX Bulk Trader</h2>
+     <p className={styles.muted}>One Start prepares up to 10 sequential, one-tick
+       EVEN/ODD paper experiments on the selected market. Results use ONLY
+       incoming public Deriv quotes. No purchases, no implied profits, and no
+       browser-independent execution.</p>
+     <div className={styles.fields}>
+      <label>Paper parity hypothesis
+       <select value={side} disabled={batch?.state==="running"}
+        onChange={event=>setSide(event.target.value as PaperParitySide)}>
+        <option value="EVEN">EVEN (last digit 0, 2, 4, 6, 8)</option>
+        <option value="ODD">ODD (last digit 1, 3, 5, 7, 9)</option>
+       </select>
+      </label>
+     </div>
+     <p className={styles.muted}>
+       Market: <b>{selected}</b> · {bulk} experiments ·
+       Maximum illustrative stake: {plan.valid?dollars(plan.total):"Invalid"}
+     </p>
+     <div className={styles.bulkActions}>
+      <button className={styles.primary}
+       disabled={batch?.state==="running"||!running||!confirmed||!fresh||!plan.withinCap}
+       onClick={startPaperBatch}>Start paper batch</button>
+      <button className={styles.stopAction}
+       disabled={batch?.state!=="running"}
+       onClick={()=>stopBatch()}>Emergency Stop</button>
+     </div>
+     <p className={styles.notice} aria-live="polite">{bulkNotice}</p>
+     {batch&&batchInfo&&<div className={styles.batchSummary}>
+      <p><b>State: {batch.state.toUpperCase()}</b> ·
+        {batch.symbol} · {batch.side} · {batch.requested} planned</p>
+      <p><b>Observed: {batchInfo.completed}</b> ·
+        parity hits: {batchInfo.hits} · misses: {batchInfo.misses} ·
+        remaining: {batchInfo.remaining}</p>
+      <p className={styles.muted}>Observed hypothetical stake:
+        {dollars(batchInfo.observedStake)} (not a debit) ·
+        budgeted maximum: {dollars(batchInfo.maximumBudgetedStake)}</p>
+      {batch.entries.length>0&&<div className={styles.paperResults}>
+       <table><thead><tr><th>#</th><th>Observed quote</th><th>Digit</th><th>Parity</th></tr></thead>
+        <tbody>{batch.entries.map(item=><tr key={item.index}>
+         <td>{item.index}</td><td>{item.observedQuote}</td>
+         <td>{item.observedDigit}</td><td>{item.matchingParity?"Hit":"Miss"}</td>
+        </tr>)}</tbody>
+       </table>
+      </div>}
+      <small className={styles.muted}>These are simulated parity results,
+       NOT broker settlements, contract payouts, realized P&amp;L or evidence
+       of a profitable strategy. Leaving this page ends monitoring.</small>
+     </div>}
     </section>
     <section className={styles.panel}>
      <p className={styles.kicker}>INTEGRITY BY DESIGN</p><h2>What we improved</h2>
@@ -283,7 +404,7 @@ export default function DigitMatrixScanner(){
   </div>
   <footer className={styles.footer}>
    SENFX Digit Matrix is currently a <b>scanner-only research bot</b>.
-   Publishing the scanner does not activate Digit Matches, Differs, Even/Odd
+   The Bulk Trader performs local paper-only parity experiments; it does not activate Digit Matches, Differs, Even/Odd
    or other Deriv orders. Those would require separately tested customer
    authorization, prices, contract settlement and risk protection.
   </footer>
