@@ -166,6 +166,7 @@ jobs:
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-paper-worker-smoke-test.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-three-bot-fleet-smoke-test.sql
 
   paper-worker-image:
     name: Minimal paper worker container and disabled startup
