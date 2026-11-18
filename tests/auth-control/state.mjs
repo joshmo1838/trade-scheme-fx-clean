@@ -10,6 +10,8 @@ export const state = {
   enabled: true,
   rows: [],
   commands: [],
+  positions: [],
+  dailyRisk: [],
   adminCalls: [],
   failReads: false,
   failWrites: false,
@@ -22,6 +24,8 @@ export function reset() {
   state.enabled = true;
   state.rows.length = 0;
   state.commands.length = 0;
+  state.positions.length = 0;
+  state.dailyRisk.length = 0;
   state.adminCalls.length = 0;
   state.failReads = false;
   state.failWrites = false;

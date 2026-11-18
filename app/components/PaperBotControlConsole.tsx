@@ -17,9 +17,18 @@ type Command = {
   id: string; bot_id: string; action: string; requested_state: string;
   version: number; status: string; created_at: string;
 };
+type OpenPosition = {
+  id: string; bot_id: string; status: string; remaining_ticks: number; entered_at: string;
+};
+type DailyRisk = {
+  bot_id: string; risk_date: string; daily_loss_limit: number | string;
+  realized_loss: number | string; reserved_loss: number | string;
+};
 type ControlResponse = {
   enabled?: boolean; workerAttached?: boolean; mode?: string;
-  runs?: Run[]; commands?: Command[]; message?: string; error?: string;
+  runs?: Run[]; commands?: Command[];
+  positions?: OpenPosition[]; dailyRisk?: DailyRisk[];
+  message?: string; error?: string;
 };
 
 export default function PaperBotControlConsole() {
@@ -27,6 +36,8 @@ export default function PaperBotControlConsole() {
   const [selection, setSelection] = useState<Selection[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [commands, setCommands] = useState<Command[]>([]);
+  const [positions, setPositions] = useState<OpenPosition[]>([]);
+  const [dailyRisk, setDailyRisk] = useState<DailyRisk[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [workerAttached, setWorkerAttached] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,6 +57,8 @@ export default function PaperBotControlConsole() {
         setWorkerAttached(false);
         setRuns([]);
         setCommands([]);
+        setPositions([]);
+        setDailyRisk([]);
         setLastStatusCheck(null);
         setError("Please sign in to see your paper bots.");
         return;
@@ -66,6 +79,8 @@ export default function PaperBotControlConsole() {
       setWorkerAttached(result.workerAttached === true);
       setRuns(result.runs || []);
       setCommands(result.commands || []);
+      setPositions(result.positions || []);
+      setDailyRisk(result.dailyRisk || []);
       setLastStatusCheck(Date.now());
       setMessage(result.message || "");
     } catch (cause) {
@@ -73,6 +88,8 @@ export default function PaperBotControlConsole() {
       setWorkerAttached(false);
       setRuns([]);
       setCommands([]);
+      setPositions([]);
+      setDailyRisk([]);
       setLastStatusCheck(null);
       setError(cause instanceof Error ? cause.message : "Unable to fetch paper controls.");
     } finally {
@@ -91,6 +108,8 @@ export default function PaperBotControlConsole() {
       setWorkerAttached(result.workerAttached === true);
       setRuns(result.runs || []);
       setCommands(result.commands || []);
+      setPositions(result.positions || []);
+      setDailyRisk(result.dailyRisk || []);
       setLastStatusCheck(Date.now());
       setError("");
     } catch (cause) {
@@ -100,6 +119,8 @@ export default function PaperBotControlConsole() {
       setWorkerAttached(false);
       setRuns([]);
       setCommands([]);
+      setPositions([]);
+      setDailyRisk([]);
       setLastStatusCheck(null);
       setError(cause instanceof Error ? cause.message : "Worker verification unavailable.");
     }
@@ -189,6 +210,11 @@ export default function PaperBotControlConsole() {
             const actual = run?.observed_state || "stopped";
             const latest = commands.find(row => row.bot_id === bot.id);
             const status = paperBotDisplayStatus(run || null, statusClock);
+            const openPositions = positions.filter(row => row.bot_id === bot.id);
+            const risk = dailyRisk.find(row => row.bot_id === bot.id);
+            const reserved = risk ? Number(risk.reserved_loss) : null;
+            const used = risk ? Number(risk.realized_loss) : null;
+            const dailyLimit = risk ? Number(risk.daily_loss_limit) : null;
             const canUse = enabled && !busy;
             const sel = selection.find(row => row.bot_id === bot.id);
             return (
@@ -212,6 +238,26 @@ export default function PaperBotControlConsole() {
                 {latest && <p className="muted" style={{fontSize:12,margin:0}}>
                   Latest command: {latest.action} · {latest.status} · revision {latest.version}
                 </p>}
+                <div style={{borderTop:"1px solid #324658",paddingTop:9,marginTop:3}}>
+                  <p style={{margin:0,fontSize:13}}>
+                    Open simulated positions: <strong>{openPositions.length}</strong>
+                    {openPositions.length > 0 &&
+                      " · remaining " + openPositions[0].remaining_ticks + " paper ticks"}
+                  </p>
+                  {risk && reserved !== null && used !== null && dailyLimit !== null &&
+                   Number.isFinite(reserved) && Number.isFinite(used) && Number.isFinite(dailyLimit)
+                    ? <p style={{margin:"6px 0 0",fontSize:13}}>
+                        Paper risk (UTC): <strong>{"$" + reserved.toFixed(2) + " reserved"}</strong>
+                        {" · $" + used.toFixed(2) + " realized loss"}
+                        {" · $" + dailyLimit.toFixed(2) + " daily cap"}
+                      </p>
+                    : <p className="muted" style={{margin:"6px 0 0",fontSize:12}}>
+                        No verified paper-risk ledger record available for today.
+                      </p>}
+                  {openPositions.length > 0 && <p role="status" style={{fontSize:12,margin:"6px 0 0"}}>
+                    Open PAPER exposure is recorded. A queued Stop is not proof of cancellation.
+                  </p>}
+                </div>
                 {run?.last_error && <p role="alert">{run.last_error}</p>}
                 <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
                   {(["start","pause","resume","stop"] as const).map(action => {

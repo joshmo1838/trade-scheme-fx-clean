@@ -38,22 +38,30 @@ export async function GET() {
   }
   if (disabled()) {
     return NextResponse.json({
-      enabled: false, mode: "paper", runs: [], commands: [],
+      enabled: false, mode: "paper", runs: [], commands: [], positions: [], dailyRisk: [],
       message: "Server bot control is not enabled. Existing browser paper trading is separate.",
     }, { headers: noStore });
   }
 
   try {
     const db = await createClient();
-    const [runs, commands] = await Promise.all([
+    const riskDate = new Date().toISOString().slice(0, 10);
+    const [runs, commands, positions, dailyRisk] = await Promise.all([
       db.from("bot_execution_runs")
         .select("id,bot_id,mode,desired_state,observed_state,control_version,heartbeat_at,lease_expires_at,last_error,updated_at")
         .eq("customer_id", customerId).order("updated_at", { ascending: false }).limit(40),
       db.from("bot_execution_commands")
         .select("id,bot_id,action,requested_state,version,status,created_at,acknowledged_at")
         .eq("customer_id", customerId).order("created_at", { ascending: false }).limit(30),
+      db.from("bot_execution_paper_positions")
+        .select("id,bot_id,status,remaining_ticks,entered_at")
+        .eq("customer_id", customerId).eq("status", "open")
+        .order("entered_at", { ascending: false }).limit(40),
+      db.from("customer_paper_daily_risk")
+        .select("bot_id,risk_date,daily_loss_limit,realized_loss,reserved_loss")
+        .eq("customer_id", customerId).eq("risk_date", riskDate).limit(80),
     ]);
-    if (runs.error || commands.error) {
+    if (runs.error || commands.error || positions.error || dailyRisk.error) {
       return NextResponse.json({ error: "Bot control database is unavailable. Apply the reviewed migration." },
         { status: 503, headers: noStore });
     }
@@ -71,7 +79,8 @@ export async function GET() {
       enabled: true, mode: "paper",
       workerAttached: monitoredRuns.some(run => run.workerConnected),
       runs: monitoredRuns, commands: commands.data || [],
-      message: "Requested states and queued commands do not prove actual execution.",
+      positions: positions.data || [], dailyRisk: dailyRisk.data || [], riskDate,
+      message: "Requested states and queued commands do not prove actual execution. Open paper positions and reserved amounts reflect saved database records.",
     }, { headers: noStore });
   } catch {
     return NextResponse.json({ error: "Unable to read paper bot controls." },

@@ -187,6 +187,16 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     assert.ok(first.length>=1);
     assert.equal(first[0].customer_id,alice.id);
     assert.equal(first[0].bot_id,bot);
+    const ownerStatus=await customerGet(alice.token);
+    assert.equal(ownerStatus.status,200);
+    assert.equal(ownerStatus.data.riskDate,new Date().toISOString().slice(0,10));
+    assert.ok(ownerStatus.data.dailyRisk.some(row=>row.bot_id===bot),
+      "The actual customer route must show their own saved paper-risk summary");
+    const foreignStatus=await customerGet(bob.token);
+    assert.deepEqual(foreignStatus.data.positions,[],
+      "Other signed user was shown the owner's paper positions");
+    assert.deepEqual(foreignStatus.data.dailyRisk,[],
+      "Other signed user was shown the owner's risk budget");
     assert.deepEqual(await userRows("customer_paper_trades",bob.token),[],
       "Foreign signed user cannot see the worker's settled trade");
     assert.equal((await call(rest+"/bot_execution_runs?select=id&customer_id=eq."+alice.id,{
@@ -225,6 +235,12 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     assert.equal(finalGet.status,200);
     assert.equal(finalGet.data.workerAttached,false,"Stop must end worker connection");
     assert.equal(finalGet.data.runs[0].observed_state,"stopped");
+    assert.deepEqual(finalGet.data.positions,[],
+      "Stop must not leave an open worker position");
+    const savedRisk=finalGet.data.dailyRisk.find(row=>row.bot_id===bot);
+    assert.ok(savedRisk,"Daily risk summary was lost after Stop");
+    assert.equal(Number(savedRisk.reserved_loss),0,
+      "Stop must release any reserved simulated paper risk");
     assert.equal((await customerGet(bob.token)).data.runs.length,0);
     assert.match(log,/paper risk reserved/,"Worker never reserved its own simulated paper risk");
     assert.match(log,/paper trade recorded/,"Worker never settled its own simulated paper trade");
