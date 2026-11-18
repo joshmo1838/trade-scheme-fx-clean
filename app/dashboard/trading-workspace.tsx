@@ -187,6 +187,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
 export default function TradingWorkspace({
   name,
   derivStatus,
+  derivError,
 }: Props) {
   const [openPanel, setOpenPanel] = useState<"load" | "bots" | null>(null);
   const [publishedBots, setPublishedBots] = useState<PublishedBot[]>([]);
