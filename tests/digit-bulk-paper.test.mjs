@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {readFileSync} from "node:fs";
 import {
  armDigitPaperBatch,observeDigitPaperTick,stopDigitPaperBatch,paperBatchSummary
 } from "../lib/bots/digit-bulk-paper.ts";
@@ -88,7 +89,6 @@ test("EVEN and ODD evaluation does not invent payout or profit",()=>{
  assert.equal("payout" in next.entries[0],false);
 });
 test("bulk implementation has no broker transactions or private credentials",()=>{
- const {readFileSync}=await import("node:fs");
  const file=readFileSync(new URL("../lib/bots/digit-bulk-paper.ts",import.meta.url),"utf8");
  assert.doesNotMatch(file,/\bbuy\s*:|["']\/api\/deriv\/buy|SUPABASE_SERVICE_ROLE_KEY|OAuth|price\s*guarantee/i);
 });
