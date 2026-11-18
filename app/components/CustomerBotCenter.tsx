@@ -633,6 +633,7 @@ export default function CustomerBotCenter() {
           <Link href="/builder">Bot Builder</Link>
           <Link href="/intelligence">Market Intelligence</Link>
           <Link href="/strategy-lab">Ultra Precision Lab</Link>
+          <Link href="/bot-research">Bot Research Upgrades</Link>
         </nav>
       </header>
 
