@@ -713,7 +713,7 @@ export default function CustomerBotCenter() {
               return (
                 <article className="botCenterCard" key={bot.id}>
                   <div className="botCenterCardTop">
-                    <span className="botCenterRisk">{bot.risk_level} risk</span>
+                    <span className="botCenterRisk">{isDigitMatrixBot(bot) ? "SCANNER ONLY" : bot.risk_level + " risk"}</span>
                     <span className="botCenterMarket">{bot.market}</span>
                   </div>
                   <h2>{bot.name}</h2>
