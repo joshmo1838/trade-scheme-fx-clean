@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { nextBotDesiredState } from "@/lib/bots/control-state";
+import { DIGIT_MATRIX_NAME } from "@/lib/bots/digit-matrix";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -127,6 +128,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = admin();
+    // This product analyzes digits but does not implement Digit contracts.
+    // Do not let a user queue the generic CALL/PUT worker under its name.
+    const { data: bot, error: botError } = await db.from("bots")
+      .select("name").eq("id", botId).maybeSingle();
+    if (botError || !bot) {
+      return NextResponse.json({ error: "Could not verify the selected bot." },
+        { status: 409, headers: noStore });
+    }
+    if (bot.name === DIGIT_MATRIX_NAME) {
+      return NextResponse.json({
+        error: "SENFX Digit Matrix is scanner-only. Open /digit-matrix; no broker or paper-direction orders are supported.",
+      }, { status: 409, headers: noStore });
+    }
     const { data, error } = await db.rpc("senfx_queue_paper_bot_command", {
       p_customer_id: customerId,
       p_bot_id: botId,
