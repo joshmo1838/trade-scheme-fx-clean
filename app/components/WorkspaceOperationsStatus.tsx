@@ -96,8 +96,8 @@ export default function WorkspaceOperationsStatus({
       ? "unavailable"
       : summary.state === "verified-paper-worker"
         ? "simulation"
-        : summary.state === "stale"
-          ? "stale"
+        : summary.state === "unverified"
+          ? "unavailable"
           : "verified";
   const connected = derivStatus === "Connected";
   const derivLabel = connected ? "Connected" :
