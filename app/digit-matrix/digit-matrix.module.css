@@ -74,3 +74,22 @@
 @media(max-width:1100px){.marketGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.shell{padding:15px 12px 45px}.layout{grid-template-columns:1fr}.hero{padding:20px;align-items:stretch;flex-direction:column}.actions{flex-direction:row;align-items:center;flex-wrap:wrap}.marketGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.marketTile{min-height:125px}.panel{padding:18px}.statusStrip{grid-template-columns:1fr 1fr}.statusStrip>div:first-child{grid-column:1/-1}.nav{gap:11px}.bars{gap:4px}.barItem small{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.bar,.marketTile,.primary,.secondary{transition:none}}
+
+/* Strictly paper-only bulk simulator; prevents the control from looking like
+ * a live broker transaction or copying the video platform's profit popup. */
+.bulkActions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+.stopAction{background:#5b2229;border:1px solid #dc666f;color:#fff;border-radius:10px;
+ padding:12px 10px;font-size:13px;font-weight:850;cursor:pointer}
+.stopAction:hover{background:#712b34}
+.stopAction:disabled,.primary:disabled{opacity:.48;cursor:not-allowed;filter:none}
+.fields select{border:1px solid #32566d;background:#061729;color:#f0fcff;
+ padding:12px 14px;border-radius:9px;font-size:13px;max-width:100%;width:100%}
+.batchSummary{background:#081a31;border:1px solid #33667a;border-radius:10px;
+ padding:12px;margin-top:13px;font-size:12px;color:#d1e8fa;line-height:1.7}
+.batchSummary p{margin:5px 0 8px}
+.paperResults{overflow-x:auto;margin:12px 0}
+.paperResults table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;
+ text-align:left;font-size:11px;white-space:nowrap}
+.paperResults th,.paperResults td{border-bottom:1px solid #294d63;padding:8px 4px}
+.paperResults th{color:#8db7d1;text-transform:uppercase;font-size:9px}
+@media(max-width:420px){.bulkActions{grid-template-columns:1fr}}
