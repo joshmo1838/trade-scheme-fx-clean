@@ -119,7 +119,7 @@ test("paper worker goes offline on market-feed outage and still obeys Stop", {
       ()=>state.syncReports.includes("running"),10_000);
     assert.equal(state.observed,"running");
     await waitFor("closed simulated public feed and repeated retry",
-      ()=>output.includes("Simulated PUBLIC market feed is permanently unavailable"),15_000);
+      ()=>output.includes("[paper-worker] could not connect public feed"),15_000);
     await waitFor("fresh database sync refuses to report running after outage",
       ()=>state.syncReports.lastIndexOf("starting")>state.syncReports.lastIndexOf("running"),
       12_000);
