@@ -50,6 +50,13 @@ BEGIN
     IF result->>'observedState'<>'running' THEN
       RAISE EXCEPTION 'Fleet bot % failed running observation: %',index_num,result;
     END IF;
+    -- A bot cannot reserve an entirely different market even with its own lease.
+    SELECT public.senfx_paper_worker_reserve(
+      runs[index_num],worker_name,1,'R_10','CALL',100+index_num,base_epoch
+    ) INTO result;
+    IF result->>'allowed'<>'false' THEN
+      RAISE EXCEPTION 'Fleet bot % accepted a mismatched market',index_num;
+    END IF;
     SELECT public.senfx_paper_worker_reserve(
       runs[index_num],worker_name,1,labels[index_num],'CALL',100+index_num,base_epoch
     ) INTO result;
