@@ -31,6 +31,10 @@ jobs:
         run: npm run test:engine
       - name: Validate bot control state machine and RLS migration text
         run: npm run test:controls
+      - name: Run paper-worker static and strategy tests
+        run: npm run test:paper-worker
+      - name: Check worker Node syntax
+        run: node --check worker/senfx-customer-paper-worker.mjs
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
