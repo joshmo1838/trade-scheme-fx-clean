@@ -148,6 +148,7 @@ declare
   v_run public.bot_execution_runs%rowtype;
   v_result jsonb;
   v_position_id uuid;
+  v_expected_symbol text;
 begin
   -- A NULL version must fail closed. In PL/pgSQL, IF (x <> NULL)
   -- evaluates to NULL, which is not a true rejection condition.
@@ -168,6 +169,20 @@ begin
     or v_run.desired_state<>'running' or v_run.observed_state<>'running'
     or v_run.control_version<>p_version then
     return jsonb_build_object('allowed',false,'reason','Run not authorized or lease/control version stale.');
+  end if;
+  -- Fail closed if the worker's market differs from this bot's vetted
+  -- preset. Keep precedence identical to paperPreset() in TypeScript.
+  -- A worker bug must never execute another bot's simulated market.
+  select case
+    when lower(name) like '%trend scout%' then 'R_50'
+    when lower(name) like '%volatility watch%' then 'R_75'
+    when lower(market) like '%forex%' then 'frxEURUSD'
+    else 'R_100'
+  end into v_expected_symbol
+  from public.bots where id=v_run.bot_id and is_published=true;
+  if v_expected_symbol is null or p_symbol is distinct from v_expected_symbol then
+    return jsonb_build_object('allowed',false,
+      'reason','Paper market does not match the selected bot preset.');
   end if;
   if exists(select 1 from public.bot_execution_paper_positions
     where run_id=p_run_id and status='open') then

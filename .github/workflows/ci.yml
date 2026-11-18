@@ -33,6 +33,8 @@ jobs:
         run: npm run test:integration
       - name: Verify Phase 16 read-only evidence and role-gate regression checks
         run: node --test tests/phase16-workspace-evidence.test.mjs
+      - name: Verify hosted automatic paper-bot Start and Pause launch paths
+        run: node --test tests/hosted-paper-launch.test.mjs
       - name: Test observed-only market graphs and tick activity
         run: node --experimental-strip-types --test tests/market-session-analytics.test.mjs
       - name: Run deterministic bot strategy tests
@@ -163,9 +165,12 @@ jobs:
         run: |
           set -euo pipefail
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-paper-risk-controls.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-paper-rollout-preflight.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-paper-rollout-postflight.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-paper-worker-smoke-test.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-three-bot-fleet-smoke-test.sql
 
   paper-worker-image:
     name: Minimal paper worker container and disabled startup
@@ -195,7 +200,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Exercise actual worker lifecycle and public-feed failure recovery
-        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs
+        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs tests/paper-worker-three-market-runtime.test.mjs
 
   authenticated-gotrue:
     name: Real local Supabase Auth JWT + paper API authorization

@@ -170,6 +170,50 @@ export default function CustomerBotCenter() {
     startingBots.add(bot.id);
     try {
     setMessage("");
+    // Select exactly one execution mode. An unknown hosted status MUST NOT
+    // fall back to a second browser engine that could duplicate paper risk.
+    let controls: {
+      enabled?: boolean; error?: string;
+      runs?: Array<{bot_id: string; desired_state: string}>;
+    };
+    try {
+      const verified = await fetch("/api/bot-control", {
+        cache: "no-store", credentials: "same-origin",
+      });
+      controls = await verified.json();
+      if (!verified.ok) throw Error(controls.error || "Hosted controls unavailable.");
+    } catch {
+      const reason = "Could not verify persistent paper controls. No bot was started.";
+      setEngineStatus(previous => ({...previous,[bot.id]:reason}));
+      setMessage(reason);
+      return;
+    }
+    if (controls.enabled === true) {
+      const existing = (controls.runs || []).find(run => run.bot_id === bot.id);
+      if (existing?.desired_state === "running" || existing?.desired_state === "paused") {
+        setMessage(bot.name + " already has persistent paper state. Review or Resume in 24/7 Controls.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/bot-control", {
+          method: "POST", credentials: "same-origin",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({botId:bot.id, commandId:crypto.randomUUID(), action:"start"}),
+        });
+        const command: {accepted?:boolean;error?:string} = await response.json();
+        if (!response.ok || command.accepted!==true) {
+          throw Error(command.error || "Persistent paper command was rejected.");
+        }
+        const message = "Persistent PAPER Start queued. Check observed worker status in 24/7 Controls.";
+        setEngineStatus(previous => ({...previous,[bot.id]:message}));
+        setMessage(bot.name + ": " + message);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Persistent paper Start unavailable.";
+        setEngineStatus(previous => ({...previous,[bot.id]:message}));
+        setMessage(message);
+      }
+      return;
+    }
     setEngineStatus(current => ({ ...current, [bot.id]: "Checking today's server-enforced loss budget…" }));
 
     let risk: any;
@@ -513,11 +557,59 @@ export default function CustomerBotCenter() {
     }
   }
 
-  function pauseAllPaperBots() {
-    for (const bot of myBots) {
-      if (sockets.has(bot.id)) stopPaper(bot.id, "Paper bot paused by customer.");
+  // Persistent Pause is a queued request, not proof of worker acknowledgement.
+  async function pauseHostedPaper(botId?: string) {
+    try {
+      const response = await fetch("/api/bot-control", {
+        cache: "no-store", credentials: "same-origin",
+      });
+      const state: {
+        enabled?: boolean; error?: string;
+        runs?: Array<{bot_id:string;desired_state:string}>;
+      } = await response.json();
+      if (!response.ok) throw Error(state.error || "Hosted controls unavailable.");
+      if (state.enabled!==true) return {hosted:false,count:0,failed:0};
+      const running=(state.runs||[]).filter(run =>
+        run.desired_state==="running" && (!botId || run.bot_id===botId));
+      let count=0,failed=0;
+      for(const run of running) {
+        try {
+          const queued=await fetch("/api/bot-control",{
+            method:"POST",credentials:"same-origin",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({botId:run.bot_id,commandId:crypto.randomUUID(),action:"pause"}),
+          });
+          const result:{accepted?:boolean}=await queued.json();
+          if(queued.ok && result.accepted===true)count++;
+          else failed++;
+        } catch {failed++;}
+      }
+      return {hosted:true,count,failed};
+    } catch {
+      return {hosted:true,count:0,failed:1};
     }
-    setMessage("All paper feeds in this browser tab have been stopped.");
+  }
+
+  async function pauseAllPaperBots() {
+    for(const bot of myBots) {
+      if(sockets.has(bot.id))stopPaper(bot.id,"Browser paper bot paused.");
+    }
+    const result=await pauseHostedPaper();
+    setMessage(result.failed>0
+      ? "Some hosted Pause requests failed. Verify all bot states in 24/7 Controls."
+      : result.hosted
+        ? result.count+" persistent PAPER Pause request(s) queued; verify observed state in 24/7 Controls."
+        : "Browser paper feeds stopped; no hosted paper worker is enabled.");
+  }
+
+  async function pauseOnePaperBot(bot: Bot) {
+    if(sockets.has(bot.id)){stopPaper(bot.id,"Browser paper simulation paused.");return;}
+    const result=await pauseHostedPaper(bot.id);
+    setMessage(result.failed>0
+      ? "Hosted Pause could not be verified; open 24/7 Controls."
+      : result.count>0
+        ? bot.name+": persistent PAPER Pause queued; verify worker acknowledgement."
+        : "No active paper run to pause for "+bot.name+".");
   }
   const activeCount = selections.filter(selection => selection.control_status === "selected").length;
   const pausedCount = selections.filter(selection => selection.control_status === "paused").length;
@@ -560,17 +652,16 @@ export default function CustomerBotCenter() {
         </div>
 
         <div className="botCenterNotice" style={{ marginTop: 14 }}>
-          <b>Paper bots can run in your browser.</b> Start only your selected bots.
-          They use public market ticks and never buy Deriv contracts or spend Demo funds.
-          Closing this tab stops the paper feeds. Deriv Demo execution is a separate, customer-authorized feature.
+          <b>Paper automation:</b> With the verified hosted worker enabled, Start queues a persistent PAPER bot that can run after you close this tab. Otherwise the existing browser-only simulation stops when this tab closes. Neither mode places Deriv contracts. A queued command is not proof that a worker is running.
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
             <button className="botCenterPrimary"
               disabled={loading || busy !== null || selectedPaperBots.length === 0 || runningPaperBots === selectedPaperBots.length}
               onClick={() => void startAllSelectedPaperBots()}>
               Start all selected paper bots ({selectedPaperBots.length})
             </button>
-            <button className="botCenterSecondary" disabled={runningPaperBots === 0}
-              onClick={pauseAllPaperBots}>Pause all paper bots</button>
+            <button className="botCenterSecondary" disabled={loading || busy !== null}
+              onClick={() => void pauseAllPaperBots()}>Pause all paper bots</button>
+              <Link className="botCenterSecondary" href="/bot-controls">24/7 controls & verified status</Link>
           </div>
         </div>
         <div className="botCenterTabs" role="tablist" aria-label="Bot Center sections">
@@ -672,10 +763,10 @@ export default function CustomerBotCenter() {
                         disabled={busy !== null || !!sockets.has(bot.id) || selection?.control_status !== "selected"}
                         onClick={() => void startPaper(bot)}
                       >
-                        Start paper simulation
+                        Start paper bot
                       </button>
-                      <button className="botCenterSecondary" disabled={!sockets.has(bot.id)} onClick={() => stopPaper(bot.id)}>
-                        Pause simulation
+                      <button className="botCenterSecondary" disabled={busy !== null} onClick={() => void pauseOnePaperBot(bot)}>
+                        Pause paper bot
                       </button>
                       <small className="botCenterEngineStatus">
                         {engineStatus[bot.id] || "Paper engine stopped"}
