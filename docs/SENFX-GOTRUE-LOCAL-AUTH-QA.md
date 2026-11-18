@@ -47,3 +47,24 @@ sends real HTTP requests through the local Supabase PostgREST API. It checks:
 This is true token + REST + PostgreSQL authorization, but **not** a browser
 cookie-to-Next.js integration and **not** a hosted production worker test.
 The local schema fixture is not a replacement for full production migrations.
+
+## Phase 10: customer API handler to real local paper worker
+
+The full local E2E job now imports the **actual**
+`app/api/bot-control/route.ts` GET/POST handler, with a small Node-only
+replacement for Next.js request classes and SSR cookie retrieval. GoTrue
+still authenticates each short-lived random test-user JWT, and the
+**actual local** Supabase-JS client sends bearer-token queries to
+PostgREST and privileged server RPCs through the real Phase 3/4 SQL.
+
+The test covers anonymous and corrupted tokens, cross-origin POST,
+cross-customer Start, forged owner IDs, idempotency, queued Start not
+misrepresented as execution, actual feed-backed worker-connected status,
+paper settlement, Pause/Resume/Stop through the customer route, zero
+outstanding risk on Stop and owner-scoped status/positions.
+
+**Limitation:** Next.js browser cookies and real HTTPS routing are still
+substituted by an isolated test adapter. This is an API *handler*
+integration test, not a full browser/proxy/cookie or hosted Railway test.
+The production feature gate and worker remain OFF until a restorable
+production backup exists.
