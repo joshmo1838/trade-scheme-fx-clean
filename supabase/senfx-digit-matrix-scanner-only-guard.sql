@@ -21,6 +21,7 @@ END;
 $guard$;
 REVOKE ALL ON FUNCTION public.senfx_block_scanner_only_execution()
   FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.senfx_block_scanner_only_execution() TO service_role;
 
 DROP TRIGGER IF EXISTS senfx_no_scanner_directional_worker
  ON public.bot_execution_runs;
