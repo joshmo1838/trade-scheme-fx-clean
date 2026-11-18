@@ -327,7 +327,7 @@ export default function DigitMatrixScanner(){
        <input type="number" min="1" max="10" step="1" value={bulk}
         onChange={event=>setBulk(Number(event.target.value))}/>
       </label>
-      <label>Daily hypothetical loss cap (USD)
+      <label>Maximum exposure for this paper batch (USD)
        <input type="number" min="1" step="1" value={cap}
         onChange={event=>setCap(Number(event.target.value))}/>
       </label>
@@ -335,7 +335,7 @@ export default function DigitMatrixScanner(){
      <div className={styles.total}><small>FULL STAKE EXPOSURE</small>
       <strong>{plan.valid?dollars(plan.total):"—"}</strong></div>
      <p className={plan.withinCap?styles.safe:styles.blocked}>{plan.reason}</p>
-     <small className={styles.muted}>Calculator only. No contracts, payouts or customer balances.</small>
+     <small className={styles.muted}>This is a per-batch hypothetical exposure ceiling, NOT a persistent daily account loss limit. Browser refresh resets the paper session. No contracts, payouts or customer balances.</small>
     </section>
     <section className={styles.panel} aria-label="Bulk paper trader controls">
      <p className={styles.kicker}>AUTOMATED BULK PAPER SIMULATION</p>
