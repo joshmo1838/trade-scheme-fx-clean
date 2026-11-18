@@ -14,6 +14,8 @@ const sources = [
   "app/components/FeatureWorkspace.tsx",
   "app/components/CustomerBotCenter.tsx",
   "app/bots/page.tsx",
+  "app/bot-settings/page.tsx",
+  "app/components/BulkRiskPlanner.tsx",
 ];
 const paths = new Set();
 for (const filename of sources) {
