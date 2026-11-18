@@ -171,6 +171,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // The production schema requires a non-null expiry. Fail closed if the
+    // provider omits or supplies an invalid token lifetime.
+    const expiresInSeconds = Number(tokenData.expires_in);
+    if (!Number.isFinite(expiresInSeconds) || expiresInSeconds <= 0 ||
+        expiresInSeconds > 315360000) {
+      console.error("Deriv token response contained an invalid expiry.");
+      return clearCookies(redirectToDashboard("connection_failed", origin));
+    }
+
     stage = "encryption";
 
     // Encrypt the access token before database storage.
@@ -198,9 +207,7 @@ export async function GET(request: NextRequest) {
           encrypted_token: encrypted.ciphertext,
           token_iv: encrypted.iv,
           token_tag: encrypted.tag,
-          expires_at: Number.isFinite(Number(tokenData.expires_in)) && Number(tokenData.expires_in) > 0
-            ? new Date(Date.now() + Number(tokenData.expires_in) * 1000).toISOString()
-            : null,
+          expires_at: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
           connected_at: new Date().toISOString(),
           status: "connected"
         },
