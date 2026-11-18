@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { DIGIT_MATRIX_NAME } from "@/lib/bots/digit-matrix";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -157,6 +158,15 @@ export async function POST(request: Request) {
           !PAPER_MARKETS.has(body.marketSymbol) ||
           (body.direction !== "CALL" && body.direction !== "PUT")) {
         return NextResponse.json({ allowed: false, reason: "Invalid paper-trade entry details." }, { status: 400, headers: noStore });
+      }
+
+      const { data: botInfo, error: botLookupError } = await admin.from("bots")
+        .select("name").eq("id", body.botId).maybeSingle();
+      if (botLookupError || !botInfo || botInfo.name === DIGIT_MATRIX_NAME) {
+        return NextResponse.json({
+          allowed: false,
+          reason: "This bot is not eligible for CALL/PUT paper trades. Digit Matrix is scanner-only.",
+        }, { status: 409, headers: noStore });
       }
 
       let entryPrice: number;
