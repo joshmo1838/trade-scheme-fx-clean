@@ -9,6 +9,7 @@
     "worker:forward": "node worker/senfx-forward-worker.mjs",
     "typecheck": "tsc --noEmit",
     "test:routes": "node scripts/check-workspace-routes.mjs",
+    "test:workspace": "node --experimental-strip-types --test tests/workspace-command-palette.test.mjs",
     "test:engine": "node --experimental-strip-types --test tests/paper-strategy.test.mjs",
     "test:controls": "node --experimental-strip-types --test tests/bot-control.test.mjs",
     "worker:paper": "node --experimental-strip-types worker/senfx-customer-paper-worker.mjs",
