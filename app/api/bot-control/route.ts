@@ -132,8 +132,12 @@ export async function POST(request: NextRequest) {
     // Do not let a user queue the generic CALL/PUT worker under its name.
     const { data: bot, error: botError } = await db.from("bots")
       .select("name").eq("id", botId).maybeSingle();
-    if (botError || !bot) {
-      return NextResponse.json({ error: "Could not verify the selected bot." },
+    if (botError) {
+      return NextResponse.json({ error: "Bot catalog database unavailable." },
+        { status: 503, headers: noStore });
+    }
+    if (!bot) {
+      return NextResponse.json({ error: "Unknown bot." },
         { status: 409, headers: noStore });
     }
     if (bot.name === DIGIT_MATRIX_NAME) {
