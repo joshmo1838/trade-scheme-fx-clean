@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TradingLandingVisual from "@/components/TradingLandingVisual";
+import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
 import LiveCandleChart from "@/app/components/LiveCandleChart";
 import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
@@ -272,6 +273,18 @@ export default function TradingWorkspace({
               <p className="videoHeroFootnote">Charts on this welcome screen are illustrative. Bot and manual paper results are not Deriv contracts or verified returns.</p>
             </div>
           </section>
+          <div className="dashGrid" aria-label="Workspace evidence and safety">
+            <WorkspaceEvidence
+              label="Deriv account connection"
+              state={derivError ? "unavailable" : derivStatus === "Connected" ? "verified" : "unavailable"}
+              source="Authenticated account connection status"
+            >
+              <p className="muted">Connection: {derivStatus}. Connected does not mean a bot is running or a trade was placed.</p>
+            </WorkspaceEvidence>
+            <WorkspaceEvidence label="Paper practice" state="simulation" source="Workspace paper practice tools">
+              <p className="muted">Hypothetical outcomes are not broker transactions or verified returns.</p>
+            </WorkspaceEvidence>
+          </div>
           <section className="senfxWorkflowRibbon" aria-labelledby="senfx-workflow-title">
             <div className="senfxWorkflowRibbonHead">
               <div>
