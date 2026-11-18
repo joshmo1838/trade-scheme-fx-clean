@@ -241,6 +241,16 @@ jobs:
           export SENFX_TEST_AUTH_SERVICE_KEY="${SERVICE_ROLE_KEY}"
           cd "$GITHUB_WORKSPACE"
           node --test tests/auth-control/real-rls.test.mjs
+      - name: Exercise actual child worker against REAL local Auth, PostgREST and SQL
+        run: |
+          set -euo pipefail
+          cd /tmp/senfx-local-auth-ci
+          source <(supabase status -o env)
+          export SENFX_TEST_REAL_API_URL="${API_URL}"
+          export SENFX_TEST_AUTH_ANON_KEY="${ANON_KEY}"
+          export SENFX_TEST_AUTH_SERVICE_KEY="${SERVICE_ROLE_KEY}"
+          cd "$GITHUB_WORKSPACE"
+          node --test tests/auth-control/full-local-worker-e2e.test.mjs
       - name: Remove local Auth and PostgreSQL test stack
         if: always()
         run: |
