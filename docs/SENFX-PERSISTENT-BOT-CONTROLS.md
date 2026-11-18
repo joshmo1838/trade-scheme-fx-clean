@@ -42,3 +42,26 @@ is displayed. This UI change cannot bypass the SQL leasing/risk checks and
 does not activate any worker, run database migrations, or buy broker contracts.
 The tests cover status truthfulness and a future-dated heartbeat. Full
 browser-cookie end-to-end validation remains separate from these checks.
+
+## Phase 12: customer-facing open paper exposure and daily risk
+
+When the persistent paper-control feature gate is **enabled after the
+separately approved database rollout**, the authenticated
+`GET /api/bot-control` includes open paper-worker position records
+(id, bot, status, remaining ticks, entry time) and today's **UTC** paper
+risk summary (reserved loss, realized loss, daily cap). All four
+control/risk queries filter by the verified customer ID and use
+the reviewed per-customer Supabase RLS policies. If any query fails,
+the API returns HTTP 503 rather than silently showing zero exposure.
+
+The `/bot-controls` page displays the current open simulated position
+count and how much simulated loss the SQL risk ledger has reserved.
+A Stop request is **not** proof of an already cancelled reservation:
+until SQL confirms no open positions and zero remaining exposure,
+the page warns that PAPER risk is still recorded.
+
+The disabled API feature gate continues to return only empty arrays.
+The actual local GoTrue/PostgREST/worker CI test verifies that risk and
+positions remain owner-only and that an acknowledged Stop leaves no
+open positions or reserved paper loss. No new production migrations,
+feature flags, Deriv broker orders or customer balances are changed.
