@@ -25,3 +25,20 @@ This code is **not** a Deriv execution engine. It records a customer's requested
 
 ## Current production behavior
 The existing `CustomerBotCenter` browser paper simulator continues unchanged. These commands do not start that browser simulation. The feature remains OFF until the separate worker exists, and the UI explicitly shows that limitation. PR #17 for manual Deriv Demo broker execution is separate and **must not** be merged or activated by Phase 3.
+
+## Customer status observability refresh
+
+The persistent `/bot-controls` console now refetches **read-only** worker
+status every six seconds while visible, and immediately when the tab becomes
+visible. The status label is derived from the customer's **requested** state,
+the worker's **observed** state, the server-reported lease and the latest
+heartbeat timestamps. Queued Start, Pause and Stop requests are never
+misrepresented as actual worker execution. An expired heartbeat, expired
+lease, corrupted/future heartbeat, broken status request, or stale sign-in
+must fail closed to OFFLINE / UNVERIFIED and disable command controls.
+
+A stopped bot shows STOPPED only after observed Stop; otherwise STOP REQUESTED
+is displayed. This UI change cannot bypass the SQL leasing/risk checks and
+does not activate any worker, run database migrations, or buy broker contracts.
+The tests cover status truthfulness and a future-dated heartbeat. Full
+browser-cookie end-to-end validation remains separate from these checks.

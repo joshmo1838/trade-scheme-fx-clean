@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nextBotDesiredState, describeBotControl } from "../lib/bots/control-state.ts";
+import { nextBotDesiredState, describeBotControl, paperBotDisplayStatus, paperWorkerHasCurrentLease } from "../lib/bots/control-state.ts";
 import { readFileSync } from "node:fs";
 
 test("start only from stopped", () => {
@@ -32,6 +32,31 @@ test("UI never labels queued state as executing", () => {
   assert.match(describeBotControl("running", null), /Not connected/);
   assert.equal(describeBotControl("running", "running"), "Worker running paper simulation");
 });
+
+test("customer status never presents queued or expired paper sessions as running", () => {
+  const now=Date.parse("2026-11-18T12:00:00.000Z");
+  const base={
+    desired_state:"running",observed_state:"running",workerConnected:true,
+    heartbeat_at:new Date(now-3_000).toISOString(),
+    lease_expires_at:new Date(now+12_000).toISOString(),
+  };
+  assert.equal(paperWorkerHasCurrentLease(base,now),true);
+  assert.equal(paperBotDisplayStatus(base,now).verifiedRunning,true);
+  assert.equal(paperBotDisplayStatus(base,now).label,"RUNNING · PAPER ONLY");
+  assert.equal(paperBotDisplayStatus({...base,observed_state:"stopped"},now).label,"START QUEUED");
+  assert.equal(paperBotDisplayStatus({...base,observed_state:"starting"},now).verifiedRunning,false);
+  assert.equal(paperBotDisplayStatus({...base,observed_state:"error"},now).verifiedRunning,false);
+  assert.equal(paperBotDisplayStatus({...base,workerConnected:false},now).label,"OFFLINE / UNVERIFIED");
+  assert.equal(paperBotDisplayStatus({...base,heartbeat_at:new Date(now-20_000).toISOString()},now).verifiedRunning,false);
+  assert.equal(paperBotDisplayStatus({...base,lease_expires_at:new Date(now-1).toISOString()},now).verifiedRunning,false);
+  assert.equal(paperBotDisplayStatus({...base,heartbeat_at:new Date(now+20_000).toISOString()},now).verifiedRunning,false);
+  assert.equal(paperBotDisplayStatus({...base,desired_state:"paused",observed_state:"running"},now).label,"PAUSE REQUESTED");
+  assert.equal(paperBotDisplayStatus({...base,desired_state:"paused",observed_state:"paused"},now).label,"PAUSED");
+  assert.equal(paperBotDisplayStatus({...base,desired_state:"stopped",observed_state:"running"},now).label,"STOP REQUESTED");
+  assert.equal(paperBotDisplayStatus({...base,desired_state:"stopped",observed_state:"stopped"},now).label,"STOPPED");
+  assert.equal(paperBotDisplayStatus(null,now).label,"NOT STARTED");
+});
+
 test("migration uses ownership controls and service-only command executor", () => {
   const migration = readFileSync("supabase/senfx-persistent-bot-controls.sql", "utf8");
   assert.match(migration, /unique\s*\(customer_id,\s*bot_id,\s*mode\)/i);

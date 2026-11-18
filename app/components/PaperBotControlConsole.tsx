@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { nextBotDesiredState } from "@/lib/bots/control-state";
+import { nextBotDesiredState, paperBotDisplayStatus } from "@/lib/bots/control-state";
 
 type PaperBot = { id: string; name: string; market: string };
 type Selection = { bot_id: string; selected: boolean; control_status: string };
@@ -30,6 +30,8 @@ export default function PaperBotControlConsole() {
   const [enabled, setEnabled] = useState(false);
   const [workerAttached, setWorkerAttached] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [statusClock, setStatusClock] = useState(() => Date.now());
+  const [lastStatusCheck, setLastStatusCheck] = useState<number | null>(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -40,6 +42,11 @@ export default function PaperBotControlConsole() {
       const supabase = createClient();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
+        setEnabled(false);
+        setWorkerAttached(false);
+        setRuns([]);
+        setCommands([]);
+        setLastStatusCheck(null);
         setError("Please sign in to see your paper bots.");
         return;
       }
@@ -59,16 +66,61 @@ export default function PaperBotControlConsole() {
       setWorkerAttached(result.workerAttached === true);
       setRuns(result.runs || []);
       setCommands(result.commands || []);
+      setLastStatusCheck(Date.now());
       setMessage(result.message || "");
     } catch (cause) {
       setEnabled(false);
+      setWorkerAttached(false);
+      setRuns([]);
+      setCommands([]);
+      setLastStatusCheck(null);
       setError(cause instanceof Error ? cause.message : "Unable to fetch paper controls.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  const refreshWorkerState = useCallback(async () => {
+    try {
+      const response = await fetch("/api/bot-control", {
+        cache: "no-store", credentials: "same-origin",
+      });
+      const result: ControlResponse = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to refresh worker verification.");
+      setEnabled(result.enabled === true);
+      setWorkerAttached(result.workerAttached === true);
+      setRuns(result.runs || []);
+      setCommands(result.commands || []);
+      setLastStatusCheck(Date.now());
+      setError("");
+    } catch (cause) {
+      // Network loss or an expired sign-in must never leave old "running"
+      // state or enabled buttons on screen.
+      setEnabled(false);
+      setWorkerAttached(false);
+      setRuns([]);
+      setCommands([]);
+      setLastStatusCheck(null);
+      setError(cause instanceof Error ? cause.message : "Worker verification unavailable.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => {
+      setStatusClock(Date.now());
+      if (document.visibilityState === "visible") void refreshWorkerState();
+    }, 6_000);
+    const onVisible = () => {
+      setStatusClock(Date.now());
+      if (document.visibilityState === "visible") void refreshWorkerState();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh, refreshWorkerState]);
 
   async function requestCommand(botId: string, action: "start" | "pause" | "resume" | "stop") {
     if (!enabled || busy) return;
@@ -89,7 +141,7 @@ export default function PaperBotControlConsole() {
       }
       setMessage("Saved " + action.toUpperCase() + " request #" + result.version +
         ". This is only a queued PAPER request; no worker or broker trade is confirmed.");
-      await refresh();
+      await refreshWorkerState();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to queue paper command.");
     } finally {
@@ -114,6 +166,12 @@ export default function PaperBotControlConsole() {
           ? "Commands are available. Check each bot's actual worker state before assuming it is running."
           : "No verified persistent customer bot worker is connected. This control plane does not buy Deriv Demo or Real contracts."}</p>
         <p className="muted">Paper research mode only · Demo broker purchases disabled · Real-money execution disabled</p>
+        <p className="muted" style={{fontSize:12}}>
+          {lastStatusCheck === null
+            ? "Worker verification unavailable."
+            : "Last worker status check: " + new Date(lastStatusCheck).toLocaleTimeString() +
+              " · Automatic refresh every 6 seconds while this page is visible."}
+        </p>
         <button type="button" className="button secondary" disabled={loading || !!busy}
           onClick={() => void refresh()}>Refresh verified status</button>
       </section>
@@ -130,6 +188,7 @@ export default function PaperBotControlConsole() {
             const desired = run?.desired_state || "stopped";
             const actual = run?.observed_state || "stopped";
             const latest = commands.find(row => row.bot_id === bot.id);
+            const status = paperBotDisplayStatus(run || null, statusClock);
             const canUse = enabled && !busy;
             const sel = selection.find(row => row.bot_id === bot.id);
             return (
@@ -137,9 +196,13 @@ export default function PaperBotControlConsole() {
                 <p className="eyebrow" style={{margin:0}}>PAPER · {bot.market}</p>
                 <h2 style={{margin:0}}>{bot.name}</h2>
                 <p style={{margin:0,fontSize:13}}>Requested: <strong>{desired.toUpperCase()}</strong></p>
-                <p style={{margin:0,fontSize:13}}>Worker observed: <strong>
-                  {run?.workerConnected ? actual.toUpperCase() : "OFFLINE / UNVERIFIED"}
-                </strong></p>
+                <p style={{margin:0,fontSize:13}}>
+                  Worker status: <strong>{status.label}</strong>
+                </p>
+                <p className="muted" style={{fontSize:12,margin:0}}>{status.detail}</p>
+                <p className="muted" style={{fontSize:12,margin:0}}>
+                  Last reported state: {actual.toUpperCase()} · {run?.workerConnected ? "Backend lease reported active" : "No verified backend lease"}
+                </p>
                 <p className="muted" style={{fontSize:12,margin:0}}>
                   {run?.heartbeat_at
                     ? "Last worker heartbeat: " + new Date(run.heartbeat_at).toLocaleString() +
