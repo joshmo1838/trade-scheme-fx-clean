@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./components/workspace-operations-deck.css";
 import GlobalTicker from "../components/GlobalTicker";
 
 export const metadata: Metadata = {
