@@ -145,8 +145,9 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
     return { low, high, priceToY, gap };
   }, [bars]);
 
+  const RootElement = embedded ? "div" : "main";
   return (
-    <main className={embedded ? "senfxEmbeddedChart" : "appShell"}>
+    <RootElement className={embedded ? "senfxEmbeddedChart" : "appShell"}>
       {!embedded && <header className="dashNav">
         <Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link>
         <div style={{ display: "flex", gap: 12 }}>
@@ -234,6 +235,6 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
         </div>
         <p className="disclaimer">Research and charting only. This live chart never initiates a Deriv trade and does not display executable contract quotes. Indicators and candles are not forecasts.</p>
       </section>
-    </main>
+    </RootElement>
   );
 }
