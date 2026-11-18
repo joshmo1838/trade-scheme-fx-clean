@@ -31,7 +31,7 @@ const format = (value: number) => new Intl.NumberFormat("en-US", { maximumFracti
  * Candles are built ONLY from public Deriv ticks actually received by this tab.
  * There is no synthetic price history, prediction or order submission.
  */
-export default function LiveCandleChart() {
+export default function LiveCandleChart({ embedded = false }: { embedded?: boolean }) {
   const [symbol, setSymbol] = useState("R_100");
   const [frame, setFrame] = useState(15);
   const [retry, setRetry] = useState(0);
@@ -44,6 +44,14 @@ export default function LiveCandleChart() {
   useEffect(() => {
     let active = true;
     let opened = false;
+    let lastValidTickAt = 0;
+    const freshnessTimer = window.setInterval(() => {
+      if (!active || !opened) return;
+      if (lastValidTickAt && Date.now() - lastValidTickAt > 15_000) {
+        setConnected(false);
+        setStatus("Public market feed is stale. Use Retry connection.");
+      }
+    }, 5_000);
     setBars([]);
     setLastPrice(null);
     setConnected(false);
@@ -63,8 +71,8 @@ export default function LiveCandleChart() {
       opened = true;
       window.clearTimeout(connectionTimeout);
       ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
-      setConnected(true);
-      setStatus("Live public ticks connected");
+      setConnected(false);
+      setStatus("Connected to public feed; waiting for first valid tick…");
     };
     ws.onmessage = event => {
       if (!active) return;
@@ -85,6 +93,9 @@ export default function LiveCandleChart() {
           !Number.isFinite(epoch) || epoch <= 0) return;
 
       const bucket = Math.floor(epoch / frame) * frame;
+      lastValidTickAt = Date.now();
+      setConnected(true);
+      setStatus("Live public ticks received");
       setLastPrice(price);
       setTicksReceived(v => v + 1);
       setBars(previous => {
@@ -102,7 +113,10 @@ export default function LiveCandleChart() {
       });
     };
     ws.onerror = () => {
-      if (active) setStatus("Public market connection error. Use Retry connection.");
+      if (active) {
+        setConnected(false);
+        setStatus("Public market connection error. Use Retry connection.");
+      }
     };
     ws.onclose = () => {
       if (!active) return;
@@ -114,6 +128,7 @@ export default function LiveCandleChart() {
     return () => {
       active = false;
       window.clearTimeout(connectionTimeout);
+      window.clearInterval(freshnessTimer);
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
     };
   }, [symbol, frame, retry]);
@@ -131,18 +146,31 @@ export default function LiveCandleChart() {
   }, [bars]);
 
   return (
-    <main className="appShell">
-      <header className="dashNav">
+    <main className={embedded ? "senfxEmbeddedChart" : "appShell"}>
+      {!embedded && <header className="dashNav">
         <Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link>
         <div style={{ display: "flex", gap: 12 }}>
           <Link className="button secondary small" href="/intelligence">Market intelligence</Link>
           <Link className="button secondary small" href="/dashboard">Dashboard</Link>
         </div>
-      </header>
-      <section className="dashContent" style={{ maxWidth: 1200 }}>
-        <p className="eyebrow">SENFX WORKSPACE · PUBLIC MARKET DATA</p>
-        <h1>Live <span style={{ color: "#3dd5d6" }}>candlestick</span> charts</h1>
-        <p className="muted">Real-time OHLC candles are calculated from verified public Deriv ticks received in this browser session. No imaginary historical candles, trading signals, or orders.</p>
+      </header>}
+      <section className={embedded ? "senfxEmbeddedChartContent" : "dashContent"} style={{ maxWidth: 1200 }}>
+        {embedded ? (
+          <div className="senfxEmbeddedChartHeading">
+            <div>
+              <p className="eyebrow">PUBLIC DERIV TICKS · CHART RESEARCH</p>
+              <h3>Live candlestick workspace</h3>
+              <p>Real candles are built from ticks received in this session. Historical bars are not fabricated.</p>
+            </div>
+            <Link href="/charts">Full chart ↗</Link>
+          </div>
+        ) : (
+          <>
+            <p className="eyebrow">SENFX WORKSPACE · PUBLIC MARKET DATA</p>
+            <h1>Live <span style={{ color: "#3dd5d6" }}>candlestick</span> charts</h1>
+            <p className="muted">Real-time OHLC candles are calculated from verified public Deriv ticks received in this browser session. No imaginary historical candles, trading signals, or orders.</p>
+          </>
+        )}
         <div className="panel" style={{ marginTop: 25 }}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 20, alignItems: "end" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
@@ -163,6 +191,7 @@ export default function LiveCandleChart() {
             <div style={{ textAlign: "right" }}>
               <small style={{ color: connected ? "#43e0b2" : "#f6c375", display: "block" }}>{connected ? "● LIVE PUBLIC TICKS" : "○ FEED OFFLINE"}</small>
               <strong style={{ color: "#f5ffff", fontSize: 26 }}>{lastPrice === null ? "—" : format(lastPrice)}</strong>
+              {lastPrice !== null && !connected && <small className="muted" style={{ display: "block" }}>Last observed · not live</small>}
             </div>
           </div>
           <p role="status" className="muted" style={{ marginTop: 14, fontSize: 12 }}>{status}</p>
