@@ -9,6 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { paperPreset, evaluatePaperSignal } from "../lib/bots/paper-strategy.ts";
+import { reconcilePaperPosition } from "../lib/bots/paper-reconcile.ts";
 
 if (process.env.SENFX_PAPER_WORKER_ENABLED !== "true") {
   console.error("SENFX paper worker is disabled. Set the explicit worker-only opt-in in its own service.");
@@ -117,13 +118,28 @@ async function synchronize(s, requestedState) {
     return;
   }
   ensureFeed(s.market);
-  if (!s.openPosition) {
-    // Recover an ambiguous reservation response without creating another trade.
+  // An expired or reclaimed lease may cancel a previous paper reservation.
+  // Always reconcile BOTH directions; an old local "open" is not authority.
+  // Do not overwrite an in-flight entry/settlement; the next poll will verify it.
+  if (!s.processing) {
     const {data:existing,error}=await db.from("bot_execution_paper_positions")
-      .select("id,remaining_ticks,status")
-      .eq("run_id",s.id).eq("status","open").limit(1);
+      .select("id,status")
+      .eq("run_id",s.id).eq("status","open").limit(2);
     if (error) throw error;
-    s.openPosition=(existing||[]).length>0;
+    const before = s.openPosition;
+    const reconciled = reconcilePaperPosition(before, existing || []);
+    if (!reconciled.safe) {
+      s.owned=false;
+      throw Error("Conflicting open paper positions detected; refusing new entries.");
+    }
+    s.openPosition = reconciled.openPosition;
+    if (reconciled.changed) {
+      // On cancellation, restart from clean market data with a cooldown.
+      // On recovered open risk, never create a duplicate reservation.
+      s.prices=[];
+      s.pending=null;
+      if (!s.openPosition) s.cooldown=Math.max(s.cooldown,5);
+    }
   }
 }
 async function poll() {

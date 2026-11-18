@@ -81,3 +81,10 @@ test("losing publication or selection cancels paper exposure and preserves Stop"
   assert.match(sql, /when not v_eligible then 'error'/);
   assert.ok(sql.includes("or not v_eligible"));
 });
+
+test("worker always verifies active paper reservations against the database", () => {
+  assert.match(worker, /reconcilePaperPosition\(before, existing \|\| \[\]\)/);
+  assert.match(worker, /if \(!s\.processing\)/);
+  assert.match(worker, /s\.openPosition = reconciled\.openPosition/);
+  assert.match(worker, /if \(!reconciled\.safe\)/);
+});
