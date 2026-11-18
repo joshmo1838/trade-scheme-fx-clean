@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test:routes": "node scripts/check-workspace-routes.mjs",
     "test:engine": "node --experimental-strip-types --test tests/paper-strategy.test.mjs",
-    "test:controls": "node --experimental-strip-types --test tests/bot-control.test.mjs"
+    "test:controls": "node --experimental-strip-types --test tests/bot-control.test.mjs",
+    "worker:paper": "node --experimental-strip-types worker/senfx-customer-paper-worker.mjs",
+    "test:paper-worker": "node --experimental-strip-types --test tests/paper-worker.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
