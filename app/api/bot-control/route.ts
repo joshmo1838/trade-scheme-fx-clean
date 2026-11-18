@@ -57,11 +57,21 @@ export async function GET() {
       return NextResponse.json({ error: "Bot control database is unavailable. Apply the reviewed migration." },
         { status: 503, headers: noStore });
     }
+    // A worker is connected only if its database lease AND recent heartbeat
+    // are valid; stale rows must not advertise an active bot.
+    const now = Date.now();
+    const monitoredRuns = (runs.data || []).map(run => {
+      const heartbeatMs = run.heartbeat_at ? new Date(run.heartbeat_at).getTime() : NaN;
+      const expiryMs = run.lease_expires_at ? new Date(run.lease_expires_at).getTime() : NaN;
+      const connected = Number.isFinite(heartbeatMs) && Number.isFinite(expiryMs)
+        && now - heartbeatMs <= 15_000 && expiryMs > now;
+      return { ...run, workerConnected: connected };
+    });
     return NextResponse.json({
       enabled: true, mode: "paper",
-      workerAttached: false, // No customer worker has been deployed or verified.
-      runs: runs.data || [], commands: commands.data || [],
-      message: "A queued state is a request, not proof of a running trading bot.",
+      workerAttached: monitoredRuns.some(run => run.workerConnected),
+      runs: monitoredRuns, commands: commands.data || [],
+      message: "Requested states and queued commands do not prove actual execution.",
     }, { headers: noStore });
   } catch {
     return NextResponse.json({ error: "Unable to read paper bot controls." },
