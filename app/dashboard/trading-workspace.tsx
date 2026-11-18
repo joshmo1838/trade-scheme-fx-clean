@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TradingLandingVisual from "@/components/TradingLandingVisual";
+import LiveCandleChart from "@/app/components/LiveCandleChart";
+import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
 
 type Props = {
   name: string;
@@ -266,6 +268,24 @@ export default function TradingWorkspace({
               </div>
               <p className="videoHeroFootnote">Charts on this welcome screen are illustrative. Bot and manual paper results are not Deriv contracts or verified returns.</p>
             </div>
+          </section>
+          <section className="senfxOpsDeck" aria-labelledby="senfx-ops-deck-title">
+            <div className="senfxOpsDeckHeading">
+              <div>
+                <p className="senfxOpsDeckEyebrow">MARKETS · ACCOUNT · VERIFIED STATUS</p>
+                <h2 id="senfx-ops-deck-title">Market & Operations Deck</h2>
+                <p>Observe public synthetic markets and your own paper-control status from one workspace.</p>
+              </div>
+              <Link href="/markets" className="senfxOpsDeckMarketsLink">Explore markets ↗</Link>
+            </div>
+            <div className="senfxOpsDeckGrid">
+              <LiveCandleChart embedded />
+              <WorkspaceOperationsStatus derivStatus={derivStatus} />
+            </div>
+            <p className="senfxOpsDeckDisclosure">
+              Charted quotes are public Deriv ticks, not executable contract prices. Paper bot status is verified from the
+              authenticated account's saved records; no Deriv Demo or Real orders are sent from this deck.
+            </p>
           </section>
         </section>
       </div>
