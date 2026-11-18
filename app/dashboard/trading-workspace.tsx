@@ -26,6 +26,7 @@ const videoNav = [
 ];
 
 const moreTools = [
+  { label: "Persistent Paper Bot Controls (Preview)", href: "/bot-controls" },
   { label: "Bulk Trader", href: "/bulk-trader" },
   { label: "Hedging Planner", href: "/hedging" },
   { label: "Digit Tools", href: "/digit-tools" },
