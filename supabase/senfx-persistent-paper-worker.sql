@@ -49,7 +49,7 @@ declare
 begin
   if p_run_id is null or p_worker_id is null or length(p_worker_id) not between 8 and 128
      or p_worker_id !~ '^[A-Za-z0-9_-]+$'
-     or p_report not in ('starting','running','paused','stopped','error') then
+     or coalesce(p_report,'') not in ('starting','running','paused','stopped','error') then
     return jsonb_build_object('owned',false,'reason','Invalid worker sync request.');
   end if;
   select * into v_run from public.bot_execution_runs
@@ -133,7 +133,7 @@ begin
   select * into v_run from public.bot_execution_runs
     where id=p_run_id and mode='paper' for update;
   if not found or v_run.worker_id is distinct from p_worker_id
-    or v_run.lease_expires_at<=now()
+    or v_run.lease_expires_at is null or v_run.lease_expires_at<=now()
     or v_run.desired_state<>'running' or v_run.observed_state<>'running'
     or v_run.control_version<>p_version then
     return jsonb_build_object('allowed',false,'reason','Run not authorized or lease/control version stale.');
@@ -179,7 +179,7 @@ begin
   select * into v_run from public.bot_execution_runs where id=p_run_id
     and mode='paper' for update;
   if not found or v_run.worker_id is distinct from p_worker_id
-     or v_run.lease_expires_at<=now() or v_run.desired_state<>'running'
+     or v_run.lease_expires_at is null or v_run.lease_expires_at<=now() or v_run.desired_state<>'running'
      or v_run.observed_state<>'running' or v_run.control_version<>p_version then
     return jsonb_build_object('accepted',false,'reason','Lease or control version changed.');
   end if;
