@@ -150,3 +150,17 @@ jobs:
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-paper-worker-smoke-test.sql
+
+  paper-worker-image:
+    name: Minimal paper worker container and disabled startup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build worker-only Docker image
+        run: docker build --file worker/Dockerfile --tag senfx-paper-worker:ci .
+      - name: Verify worker stays disabled without any secrets
+        run: |
+          set -euo pipefail
+          docker run --rm -e SENFX_PAPER_WORKER_ENABLED=false senfx-paper-worker:ci 2>&1 | tee worker-startup.log
+          grep -q "paper worker is disabled" worker-startup.log
