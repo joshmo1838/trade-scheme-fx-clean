@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,15 +38,22 @@ export default async function AdminPage() {
           <h2>Admin access verified</h2>
           <p className="muted">You are signed in as an administrator. View customers and message them privately inside the platform.</p>
         </div>
+        <WorkspaceEvidence
+          label="Administrative data access"
+          state={error ? "unavailable" : "verified"}
+          source="Authenticated, role-gated Supabase profile query"
+        >
+          <p className="muted">{error ? "Customer records could not be retrieved. Counts below may be incomplete." : "Customer profiles were retrieved for this authorized administrator. Bot totals are shown separately and may be unavailable."}</p>
+        </WorkspaceEvidence>
         <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link><Link className="button secondary" href="/admin/bots">Publish / unpublish bots</Link></div>
         <div className="dashGrid">
-          <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
-          <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCount ?? 0}</h2><p>{publishedBotCount ?? 0} currently published.</p></article>
-          <article className="panel"><p className="eyebrow">CUSTOMER BOT SELECTIONS</p><h2>{selectionCount ?? 0}</h2><p>Saved bot preferences across customer accounts.</p></article>
+          <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{error ? "Unavailable" : customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
+          <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCount ?? "Unavailable"}</h2><p>{publishedBotCount ?? "Unavailable"} currently published.</p></article>
+          <article className="panel"><p className="eyebrow">CUSTOMER BOT SELECTIONS</p><h2>{selectionCount ?? "Unavailable"}</h2><p>Saved bot preferences across customer accounts.</p></article>
         </div>
         <div className="adminSectionHead">
           <div><p className="eyebrow">CUSTOMER MANAGEMENT</p><h2>Registered customers</h2></div>
-          <span className="customerCount">{customers?.length ?? 0} accounts</span>
+          <span className="customerCount">{error ? "Count unavailable" : `${customers?.length ?? 0} accounts`}</span>
         </div>
         {error ? (
           <div className="panel"><p className="notice">Could not load customer records. Run the SQL migration in supabase/admin-customer-email.sql in your Supabase SQL Editor, then refresh this page.</p></div>
