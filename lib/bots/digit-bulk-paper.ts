@@ -7,7 +7,7 @@
  */
 import {
   DIGIT_MARKETS, plannedExposure, type DigitSymbol, type ObservedTick,
-} from "./digit-matrix";
+} from "./digit-matrix.ts";
 
 export type PaperParitySide="EVEN"|"ODD";
 export type PaperBatchState="running"|"completed"|"stopped";
