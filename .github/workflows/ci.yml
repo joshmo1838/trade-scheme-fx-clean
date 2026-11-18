@@ -225,7 +225,9 @@ jobs:
           source <(supabase status -o env)
           cd "$GITHUB_WORKSPACE"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/auth-control/real-db-fixture.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/senfx-paper-risk-controls.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
           psql "$DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
       - name: Verify real JWT-controlled PostgreSQL RLS and server-only RPC
         run: |
