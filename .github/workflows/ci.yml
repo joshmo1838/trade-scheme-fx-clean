@@ -29,6 +29,8 @@ jobs:
         run: node scripts/check-workspace-routes.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
+      - name: Verify operations deck fail-closed worker states
+        run: npm run test:operations
       - name: Validate bot control state machine and RLS migration text
         run: npm run test:controls
       - name: Run paper-worker static and strategy tests
