@@ -166,3 +166,19 @@ jobs:
           set -euo pipefail
           docker run --rm -e SENFX_PAPER_WORKER_ENABLED=false senfx-paper-worker:ci 2>&1 | tee worker-startup.log
           grep -q "paper worker is disabled" worker-startup.log
+
+  paper-worker-runtime:
+    name: Paper worker hermetic Start Pause Resume Stop integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Exercise actual worker with fake public ticks and local API
+        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs
