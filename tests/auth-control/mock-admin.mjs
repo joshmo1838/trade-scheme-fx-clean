@@ -5,6 +5,29 @@ export function createClient(url,key,opts) {
     throw Error("The test API must use test-only service credentials.");
   }
   return {
+    from(table) {
+      if(table !== "bots") throw Error("Unexpected privileged table lookup " + table);
+      return {
+        select(fields) {
+          if(fields !== "name") throw Error("Bot policy may only inspect name.");
+          return {
+            eq(column,botId) {
+              if(column !== "id") throw Error("Bot policy must look up exact ID.");
+              return {
+                async maybeSingle() {
+                  if(state.failReads)return {data:null,error:{code:"TEST_READ_UNAVAILABLE"}};
+                  const scanner=botId==="44444444-4444-4444-8444-444444444444";
+                  if(scanner) return {data:{name:"SENFX Digit Matrix"},error:null};
+                  if(state.ownedBots.has(botId))
+                    return {data:{name:"SENFX Synthetic Pro"},error:null};
+                  return {data:null,error:null};
+                },
+              };
+            },
+          };
+        },
+      };
+    },
     async rpc(name,args) {
       if (name !== "senfx_queue_paper_bot_command") {
         throw Error("Unexpected privileged RPC " + name);
