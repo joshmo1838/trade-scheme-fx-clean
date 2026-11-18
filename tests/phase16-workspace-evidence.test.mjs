@@ -19,9 +19,9 @@ test("admin view retains server-side role gate and never converts failed totals 
   assert.match(source, /supabase\.auth\.getUser\(\)/);
   assert.match(source, /profile\?\.role !== "admin"/);
   assert.match(source, /redirect\("\/dashboard"\)/);
-  assert.match(source, /state=\{error \? "unavailable" : "verified"\}/);
-  assert.match(source, /botCount \?\? "Unavailable"/);
-  assert.match(source, /selectionCount \?\? "Unavailable"/);
+  assert.ok(source.includes('state={error || !countsAvailable ? "unavailable" : "verified"}'));
+  assert.ok(source.includes('botCountError ? "Unavailable" : botCount ?? "Unavailable"'));
+  assert.ok(source.includes('selectionCountError ? "Unavailable" : selectionCount ?? "Unavailable"'));
 });
 
 test("customer workspace separates account connection from paper simulation", () => {
