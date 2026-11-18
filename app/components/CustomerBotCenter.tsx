@@ -170,6 +170,50 @@ export default function CustomerBotCenter() {
     startingBots.add(bot.id);
     try {
     setMessage("");
+    // Select exactly one execution mode. An unknown hosted status MUST NOT
+    // fall back to a second browser engine that could duplicate paper risk.
+    let controls: {
+      enabled?: boolean; error?: string;
+      runs?: Array<{bot_id: string; desired_state: string}>;
+    };
+    try {
+      const verified = await fetch("/api/bot-control", {
+        cache: "no-store", credentials: "same-origin",
+      });
+      controls = await verified.json();
+      if (!verified.ok) throw Error(controls.error || "Hosted controls unavailable.");
+    } catch {
+      const reason = "Could not verify persistent paper controls. No bot was started.";
+      setEngineStatus(previous => ({...previous,[bot.id]:reason}));
+      setMessage(reason);
+      return;
+    }
+    if (controls.enabled === true) {
+      const existing = (controls.runs || []).find(run => run.bot_id === bot.id);
+      if (existing?.desired_state === "running" || existing?.desired_state === "paused") {
+        setMessage(bot.name + " already has persistent paper state. Review or Resume in 24/7 Controls.");
+        return;
+      }
+      try {
+        const response = await fetch("/api/bot-control", {
+          method: "POST", credentials: "same-origin",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({botId:bot.id, commandId:crypto.randomUUID(), action:"start"}),
+        });
+        const command: {accepted?:boolean;error?:string} = await response.json();
+        if (!response.ok || command.accepted!==true) {
+          throw Error(command.error || "Persistent paper command was rejected.");
+        }
+        const message = "Persistent PAPER Start queued. Check observed worker status in 24/7 Controls.";
+        setEngineStatus(previous => ({...previous,[bot.id]:message}));
+        setMessage(bot.name + ": " + message);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Persistent paper Start unavailable.";
+        setEngineStatus(previous => ({...previous,[bot.id]:message}));
+        setMessage(message);
+      }
+      return;
+    }
     setEngineStatus(current => ({ ...current, [bot.id]: "Checking today's server-enforced loss budget…" }));
 
     let risk: any;
@@ -560,9 +604,7 @@ export default function CustomerBotCenter() {
         </div>
 
         <div className="botCenterNotice" style={{ marginTop: 14 }}>
-          <b>Paper bots can run in your browser.</b> Start only your selected bots.
-          They use public market ticks and never buy Deriv contracts or spend Demo funds.
-          Closing this tab stops the paper feeds. Deriv Demo execution is a separate, customer-authorized feature.
+          <b>Paper automation:</b> With the verified hosted worker enabled, Start queues a persistent PAPER bot that can run after you close this tab. Otherwise the existing browser-only simulation stops when this tab closes. Neither mode places Deriv contracts. A queued command is not proof that a worker is running.
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
             <button className="botCenterPrimary"
               disabled={loading || busy !== null || selectedPaperBots.length === 0 || runningPaperBots === selectedPaperBots.length}
@@ -571,6 +613,7 @@ export default function CustomerBotCenter() {
             </button>
             <button className="botCenterSecondary" disabled={runningPaperBots === 0}
               onClick={pauseAllPaperBots}>Pause all paper bots</button>
+              <Link className="botCenterSecondary" href="/bot-controls">24/7 controls & verified status</Link>
           </div>
         </div>
         <div className="botCenterTabs" role="tablist" aria-label="Bot Center sections">
@@ -672,7 +715,7 @@ export default function CustomerBotCenter() {
                         disabled={busy !== null || !!sockets.has(bot.id) || selection?.control_status !== "selected"}
                         onClick={() => void startPaper(bot)}
                       >
-                        Start paper simulation
+                        Start paper bot
                       </button>
                       <button className="botCenterSecondary" disabled={!sockets.has(bot.id)} onClick={() => stopPaper(bot.id)}>
                         Pause simulation
