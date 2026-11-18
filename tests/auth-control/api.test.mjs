@@ -70,6 +70,21 @@ test("reject malformed JSON, oversized payload, unknown action and invalid IDs",
   assert.equal(state.adminCalls.length,0);
 });
 
+test("scanner-only Digit Matrix blocks all server worker commands",async()=>{
+  init();useAlice();
+  for(const action of ["start","pause","resume","stop"]){
+    const response=await POST(request({
+      botId:"44444444-4444-4444-8444-444444444444",
+      action,
+    }));
+    assert.equal(response.status,409);
+    const body=await response.json();
+    assert.match(body.error,/scanner-only/i);
+  }
+  assert.equal(state.adminCalls.length,0);
+  assert.equal(state.commands.length,0);
+});
+
 test("signed-in owner queues Start; replay is idempotent and no brokerage occurs",async()=>{
   init();useAlice();
   const one=await POST(request());

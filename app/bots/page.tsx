@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DIGIT_MATRIX_NAME } from "@/lib/bots/digit-matrix";
 
 type TradingMode = "demo" | "real";
 
@@ -246,6 +247,10 @@ export default function CustomerBotsPage() {
   }
 
   async function choose(bot: Bot) {
+    if (bot.name===DIGIT_MATRIX_NAME) {
+      setMessage("This is a scanner-only research product. Open /digit-matrix; it cannot activate Deriv orders.");
+      return;
+    }
     if (!activeAccount || busy || savingConfig) return;
 
     setBusy(bot.id);
@@ -534,12 +539,16 @@ export default function CustomerBotsPage() {
                     <strong>{bot.name}</strong>
 
                     <p className="muted">
-                      {bot.market} · {bot.risk_level} risk
+                      {bot.name===DIGIT_MATRIX_NAME?"Scanner-only · No trade execution":bot.market+" · "+bot.risk_level+" risk"}
                     </p>
 
                     <p className="muted">
                       {bot.description}
                     </p>
+                    {bot.name===DIGIT_MATRIX_NAME && (
+                      <p><Link className="button secondary small" href="/digit-matrix">
+                        Open live scanner (no orders)</Link></p>
+                    )}
 
                     <span className="statusText">
                       {activeAccount.account_type.toUpperCase()}{" "}
@@ -633,6 +642,7 @@ export default function CustomerBotsPage() {
                   <button
                     className="button small"
                     disabled={
+                      bot.name===DIGIT_MATRIX_NAME ||
                       busy !== null ||
                       savingConfig !== null ||
                       loading

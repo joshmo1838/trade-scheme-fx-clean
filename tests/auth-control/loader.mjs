@@ -8,6 +8,7 @@ const rewrites=new Map([
   ["@/lib/supabase/server", f("tests/auth-control/mock-supabase.mjs")],
   ["@supabase/supabase-js", f("tests/auth-control/mock-admin.mjs")],
   ["@/lib/bots/control-state", f("lib/bots/control-state.ts")],
+  ["@/lib/bots/digit-matrix", f("lib/bots/digit-matrix.ts")],
 ]);
 export function resolve(specifier,context,nextResolve) {
   if(rewrites.has(specifier)) return {url:rewrites.get(specifier),shortCircuit:true};

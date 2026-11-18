@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { evaluatePaperSignal, paperPreset } from "@/lib/bots/paper-strategy";
+import { DIGIT_MATRIX_NAME } from "@/lib/bots/digit-matrix";
 
 type Bot = { id: string; name: string; market: string; description: string; risk_level: string };
 type Selection = { id: string; bot_id: string; control_status: "selected" | "paused" | "stopped"; selected?: boolean };
@@ -27,6 +28,7 @@ type Runtime = {
 };
 
 const PAPER_RISK_ENDPOINT = "/api/paper-trading";
+const isDigitMatrixBot = (bot: {name:string}) => bot.name === DIGIT_MATRIX_NAME;
 
 export default function CustomerBotCenter() {
   const [bots, setBots] = useState<Bot[]>([]);
@@ -158,6 +160,10 @@ export default function CustomerBotCenter() {
   }
 
   async function startPaper(bot: Bot) {
+    if (isDigitMatrixBot(bot)) {
+      setMessage("Digit Matrix is a public-market scanner, not a directional or broker-execution bot. Open /digit-matrix to scan.");
+      return;
+    }
     const selection = selections.find(item => item.bot_id === bot.id);
     if (!selection || selection.control_status !== "selected" || selection.selected === false) {
       setMessage("Mark this bot selected before starting its paper simulation.");
@@ -537,7 +543,7 @@ export default function CustomerBotCenter() {
   }
 
   const myBots = bots.filter(bot => selections.some(selection => selection.bot_id === bot.id));
-  const selectedPaperBots = myBots.filter(bot =>
+  const selectedPaperBots = myBots.filter(bot => !isDigitMatrixBot(bot) &&
     selections.some(selection => selection.bot_id === bot.id && selection.control_status === "selected" && selection.selected !== false)
   );
   const runningPaperBots = Array.from(sockets.values()).filter(socket =>
@@ -707,21 +713,28 @@ export default function CustomerBotCenter() {
               return (
                 <article className="botCenterCard" key={bot.id}>
                   <div className="botCenterCardTop">
-                    <span className="botCenterRisk">{bot.risk_level} risk</span>
+                    <span className="botCenterRisk">{isDigitMatrixBot(bot) ? "SCANNER ONLY" : bot.risk_level + " risk"}</span>
                     <span className="botCenterMarket">{bot.market}</span>
                   </div>
                   <h2>{bot.name}</h2>
                   <p>{bot.description || "No strategy description has been provided."}</p>
                   <p className="muted" style={{ fontSize: 12 }}>
-                    Paper learning preset: {paperPreset(bot).market} · {paperPreset(bot).description}.
-                    Not validated for profit or broker execution.
+                    {isDigitMatrixBot(bot)
+                      ? "Scanner-only research: ten-market digit analysis, no Deriv contracts or paper direction trades."
+                      : "Paper learning preset: " + paperPreset(bot).market + " · " + paperPreset(bot).description + ". Not validated for profit or broker execution."}
                   </p>
                   <div className="botCenterStatus">
                     <span>Status preference</span>
                     <b>{selection?.control_status || "Not added"}</b>
                   </div>
 
-                  {tab === "mybots" && (
+                  {tab === "mybots" && isDigitMatrixBot(bot) && (
+                    <div className="botCenterConfig">
+                      <p>Scanner-only mode. It does not enter CALL/PUT paper trades or place Deriv Digit contracts.</p>
+                      <Link className="botCenterPrimary" href="/digit-matrix">Open live Digit Matrix scanner</Link>
+                    </div>
+                  )}
+                  {tab === "mybots" && !isDigitMatrixBot(bot) && (
                     <div className="botCenterConfig">
                       <label>
                         Paper stake (USD)
@@ -779,6 +792,9 @@ export default function CustomerBotCenter() {
                     </div>
                   )}
 
+                  {tab === "marketplace" && isDigitMatrixBot(bot) && (
+                    <Link className="botCenterSecondary" href="/digit-matrix">Preview live digit scanner</Link>
+                  )}
                   {tab === "marketplace" && (
                     <button className="botCenterPrimary" disabled={busy !== null || !!selection} onClick={() => void addBot(bot)}>
                       {busy === bot.id ? "Saving…" : selection ? "Already in My Bots" : "Add to My Bots"}
