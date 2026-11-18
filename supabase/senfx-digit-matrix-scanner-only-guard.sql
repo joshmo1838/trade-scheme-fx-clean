@@ -6,7 +6,7 @@
 BEGIN;
 CREATE OR REPLACE FUNCTION public.senfx_block_scanner_only_execution()
 RETURNS trigger
-LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp
 AS $guard$
 BEGIN
   IF EXISTS (
