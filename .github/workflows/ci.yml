@@ -31,6 +31,10 @@ jobs:
         run: npm run test:engine
       - name: Validate bot control state machine and RLS migration text
         run: npm run test:controls
+      - name: Run paper-worker static and strategy tests
+        run: npm run test:paper-worker
+      - name: Check worker Node syntax
+        run: node --check worker/senfx-customer-paper-worker.mjs
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
@@ -88,3 +92,75 @@ jobs:
           set -euo pipefail
           psql -h localhost -U postgres -d senfx_bot_controls -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
           psql -h localhost -U postgres -d senfx_bot_controls -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-bot-controls-smoke-test.sql
+
+  paper-worker-database:
+    name: Persistent public-tick paper worker SQL smoke test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: senfx_paper_worker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d senfx_paper_worker"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Prepare isolated Supabase-compatible database skeleton
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN BYPASSRLS;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users(id uuid PRIMARY KEY);
+          CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
+            AS 'SELECT NULLIF(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
+          CREATE TABLE public.bots(
+            id uuid PRIMARY KEY, name text NOT NULL, market text NOT NULL,
+            is_published boolean NOT NULL
+          );
+          CREATE TABLE public.customer_bots(
+            customer_id uuid NOT NULL, bot_id uuid NOT NULL, trading_mode text NOT NULL,
+            selected boolean NOT NULL, control_status text NOT NULL
+          );
+          CREATE TABLE public.customer_bot_configurations(
+            customer_id uuid NOT NULL, bot_id uuid NOT NULL, trading_mode text NOT NULL,
+            stake_amount numeric NOT NULL, daily_loss_limit numeric
+          );
+          GRANT USAGE ON SCHEMA auth,public TO authenticated,service_role;
+          GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+          SQL
+      - name: Apply migrations and run risk lease and tenant-isolation tests
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-paper-risk-controls.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-paper-worker-smoke-test.sql
+
+  paper-worker-image:
+    name: Minimal paper worker container and disabled startup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build worker-only Docker image
+        run: docker build --file worker/Dockerfile --tag senfx-paper-worker:ci .
+      - name: Verify worker stays disabled without any secrets
+        run: |
+          set -euo pipefail
+          docker run --rm -e SENFX_PAPER_WORKER_ENABLED=false senfx-paper-worker:ci 2>&1 | tee worker-startup.log
+          grep -q "paper worker is disabled" worker-startup.log

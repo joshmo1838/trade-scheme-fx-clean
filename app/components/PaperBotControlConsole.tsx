@@ -11,7 +11,7 @@ type Run = {
   id: string; bot_id: string; mode: string; desired_state: string;
   observed_state: string; control_version: number;
   heartbeat_at: string | null; lease_expires_at: string | null;
-  last_error: string | null; updated_at: string;
+  last_error: string | null; updated_at: string; workerConnected?: boolean;
 };
 type Command = {
   id: string; bot_id: string; action: string; requested_state: string;
@@ -137,10 +137,13 @@ export default function PaperBotControlConsole() {
                 <p className="eyebrow" style={{margin:0}}>PAPER · {bot.market}</p>
                 <h2 style={{margin:0}}>{bot.name}</h2>
                 <p style={{margin:0,fontSize:13}}>Requested: <strong>{desired.toUpperCase()}</strong></p>
-                <p style={{margin:0,fontSize:13}}>Worker observed: <strong>{actual.toUpperCase()}</strong></p>
+                <p style={{margin:0,fontSize:13}}>Worker observed: <strong>
+                  {run?.workerConnected ? actual.toUpperCase() : "OFFLINE / UNVERIFIED"}
+                </strong></p>
                 <p className="muted" style={{fontSize:12,margin:0}}>
                   {run?.heartbeat_at
-                    ? "Last worker heartbeat: " + new Date(run.heartbeat_at).toLocaleString()
+                    ? "Last worker heartbeat: " + new Date(run.heartbeat_at).toLocaleString() +
+                      (run.workerConnected ? " (lease active)" : " (stale or disconnected)")
                     : "No verified worker heartbeat"}
                 </p>
                 {latest && <p className="muted" style={{fontSize:12,margin:0}}>

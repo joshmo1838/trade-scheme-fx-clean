@@ -102,7 +102,10 @@ begin
       'desiredState', v_existing.requested_state, 'version', v_existing.version);
   end if;
 
-  if not exists (
+  -- New execution requires a published customer-owned bot. However safety-
+  -- reducing PAUSE/STOP commands must still work when the bot was unpublished
+  -- or deselected after the run started. Never create a foreign stop run.
+  if p_action in ('start','resume') and not exists (
     select 1 from public.customer_bots cb
     join public.bots b on b.id = cb.bot_id
     where cb.customer_id = p_customer_id
@@ -111,6 +114,12 @@ begin
       and b.is_published = true
   ) then
     return jsonb_build_object('accepted', false, 'reason', 'Customer has not added this published paper bot.');
+  end if;
+  if p_action in ('pause','stop') and not exists (
+    select 1 from public.bot_execution_runs
+    where customer_id = p_customer_id and bot_id = p_bot_id and mode = 'paper'
+  ) then
+    return jsonb_build_object('accepted', false, 'reason', 'Customer has no paper run to stop.');
   end if;
 
   if p_action in ('start','resume') and not exists (

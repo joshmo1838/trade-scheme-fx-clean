@@ -1,0 +1,10 @@
+# Keep the Railway worker image context small: only the paper worker's files.
+**
+!worker/
+!worker/Dockerfile
+!worker/package.json
+!worker/senfx-customer-paper-worker.mjs
+!lib/
+!lib/bots/
+!lib/bots/paper-strategy.ts
+!lib/bots/paper-reconcile.ts
