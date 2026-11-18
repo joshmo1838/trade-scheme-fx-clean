@@ -1,0 +1,49 @@
+# SENFX real local Supabase Auth verification
+
+The CI suite starts a **official temporary **Supabase CLI stack** (including GoTrue Auth)
+with a disposable PostgreSQL database. It registers two test users, signs them in with
+passwords, and uses GoTrue's real `/user` endpoint to verify the JWT passed
+to the actual `app/api/bot-control/route.ts` handler.
+
+Test coverage: no token; signed user; forged customer body; another signed-in
+customer attempting to control a bot; owner-scoped GET results; replayed
+idempotency key; corrupted JWT; and a valid Pause using the original token.
+
+Only the authentication token validation is handled by a real GoTrue process.
+The API route executes unmodified, but the test harness substitutes the
+Next request wrapper and the service-role database command adapter.
+It does **not** test Next.js SSR browser cookies, production Supabase
+authorization policies, or real signed-in users.
+
+The PostgreSQL test is disposable and only exists in GitHub Actions. The
+GoTrue image is pinned, tests use randomly generated credentials, no real
+Supabase organization or project token is present, and there is no new paid
+cloud resource. No broker endpoints or real trading are used.
+
+Run locally after starting GoTrue: `SENFX_TEST_REAL_AUTH_URL=http://127.0.0.1:9999 node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs`.
+
+A green result **does not authorize activating** the production paper worker.
+
+The CI job uses the official `supabase/setup-cli@v1` and `supabase start`
+inside a temporary directory, then reads the local API URL and anonymous key
+from `supabase status -o env`. It does not connect to the hosted project.
+
+## Full Auth token + actual local Postgres RLS integration
+
+CI now also applies the **exact** `supabase/senfx-persistent-bot-controls.sql`
+control-plane migration against a disposable local Supabase database, using
+only a tiny dependent test fixture for bots/selection/risk settings. A separate
+Node test registers two new REAL GoTrue users, issues their signed JWTs, and
+sends real HTTP requests through the local Supabase PostgREST API. It checks:
+
+- Alice sees only Alice's queued paper run and command, Bob sees neither;
+- Bob cannot view Alice's records by supplying Alice's ID in a filter;
+- neither authenticated customer can directly insert/update worker records
+  or call the service-role-only command RPC;
+- the server-only service role can enqueue a paper Start, which remains
+  observed `stopped` until a worker genuinely acknowledges it;
+- anonymous requests cannot read execution records.
+
+This is true token + REST + PostgreSQL authorization, but **not** a browser
+cookie-to-Next.js integration and **not** a hosted production worker test.
+The local schema fixture is not a replacement for full production migrations.

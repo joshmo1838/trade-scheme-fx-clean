@@ -35,6 +35,8 @@ jobs:
         run: npm run test:paper-worker
       - name: Exercise isolated paper worker Start to Stop lifecycle
         run: npm run test:worker-e2e
+      - name: Test authenticated paper control API and cross-customer isolation
+        run: npm run test:auth-controls
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
       - name: Run TypeScript checks
@@ -182,3 +184,63 @@ jobs:
         run: npm install
       - name: Exercise actual worker with fake public ticks and local API
         run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs
+
+  authenticated-gotrue:
+    name: Real local Supabase Auth JWT + paper API authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application dependencies
+        run: npm install
+      - name: Install official Supabase local stack CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Launch disposable local Supabase Auth and PostgreSQL
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/senfx-local-auth-ci
+          cd /tmp/senfx-local-auth-ci
+          supabase init --yes
+          supabase start -x studio,realtime,storage-api,imgproxy,postgres-meta,edge-runtime,logflare,vector,supavisor
+      - name: Verify signed identities through the real local Auth server
+        run: |
+          set -euo pipefail
+          cd /tmp/senfx-local-auth-ci
+          source <(supabase status -o env)
+          export SENFX_TEST_REAL_AUTH_URL="${API_URL}/auth/v1"
+          export SENFX_TEST_AUTH_ANON_KEY="${ANON_KEY}"
+          cd "$GITHUB_WORKSPACE"
+          node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs
+      - name: Apply REAL paper control RLS migration in disposable local database
+        run: |
+          set -euo pipefail
+          cd /tmp/senfx-local-auth-ci
+          source <(supabase status -o env)
+          cd "$GITHUB_WORKSPACE"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f tests/auth-control/real-db-fixture.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+      - name: Verify real JWT-controlled PostgreSQL RLS and server-only RPC
+        run: |
+          set -euo pipefail
+          cd /tmp/senfx-local-auth-ci
+          source <(supabase status -o env)
+          export SENFX_TEST_REAL_API_URL="${API_URL}"
+          export SENFX_TEST_AUTH_ANON_KEY="${ANON_KEY}"
+          export SENFX_TEST_AUTH_SERVICE_KEY="${SERVICE_ROLE_KEY}"
+          cd "$GITHUB_WORKSPACE"
+          node --test tests/auth-control/real-rls.test.mjs
+      - name: Remove local Auth and PostgreSQL test stack
+        if: always()
+        run: |
+          if [ -f /tmp/senfx-local-auth-ci/supabase/config.toml ]; then
+            cd /tmp/senfx-local-auth-ci
+            supabase stop --no-backup || true
+          fi
