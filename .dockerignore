@@ -7,3 +7,4 @@
 !lib/
 !lib/bots/
 !lib/bots/paper-strategy.ts
+!lib/bots/paper-reconcile.ts
