@@ -2,7 +2,7 @@ name: SENFX validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/senfx-unified-workspace-release-20261118]
   push:
     branches: [main, feature/senfx-one-pull-full-build]
 
