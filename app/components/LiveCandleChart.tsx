@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { summarizeTickSession, type TickSample, MAX_SESSION_TICKS } from "@/lib/market/tick-session-analytics";
 
 type Candle = {
   bucket: number;
@@ -40,6 +41,7 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
   const [status, setStatus] = useState("Connecting to Deriv public market data…");
   const [connected, setConnected] = useState(false);
   const [ticksReceived, setTicksReceived] = useState(0);
+  const [sessionTicks, setSessionTicks] = useState<TickSample[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +58,7 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
     setLastPrice(null);
     setConnected(false);
     setTicksReceived(0);
+    setSessionTicks([]);
     setStatus("Connecting to Deriv public market data…");
 
     const ws = new WebSocket(WS);
@@ -98,6 +101,7 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
       setStatus("Live public ticks received");
       setLastPrice(price);
       setTicksReceived(v => v + 1);
+      setSessionTicks(previous => [...previous, { epoch, price }].slice(-MAX_SESSION_TICKS));
       setBars(previous => {
         if (!previous.length || bucket > previous[previous.length - 1].bucket) {
           return [...previous, { bucket, open: price, high: price, low: price, close: price }].slice(-LIMIT);
@@ -144,6 +148,28 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
     const gap = Math.min(22, PLOT_WIDTH / Math.max(1, bars.length));
     return { low, high, priceToY, gap };
   }, [bars]);
+
+
+  const session = useMemo(() => summarizeTickSession(sessionTicks), [sessionTicks]);
+  const priceTrace = useMemo(() => {
+    if (!session || session.trend.length < 2) return null;
+    const width = 560;
+    const height = 126;
+    const min = session.low;
+    const spread = session.high - min || Math.max(Math.abs(min) * 0.00001, 0.0001);
+    const y = (price: number) => 150 - 14 - (price - min) / spread * height;
+    const x = (index: number) => 34 + index * width / (session.trend.length - 1);
+    const points = session.trend.map((tick, index) =>
+      String(x(index)) + "," + String(y(tick.price))
+    ).join(" ");
+    const averagePoints = session.trend
+      .map((tick, index) => tick.average10 === null ? null :
+        String(x(index)) + "," + String(y(tick.average10)))
+      .filter((point): point is string => point !== null)
+      .join(" ");
+    return { points, averagePoints };
+  }, [session]);
+  const maxActivity = Math.max(1, ...(session?.activity.map(item => item.count) || []));
 
   const RootElement = embedded ? "div" : "main";
   return (
@@ -233,6 +259,85 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
             <span>Source: <strong>Deriv public data WebSocket</strong></span>
           </div>
         </div>
+
+        <section aria-label="Public tick session analytics"
+          style={{ marginTop: 18, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,320px),1fr))", gap: 16 }}>
+          <article className="panel" style={{ minWidth: 0 }}>
+            <p className="eyebrow">ACTUAL OBSERVED TICKS · SESSION ONLY</p>
+            <h3 style={{ marginTop: 8 }}>Price trend & moving average</h3>
+            <p className="muted">Latest {session?.samples || 0} observed ticks. Horizontal spacing represents tick order, not elapsed time.</p>
+            <div style={{ overflow: "hidden", borderRadius: 10, background: "#06152c", marginTop: 12 }}>
+              {priceTrace ? (
+                <svg viewBox="0 0 640 180" role="img"
+                  aria-label="Observed public tick prices, and ten-tick moving average after at least ten ticks"
+                  style={{ display: "block", width: "100%", minHeight: 140 }}>
+                  {[0, 1, 2, 3].map(index => <line key={index}
+                    x1="34" x2="595" y1={20 + index * 42} y2={20 + index * 42}
+                    stroke="#274563" strokeDasharray="3 7" />)}
+                  <polyline points={priceTrace.points} fill="none" stroke="#25e6d2"
+                    strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+                  {session && session.trend.length >= 10 && (
+                    <polyline points={priceTrace.averagePoints} fill="none"
+                      stroke="#f6c375" strokeWidth="2" strokeLinejoin="round" />
+                  )}
+                  <text x="34" y="172" fill="#a5bfd8" fontSize="12">
+                    Earlier observed ticks
+                  </text>
+                  <text x="486" y="172" fill="#a5bfd8" fontSize="12">Latest</text>
+                </svg>
+              ) : (
+                <p className="muted" style={{ padding: 22 }}>Waiting for at least two real ticks to draw this graph.</p>
+              )}
+            </div>
+            <p style={{ color: "#bcd1eb", fontSize: 12, marginTop: 10 }}>
+              <span style={{ color: "#25e6d2" }}>●</span> Observed price
+              {" · "}
+              <span style={{ color: "#f6c375" }}>●</span> 10-tick rolling average
+            </p>
+            <p className="muted" style={{ fontSize: 12 }}>
+              {session ? "Observed range: " + format(session.low) + " – " + format(session.high) +
+                " · Change: " + session.changePercent.toFixed(3) + "%" :
+                "No public market ticks received in this browser session yet."}
+            </p>
+          </article>
+          <article className="panel" style={{ minWidth: 0 }}>
+            <p className="eyebrow">PUBLIC TICK ARRIVALS · SESSION ONLY</p>
+            <h3 style={{ marginTop: 8 }}>Live market activity</h3>
+            <p className="muted">Received tick count in each observed 15-second window, including quiet windows.</p>
+            <div style={{ overflow: "hidden", borderRadius: 10, background: "#06152c", marginTop: 12 }}>
+              {session ? (
+                <svg viewBox="0 0 640 180" role="img" aria-label="Bar graph of observed public ticks per fifteen-second window"
+                  style={{ display: "block", width: "100%", minHeight: 140 }}>
+                  {[0, 1, 2, 3].map(index => <line key={index} x1="30" x2="603"
+                    y1={25 + index * 40} y2={25 + index * 40}
+                    stroke="#274563" strokeDasharray="3 7" />)}
+                  {session.activity.map((window, index) => {
+                    const barWidth = 560 / session.activity.length;
+                    const barHeight = window.count / maxActivity * 122;
+                    return <rect key={window.epoch}
+                      x={35 + index * barWidth + 2}
+                      y={149 - barHeight}
+                      width={Math.max(2, barWidth - 4)}
+                      height={Math.max(0, barHeight)}
+                      fill="#52aaff" rx="2" />;
+                  })}
+                  <text x="35" y="171" fill="#a5bfd8" fontSize="12">Earlier windows</text>
+                  <text x="508" y="171" fill="#a5bfd8" fontSize="12">Latest</text>
+                </svg>
+              ) : (
+                <p className="muted" style={{ padding: 22 }}>Waiting for public market ticks. No sample activity is fabricated.</p>
+              )}
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+              Recent graph covers up to sixteen 15-second windows and only ticks actually captured by this tab.
+              A bar is not an order, volume, liquidity measure, or prediction.
+            </p>
+          </article>
+        </section>
+        <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+          Session analytics reset when the market, candle interval, or connection changes.
+          No historical broker data or guaranteed trading signals are shown.
+        </p>
         <p className="disclaimer">Research and charting only. This live chart never initiates a Deriv trade and does not display executable contract quotes. Indicators and candles are not forecasts.</p>
       </section>
     </RootElement>
