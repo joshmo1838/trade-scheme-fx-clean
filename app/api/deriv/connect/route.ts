@@ -3,10 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 
-const REDIRECT_URI =
-  "https://www.tradesche.com/api/deriv/callback";
+const DEFAULT_ORIGIN = origin;
 
-const COOKIE_DOMAIN = ".tradesche.com";
+function oauthOrigin(): string {
+  const configured = process.env.DERIV_OAUTH_ORIGIN || DEFAULT_ORIGIN;
+  const url = new URL(configured);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+    throw new Error("Invalid DERIV_OAUTH_ORIGIN");
+  }
+  return url.origin;
+}
+
+
 
 function base64Url(value: Buffer): string {
   return value
@@ -18,14 +26,10 @@ function base64Url(value: Buffer): string {
 
 export async function GET(request: NextRequest) {
   try {
-    // Use the canonical www hostname.
-    if (request.nextUrl.hostname !== "www.tradesche.com") {
-      const canonicalUrl = new URL(
-        request.nextUrl.pathname + request.nextUrl.search,
-        "https://www.tradesche.com"
-      );
-
-      return NextResponse.redirect(canonicalUrl);
+    // Never initiate an OAuth flow on a different host than its registered callback.
+    const origin = oauthOrigin();
+    if (request.nextUrl.origin !== origin) {
+      return NextResponse.json({ error: "Deriv connection is unavailable on this host." }, { status: 409 });
     }
 
     // Verify that the customer is signed in.
@@ -40,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/login?next=/dashboard",
-          "https://www.tradesche.com"
+          origin
         )
       );
     }
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/dashboard?deriv=awaiting_approval",
-          "https://www.tradesche.com"
+          origin
         )
       );
     }
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/dashboard?deriv=not_configured",
-          "https://www.tradesche.com"
+          origin
         )
       );
     }
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+    authUrl.searchParams.set("redirect_uri", `${origin}/api/deriv/callback`);
     authUrl.searchParams.set(
       "scope",
       "trade payment account_manage application_read"
@@ -101,7 +105,6 @@ export async function GET(request: NextRequest) {
       secure: true,
       sameSite: "lax" as const,
       path: "/",
-      domain: COOKIE_DOMAIN,
       maxAge: 600
     };
 
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         "/dashboard?deriv=connect_failed",
-        "https://www.tradesche.com"
+        origin
       )
     );
   }
