@@ -37,6 +37,8 @@ jobs:
         run: node --test tests/hosted-paper-launch.test.mjs
       - name: Test observed-only market graphs and tick activity
         run: node --experimental-strip-types --test tests/market-session-analytics.test.mjs
+      - name: Verify Digit Matrix scanner integrity and safe catalog controls
+        run: node --experimental-strip-types --test tests/digit-matrix.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
@@ -169,6 +171,8 @@ jobs:
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-bot-controls.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-persistent-paper-worker.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-paper-rollout-postflight.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/senfx-digit-matrix-scanner-only-guard.sql
+          psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-digit-matrix-guard-smoke.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-persistent-paper-worker-smoke-test.sql
           psql -h localhost -U postgres -d senfx_paper_worker -v ON_ERROR_STOP=1 -f supabase/tests/senfx-three-bot-fleet-smoke-test.sql
 
