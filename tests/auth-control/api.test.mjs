@@ -114,6 +114,8 @@ test("cross-customer bot selection rejects and never exposes foreign status",asy
   assert.equal(get.status,200);
   assert.deepEqual(body.runs,[]);
   assert.deepEqual(body.commands,[]);
+  assert.deepEqual(body.positions,[]);
+  assert.deepEqual(body.dailyRisk,[]);
   const foreignStop=await POST(request({action:"stop",botId:ALICE_BOT,commandId:cmd(2)}));
   assert.equal(foreignStop.status,409);
   assert.equal(state.commands.length,1);
@@ -162,6 +164,44 @@ test("GET requires heartbeat AND unexpired lease before online status",async()=>
   response=await json(await GET());
   assert.equal(response.workerAttached,false,
     "Future-dated heartbeat must not claim a connected worker");
+});
+
+test("GET only shows own open paper positions and today's UTC risk",async()=>{
+  init();useAlice();
+  const today=new Date().toISOString().slice(0,10);
+  state.positions.push(
+    {id:"88888888-8888-4888-8888-888888888888",
+     customer_id:ALICE,bot_id:ALICE_BOT,status:"open",
+     remaining_ticks:4,entered_at:new Date().toISOString()},
+    {id:"99999999-9999-4999-8999-999999999999",
+     customer_id:BOB,bot_id:BOB_BOT,status:"open",
+     remaining_ticks:5,entered_at:new Date().toISOString()},
+    {id:"77777777-7777-4777-8777-777777777777",
+     customer_id:ALICE,bot_id:ALICE_BOT,status:"settled",
+     remaining_ticks:0,entered_at:new Date().toISOString()}
+  );
+  state.dailyRisk.push(
+    {customer_id:ALICE,bot_id:ALICE_BOT,risk_date:today,
+     daily_loss_limit:40,reserved_loss:10,realized_loss:3},
+    {customer_id:BOB,bot_id:BOB_BOT,risk_date:today,
+     daily_loss_limit:60,reserved_loss:5,realized_loss:0},
+    {customer_id:ALICE,bot_id:ALICE_BOT,risk_date:"2000-01-01",
+     daily_loss_limit:40,reserved_loss:9,realized_loss:9}
+  );
+  let response=await GET();assert.equal(response.status,200);
+  let body=await response.json();
+  assert.equal(body.riskDate,today);
+  assert.deepEqual(body.positions.map(x=>x.id),["88888888-8888-4888-8888-888888888888"]);
+  assert.equal(body.dailyRisk.length,1);
+  assert.equal(body.dailyRisk[0].reserved_loss,10);
+  state.currentUser=BOB;
+  response=await GET();body=await response.json();
+  assert.equal(response.status,200);
+  assert.deepEqual(body.positions.map(x=>x.customer_id),[BOB]);
+  assert.equal(body.dailyRisk.length,1);
+  assert.equal(body.dailyRisk[0].bot_id,BOB_BOT);
+  state.failReads=true;
+  assert.equal((await GET()).status,503,"Unavailable risk ledger must fail closed");
 });
 
 test("DB outages fail closed with 503, not phantom worker status or order",async()=>{
