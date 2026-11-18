@@ -1,7 +1,7 @@
 # SENFX real local Supabase Auth verification
 
-The CI suite starts a **temporary Supabase GoTrue Auth server** with a disposable
-PostgreSQL database. It registers two test users, signs them in with
+The CI suite starts a **official temporary **Supabase CLI stack** (including GoTrue Auth)
+with a disposable PostgreSQL database. It registers two test users, signs them in with
 passwords, and uses GoTrue's real `/user` endpoint to verify the JWT passed
 to the actual `app/api/bot-control/route.ts` handler.
 
@@ -23,3 +23,7 @@ cloud resource. No broker endpoints or real trading are used.
 Run locally after starting GoTrue: `SENFX_TEST_REAL_AUTH_URL=http://127.0.0.1:9999 node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs`.
 
 A green result **does not authorize activating** the production paper worker.
+
+The CI job uses the official `supabase/setup-cli@v1` and `supabase start`
+inside a temporary directory, then reads the local API URL and anonymous key
+from `supabase status -o env`. It does not connect to the hosted project.

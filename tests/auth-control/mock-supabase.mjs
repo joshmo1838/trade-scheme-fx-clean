@@ -12,7 +12,7 @@ export async function createClient() {
           const response=await fetch(process.env.SENFX_TEST_REAL_AUTH_URL + "/user",{
             headers:{
               Authorization:"Bearer " + state.currentToken,
-              apikey:"local-auth-ci-placeholder"
+              apikey:process.env.SENFX_TEST_AUTH_ANON_KEY || "local-auth-ci-placeholder"
             }
           });
           if (!response.ok) {

@@ -14,7 +14,7 @@ const origin = "https://trade-scheme-qa.invalid";
 async function postAuth(endpoint, payload) {
   const response = await fetch(base+endpoint, {
     method:"POST",
-    headers:{"Content-Type":"application/json","apikey":"local-auth-ci-placeholder"},
+    headers:{"Content-Type":"application/json","apikey":process.env.SENFX_TEST_AUTH_ANON_KEY || "local-auth-ci-placeholder"},
     body:JSON.stringify(payload),
   });
   const data = await response.json();

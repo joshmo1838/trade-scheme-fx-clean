@@ -186,23 +186,9 @@ jobs:
         run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs
 
   authenticated-gotrue:
-    name: Real isolated Supabase Auth JWT + paper API authorization
+    name: Real local Supabase Auth JWT + paper API authorization
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gotrue_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d gotrue_ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -210,46 +196,32 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
+      - name: Install application dependencies
         run: npm install
-      - name: Start isolated GoTrue Auth with disposable PostgreSQL
+      - name: Install official Supabase local stack CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Launch disposable local Supabase Auth and PostgreSQL
         run: |
           set -euo pipefail
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d gotrue_ci \
-            -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS auth;'
-          docker run -d --name senfx-gotrue-ci --network host \
-            -e GOTRUE_API_HOST=0.0.0.0 \
-            -e PORT=9999 \
-            -e GOTRUE_DB_DRIVER=postgres \
-            -e DB_NAMESPACE=auth \
-            -e GOTRUE_DB_DATABASE_URL='postgres://postgres:postgres@127.0.0.1:5432/gotrue_ci?sslmode=disable' \
-            -e GOTRUE_JWT_SECRET='SENFX-FAKE-CI-KEY-NOT-FOR-PRODUCTION-123456789' \
-            -e GOTRUE_JWT_EXP=3600 \
-            -e API_EXTERNAL_URL=http://127.0.0.1:9999 \
-            -e GOTRUE_SITE_URL=http://127.0.0.1:9999 \
-            -e GOTRUE_DISABLE_SIGNUP=false \
-            -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true \
-            -e GOTRUE_MAILER_AUTOCONFIRM=true \
-            -e GOTRUE_LOG_LEVEL=info \
-            supabase/auth:v2.176.0
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:9999/health >/dev/null 2>&1; then
-              exit 0
-            fi
-            if [ "$(docker inspect -f '{{.State.Running}}' senfx-gotrue-ci)" != "true" ]; then
-              echo "Local GoTrue exited before becoming healthy."
-              docker logs --tail 35 senfx-gotrue-ci
-              exit 1
-            fi
-            sleep 2
-          done
-          echo "Local Supabase Auth did not become ready."
-          docker logs --tail 80 senfx-gotrue-ci
-          exit 1
-      - name: Verify actual Auth JWTs across two isolated customer identities
-        env:
-          SENFX_TEST_REAL_AUTH_URL: http://127.0.0.1:9999
-        run: node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs
-      - name: Clean up disposable Auth test
+          mkdir -p /tmp/senfx-local-auth-ci
+          cd /tmp/senfx-local-auth-ci
+          supabase init --yes
+          supabase start -x studio,realtime,storage-api,imgproxy,postgres-meta,edge-runtime,logflare,vector,supavisor
+      - name: Verify signed identities through the real local Auth server
+        run: |
+          set -euo pipefail
+          cd /tmp/senfx-local-auth-ci
+          source <(supabase status -o env)
+          export SENFX_TEST_REAL_AUTH_URL="${API_URL}/auth/v1"
+          export SENFX_TEST_AUTH_ANON_KEY="${ANON_KEY}"
+          cd "$GITHUB_WORKSPACE"
+          node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs
+      - name: Remove local Auth and PostgreSQL test stack
         if: always()
-        run: docker rm -f senfx-gotrue-ci >/dev/null 2>&1 || true
+        run: |
+          if [ -f /tmp/senfx-local-auth-ci/supabase/config.toml ]; then
+            cd /tmp/senfx-local-auth-ci
+            supabase stop --no-backup || true
+          fi
