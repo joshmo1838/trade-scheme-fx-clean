@@ -42,6 +42,13 @@ if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
   echo
   export PGPASSWORD
 fi
+# Supabase production backups must use TLS; reject accidental plaintext.
+if [[ "${PGSSLMODE:-require}" != "require" &&
+      "${PGSSLMODE:-require}" != "verify-ca" &&
+      "${PGSSLMODE:-require}" != "verify-full" ]]; then
+  echo "PGSSLMODE must be require, verify-ca, or verify-full." >&2
+  exit 1
+fi
 export PGSSLMODE="${PGSSLMODE:-require}"
 export PGAPPNAME="senfx-readonly-backup"
 
