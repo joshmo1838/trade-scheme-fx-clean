@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TradingLandingVisual from "@/components/TradingLandingVisual";
+import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
 
 type Props = {
   name: string;
@@ -215,6 +216,7 @@ export default function TradingWorkspace({
           <small>TRADING WORKSPACE</small>
         </Link>
         <div className="workspaceTopActions">
+          <WorkspaceQuickSwitch />
           <DerivBalanceMenu connectionStatus={derivStatus} />
           <Link className="workspaceTopLink" href="/messages">Support</Link>
           <form action="/auth/signout" method="post">
