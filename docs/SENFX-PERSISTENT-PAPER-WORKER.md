@@ -39,3 +39,18 @@ npm run build
 # New, private Railway worker service only, after migrations and verification:
 npm run worker:paper
 ```
+
+## Phase 8: simulated public-feed outage test
+
+The independent hermetic worker CI job now launches the **actual paper worker**
+in a second scenario. The test-only WebSocket disconnects permanently after
+210 virtual public ticks, refusing reconnection without contacting Deriv.
+The test verifies that the worker had first reported `running`, later
+reports `starting` instead of falsely staying connected, does not reserve
+new simulated risk while offline, and can acknowledge Stop without a feed.
+This is separate from the successful normal Start → settlement → Pause →
+Resume → Stop scenario, and separate from real PostgreSQL/GoTrue RLS checks.
+
+A simulated outage is NOT proof that deployed Railway's network, hosted
+Supabase operations, or live Deriv public feed have been tested. The worker
+remains disabled in the hosted QA service.
