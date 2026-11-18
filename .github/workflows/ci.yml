@@ -47,6 +47,8 @@ jobs:
         run: bash -n scripts/senfx-backup-production.sh
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
+      - name: Validate Deriv OAuth origin and cookie isolation
+        run: node --test tests/deriv-oauth-origin.test.mjs
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
