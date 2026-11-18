@@ -126,6 +126,13 @@ declare
   v_result jsonb;
   v_position_id uuid;
 begin
+  -- A NULL version must fail closed. In PL/pgSQL, IF (x <> NULL)
+  -- evaluates to NULL, which is not a true rejection condition.
+  if p_run_id is null or p_worker_id is null or p_version is null
+     or p_version <= 0 then
+    return jsonb_build_object('allowed',false,
+      'reason','Missing paper run, lease owner or command revision.');
+  end if;
   if p_entry is null or p_entry<=0 or p_tick_epoch is null or p_tick_epoch<=0
      or p_tick_epoch>extract(epoch from now())+5
      or p_tick_epoch<extract(epoch from now())-30 then
@@ -172,6 +179,11 @@ declare
   v_remaining integer;
   v_result jsonb;
 begin
+  if p_run_id is null or p_worker_id is null or p_version is null
+     or p_version <= 0 then
+    return jsonb_build_object('accepted',false,
+      'reason','Missing paper run, lease owner or command revision.');
+  end if;
   if p_quote is null or p_quote<=0 or p_tick_epoch is null or p_tick_epoch<=0
      or p_tick_epoch>extract(epoch from now())+5
      or p_tick_epoch<extract(epoch from now())-30 then
