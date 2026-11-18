@@ -198,10 +198,9 @@ export async function GET(request: NextRequest) {
           encrypted_token: encrypted.ciphertext,
           token_iv: encrypted.iv,
           token_tag: encrypted.tag,
-          expires_at: new Date(
-            Date.now() +
-            Number(tokenData.expires_in || 0) * 1000
-          ).toISOString(),
+          expires_at: Number.isFinite(Number(tokenData.expires_in)) && Number(tokenData.expires_in) > 0
+            ? new Date(Date.now() + Number(tokenData.expires_in) * 1000).toISOString()
+            : null,
           connected_at: new Date().toISOString(),
           status: "connected"
         },
