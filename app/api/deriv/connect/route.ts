@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "node:crypto";
 
-const DEFAULT_ORIGIN = origin;
+const DEFAULT_ORIGIN = "https://www.tradesche.com";
 
 function oauthOrigin(): string {
   const configured = process.env.DERIV_OAUTH_ORIGIN || DEFAULT_ORIGIN;
