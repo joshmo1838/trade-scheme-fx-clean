@@ -890,3 +890,95 @@
  .workspaceVideo .videoLaunchCard{min-height:160px;padding:12px}
  .workspaceVideo .videoLaunchCard strong{font-size:12px}
 }
+
+
+/* SENFX Quick Switch: accessible, navigational command palette (no trades). */
+.workspaceQuickSwitchTrigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: #ecf6ff; background: #102b46; border: 1px solid #315a78;
+  border-radius: 9px; padding: 9px 12px; font: 600 12px 'DM Sans',sans-serif;
+  white-space: nowrap; cursor: pointer;
+}
+.workspaceQuickSwitchTrigger:hover, .workspaceQuickSwitchTrigger:focus-visible {
+  border-color: #65d8ff; background: #18456a; outline-offset: 2px;
+}
+.workspaceQuickSwitchTrigger > span { color: #65d8ff; font-size: 19px; line-height: 1; }
+.workspaceQuickSwitchTrigger kbd {
+  font: 600 10px 'DM Sans',sans-serif; color: #b8d5eb;
+  background: rgba(0,0,0,.16); border: 1px solid #41627c; border-radius: 5px;
+  padding: 3px 5px; margin-left: 5px;
+}
+.workspaceQuickSwitchOverlay {
+  position: fixed; z-index: 15000; inset: 0; overflow: auto;
+  display: grid; place-items: start center; padding: min(15vh,115px) 14px 28px;
+  background: rgba(2,11,25,.83); backdrop-filter: blur(7px);
+}
+.workspaceQuickSwitchDialog {
+  width: min(650px,100%); max-height: min(76vh,740px);
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid #356787; border-radius: 18px; background: #0a1c32;
+  box-shadow: 0 26px 90px rgba(0,0,0,.72); color: #f5fbff;
+}
+.workspaceQuickSwitchHeader {
+  display: flex; justify-content: space-between; align-items: start;
+  padding: 20px 22px 12px; gap: 12px;
+}
+.workspaceQuickSwitchEyebrow {
+  color: #75dcff; font-size: 10px; letter-spacing: .16em;
+  font-weight: 700; margin: 0 0 5px;
+}
+.workspaceQuickSwitchHeader h2 {
+  font: 700 25px 'Space Grotesk',sans-serif; margin: 0;
+}
+.workspaceQuickSwitchClose {
+  background: #102f4c; color: #e0f2ff; border: 1px solid #3b5f7c;
+  border-radius: 7px; padding: 7px 10px; cursor: pointer;
+}
+.workspaceQuickSwitchLabel {
+  display: block; margin: 0 22px 7px; color: #abc8df; font-size: 12px;
+}
+.workspaceQuickSwitchInput {
+  margin: 0 22px 12px; padding: 13px 14px; border-radius: 10px;
+  background: #071426; border: 1px solid #49718f;
+  color: #fff; font: 500 15px 'DM Sans',sans-serif;
+  outline-offset: 3px; min-width: 0;
+}
+.workspaceQuickSwitchInput:focus { border-color: #6ee2ff; outline: 2px solid rgba(92,206,248,.24); }
+.workspaceQuickSwitchInput::placeholder { color: #90abc4; opacity: 1; }
+.workspaceQuickSwitchResults {
+  min-height: 90px; overflow: auto; padding: 5px 12px 12px;
+  border-top: 1px solid rgba(121,179,213,.2);
+}
+.workspaceQuickSwitchOption {
+  display: flex; align-items: center; justify-content: space-between; gap: 13px;
+  padding: 12px 14px; border: 1px solid transparent; border-radius: 10px;
+  color: #f4faff; text-decoration: none; cursor: pointer;
+}
+.workspaceQuickSwitchOption:hover, .workspaceQuickSwitchOption.selected {
+  background: #123653; border-color: rgba(91,204,245,.35); color: #fff;
+}
+.workspaceQuickSwitchOption:focus-visible { outline: 2px solid #6de4ff; }
+.workspaceQuickSwitchOptionText { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.workspaceQuickSwitchOptionText strong { font-size: 14px; font-weight: 700; }
+.workspaceQuickSwitchOptionText small { font-size: 12px; line-height: 1.35; color: #adc7df; }
+.workspaceQuickSwitchSection { flex-shrink: 0; color: #8fcae9; font-size: 10px; text-align: right; }
+.workspaceQuickSwitchEmpty { margin: 14px; color: #b6d0e8; font-size: 13px; }
+.workspaceQuickSwitchFooter {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px;
+  margin: 0; padding: 13px 22px 16px; color: #a8c1d6;
+  border-top: 1px solid rgba(121,179,213,.2); font-size: 11px;
+}
+@media (max-width: 740px) {
+  .workspaceQuickSwitchTrigger { padding: 8px 9px; }
+  .workspaceQuickSwitchTrigger kbd { display: none; }
+  .workspaceQuickSwitchDialog { max-height: min(85vh,760px); }
+  .workspaceQuickSwitchOverlay { padding-top: max(16px,env(safe-area-inset-top)); }
+  .workspaceQuickSwitchSection { display: none; }
+}
+@media (max-width: 440px) {
+  .workspaceQuickSwitchTrigger { font-size: 0; gap: 0; }
+  .workspaceQuickSwitchTrigger > span { font-size: 20px; }
+  .workspaceQuickSwitchHeader { padding: 16px 15px 12px; }
+  .workspaceQuickSwitchLabel { margin-left: 15px; }
+  .workspaceQuickSwitchInput { margin-left: 15px; margin-right: 15px; }
+}

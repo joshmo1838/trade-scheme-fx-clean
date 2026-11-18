@@ -284,6 +284,8 @@ export default function BotSettingsPage() {
         <p className="eyebrow">CUSTOMER PREFERENCES</p>
         <h1>Bot settings</h1>
 
+        <p className="muted">Before changing a stake or daily loss preference, stress-test an example in the <Link href="/risk-center">Risk Command Center ↗</Link>. The calculator never changes these saved settings or enforces a stop-loss.</p>
+
         <div className="notice">
           <strong>Settings only:</strong> These preferences
           are saved separately for Demo and Real accounts.

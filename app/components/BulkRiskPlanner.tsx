@@ -50,7 +50,7 @@ export default function BulkRiskPlanner() {
         Explore exposure and potential losses across multiple illustrative contracts before placing any orders.
         These are scenario calculations, not contract quotes or evidence of a profitable strategy.
       </p>
-      <div className="notice"><strong>PLANNING ONLY.</strong> No batch purchases, Deriv orders or transfers can be initiated here.</div>
+      <div className="notice"><strong>PLANNING ONLY.</strong> No batch purchases, Deriv orders or transfers can be initiated here. Review <Link href="/risk-center">the Risk Command Center ↗</Link> for daily budget and losing-streak stress tests.</div>
       <section className="panel" style={{ marginTop: 22 }}>
         <h2>Batch assumptions</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 15 }}>
