@@ -49,7 +49,9 @@ test("connected account menu has functional disconnect with confirmation and sep
   assert.match(workspace, /Connect Deriv/);
 });
 
-test("missing token expiry does not cause immediate expiry on callback", () => {
-  assert.match(callback, /Number\(tokenData\.expires_in\) > 0/);
-  assert.doesNotMatch(callback, /Number\(tokenData\.expires_in \|\| 0\)/);
+test("missing or invalid token expiry fails closed before database storage", () => {
+  assert.match(callback, /Number\.isFinite\(expiresInSeconds\)/);
+  assert.match(callback, /expiresInSeconds <= 0/);
+  assert.match(callback, /expires_at: new Date\(Date\.now\(\) \+ expiresInSeconds \* 1000\)\.toISOString\(\)/);
+  assert.doesNotMatch(callback, /expires_at:[\s\S]*?: null,/);
 });
