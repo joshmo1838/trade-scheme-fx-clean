@@ -54,3 +54,24 @@ Resume → Stop scenario, and separate from real PostgreSQL/GoTrue RLS checks.
 A simulated outage is NOT proof that deployed Railway's network, hosted
 Supabase operations, or live Deriv public feed have been tested. The worker
 remains disabled in the hosted QA service.
+
+## Phase 9: full local worker + Auth + SQL integration gate
+
+A new GitHub CI step launches the **actual child paper-worker process** while
+connected to a disposable local Supabase Auth, PostgREST, and PostgreSQL stack.
+The child uses an isolated test WebSocket for fake ticks and **real local**
+service-role RPCs for worker leases, risk reservations and paper settlements.
+GoTrue signs real temporary customer JWTs and PostgREST enforces actual
+cross-customer RLS. The test verifies an actual paper settlement created by
+the running child, then customer Start/Pause/Resume/Stop transitions,
+acknowledged commands and release of any reserved paper exposure.
+
+The test-only feed slows its ticks to keep 1-second epoch increments inside
+the real database's stale/future quote bounds; normal test defaults and
+production feed code are unchanged. Its service-role key is issued only by
+the local Supabase CLI; never configured against the hosted project.
+
+This is **not** proof that live Vercel cookies, a real Deriv connection,
+Railway's production runtime or the live customer database have been tested.
+Do not turn on hosted worker/customer control flags without a verified backup
+and separate approved hosted QA.

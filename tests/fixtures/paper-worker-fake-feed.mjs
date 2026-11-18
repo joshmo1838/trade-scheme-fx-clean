@@ -9,7 +9,16 @@ const outageAfterTicks = Number(process.env.SENFX_CI_FEED_OUTAGE_AFTER_TICKS || 
 // No external network socket or third-party broker API is ever opened.
 let feedPermanentlyDown = false;
 const RealDate = globalThis.Date;
-let virtualMs = RealDate.now();
+// Optional bounded speed/offset knobs for the REAL local PostgreSQL end-to-end
+// test. The default fast feed is unchanged for previous hermetic tests.
+const configuredDelay = Number(process.env.SENFX_CI_REAL_TICK_INTERVAL_MS || 35);
+const configuredLag = Number(process.env.SENFX_CI_REAL_TICK_START_LAG_SECONDS || 0);
+if (!Number.isInteger(configuredDelay) || configuredDelay < 20 ||
+    configuredDelay > 2000 || !Number.isInteger(configuredLag) ||
+    configuredLag < 0 || configuredLag > 20) {
+  throw Error("Invalid test-only public tick timing parameters.");
+}
+let virtualMs = RealDate.now() - configuredLag*1000;
 
 class VirtualDate extends RealDate {
   constructor(...args) {
@@ -77,7 +86,7 @@ class SimulatedPublicWebSocket extends EventTarget {
         feedPermanentlyDown = true;
         this.close();
       }
-    }, 35);
+    }, configuredDelay);
   }
 
   close() {
