@@ -43,6 +43,23 @@ begin
   select public.senfx_paper_worker_sync(runid,'worker_test_b','running') into w;
   if w->>'owned'<>'false' then raise exception 'Second worker stole active lease'; end if;
 
+  -- Missing or invalid revision MUST NOT bypass an SQL three-valued IF.
+  select public.senfx_paper_worker_reserve(
+    runid,'worker_test_a',null::bigint,'R_100','CALL',100,ep
+  ) into w;
+  if w->>'allowed'<>'false' then raise exception 'NULL revision bypassed entry authorization'; end if;
+  select public.senfx_paper_worker_reserve(
+    runid,'worker_test_a',0,'R_100','CALL',100,ep
+  ) into w;
+  if w->>'allowed'<>'false' then raise exception 'Zero revision bypassed entry authorization'; end if;
+  select public.senfx_paper_worker_reserve(
+    runid,null::text,1,'R_100','CALL',100,ep
+  ) into w;
+  if w->>'allowed'<>'false' then raise exception 'NULL owner bypassed entry authorization'; end if;
+  if (select count(*) from public.customer_paper_trade_reservations)<>0 then
+    raise exception 'An invalid version created a paper reservation';
+  end if;
+
   select public.senfx_paper_worker_reserve(
     runid,'worker_test_a',1,'R_100','CALL',100,ep
   ) into pos;
@@ -52,6 +69,21 @@ begin
   ) into w;
   if w->>'allowed'<>'false' then raise exception 'Duplicate paper position was created'; end if;
 
+  select public.senfx_paper_worker_tick(
+    runid,'worker_test_a',null::bigint,101,ep+1
+  ) into w;
+  if w->>'accepted'<>'false' then raise exception 'NULL revision bypassed tick authorization'; end if;
+  select public.senfx_paper_worker_tick(
+    runid,'worker_test_a',0,101,ep+1
+  ) into w;
+  if w->>'accepted'<>'false' then raise exception 'Zero revision bypassed tick authorization'; end if;
+  select public.senfx_paper_worker_tick(
+    runid,null::text,1,101,ep+1
+  ) into w;
+  if w->>'accepted'<>'false' then raise exception 'NULL owner bypassed tick authorization'; end if;
+  if (select remaining_ticks from public.bot_execution_paper_positions where run_id=runid and status='open')<>5 then
+    raise exception 'Rejected tick illegally advanced a paper position';
+  end if;
   select public.senfx_paper_worker_tick(runid,'worker_test_a',1,100,ep) into w;
   if w->>'duplicateTick'<>'true' or (w->>'remainingTicks')::int<>5 then
     raise exception 'Entry tick was counted as an exit tick: %',w;
