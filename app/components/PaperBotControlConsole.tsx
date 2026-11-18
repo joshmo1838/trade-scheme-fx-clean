@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { nextBotDesiredState, paperBotDisplayStatus } from "@/lib/bots/control-state";
 
@@ -46,13 +46,20 @@ export default function PaperBotControlConsole() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  // Only the newest network verification may update worker state. Slow responses
+  // from a prior refresh must not overwrite newer Stop/offline information.
+  const statusRequestSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestSequence = ++statusRequestSequence.current;
     setError("");
     try {
       const supabase = createClient();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
+        if (requestSequence !== statusRequestSequence.current) return;
+        setBots([]);
+        setSelection([]);
         setEnabled(false);
         setWorkerAttached(false);
         setRuns([]);
@@ -70,11 +77,17 @@ export default function PaperBotControlConsole() {
         fetch("/api/bot-control", { cache: "no-store", credentials: "same-origin" }),
       ]);
       const result: ControlResponse = await controlResponse.json();
-      if (botsResult.error || selectedResult.error || !controlResponse.ok) {
-        throw new Error(result.error || "Unable to fetch customer paper bot controls.");
+      if (botsResult.error || selectedResult.error) {
+        throw new Error("Unable to load your paper bot selections.");
       }
+      // Bot catalogue and selections can still finish loading after a newer
+      // status poll, but a superseded status response must be ignored.
       setBots((botsResult.data || []) as PaperBot[]);
       setSelection((selectedResult.data || []) as Selection[]);
+      if (requestSequence !== statusRequestSequence.current) return;
+      if (!controlResponse.ok) {
+        throw new Error(result.error || "Unable to fetch customer paper bot controls.");
+      }
       setEnabled(result.enabled === true);
       setWorkerAttached(result.workerAttached === true);
       setRuns(result.runs || []);
@@ -84,6 +97,7 @@ export default function PaperBotControlConsole() {
       setLastStatusCheck(Date.now());
       setMessage(result.message || "");
     } catch (cause) {
+      if (requestSequence !== statusRequestSequence.current) return;
       setEnabled(false);
       setWorkerAttached(false);
       setRuns([]);
@@ -98,11 +112,13 @@ export default function PaperBotControlConsole() {
   }, []);
 
   const refreshWorkerState = useCallback(async () => {
+    const requestSequence = ++statusRequestSequence.current;
     try {
       const response = await fetch("/api/bot-control", {
         cache: "no-store", credentials: "same-origin",
       });
       const result: ControlResponse = await response.json();
+      if (requestSequence !== statusRequestSequence.current) return;
       if (!response.ok) throw new Error(result.error || "Unable to refresh worker verification.");
       setEnabled(result.enabled === true);
       setWorkerAttached(result.workerAttached === true);
@@ -113,6 +129,7 @@ export default function PaperBotControlConsole() {
       setLastStatusCheck(Date.now());
       setError("");
     } catch (cause) {
+      if (requestSequence !== statusRequestSequence.current) return;
       // Network loss or an expired sign-in must never leave old "running"
       // state or enabled buttons on screen.
       setEnabled(false);
@@ -140,6 +157,7 @@ export default function PaperBotControlConsole() {
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      ++statusRequestSequence.current; // Discard in-flight verification on unmount.
     };
   }, [refresh, refreshWorkerState]);
 
