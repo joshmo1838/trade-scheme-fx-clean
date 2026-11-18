@@ -46,6 +46,7 @@ declare
   v_result jsonb;
   v_observed text;
   v_bot record;
+  v_eligible boolean := false;
 begin
   if p_run_id is null or p_worker_id is null or length(p_worker_id) not between 8 and 128
      or p_worker_id !~ '^[A-Za-z0-9_-]+$'
@@ -60,10 +61,26 @@ begin
     return jsonb_build_object('owned',false,'reason','Another worker holds the lease.');
   end if;
 
+  select exists (
+    select 1 from public.customer_bots cb
+    join public.bots b on b.id = cb.bot_id
+    join public.customer_bot_configurations cfg
+      on cfg.customer_id = cb.customer_id and cfg.bot_id = cb.bot_id
+      and cfg.trading_mode = 'demo'
+    where cb.customer_id = v_run.customer_id
+      and cb.bot_id = v_run.bot_id and cb.trading_mode = 'demo'
+      and cb.selected = true and cb.control_status = 'selected'
+      and b.is_published = true
+      and cfg.stake_amount between 10 and 100
+      and cfg.daily_loss_limit is not null
+      and cfg.daily_loss_limit >= cfg.stake_amount
+  ) into v_eligible;
+
   -- A crashed previous worker must not hand its prior paper risk to a new worker.
   if v_run.worker_id is distinct from p_worker_id
      or v_run.lease_expires_at is null or v_run.lease_expires_at<=now()
-     or v_run.desired_state <> 'running' then
+     or v_run.desired_state <> 'running'
+     or not v_eligible then
     select * into v_position from public.bot_execution_paper_positions
       where run_id=v_run.id and status='open' for update;
     if found then
@@ -78,19 +95,24 @@ begin
   end if;
 
   if v_run.desired_state = 'running' then
-    v_observed := case when p_report='running' then 'running'
-                       when p_report='error' then 'error' else 'starting' end;
+    v_observed := case
+      when not v_eligible then 'error'
+      when p_report='running' then 'running'
+      when p_report='error' then 'error' else 'starting' end;
   else
     v_observed := v_run.desired_state;
   end if;
 
   update public.bot_execution_runs
-    set worker_id=case when v_run.desired_state='stopped' then null else p_worker_id end,
+    set worker_id=case when v_run.desired_state='stopped' or not v_eligible
+                         then null else p_worker_id end,
         heartbeat_at=now(),
-        lease_expires_at=case when v_run.desired_state='stopped' then null
-                              else now()+interval '20 seconds' end,
+        lease_expires_at=case when v_run.desired_state='stopped' or not v_eligible
+                              then null else now()+interval '20 seconds' end,
         observed_state=v_observed,
-        last_error=case when v_observed='error' then 'Worker cannot consume fresh public market data.'
+        last_error=case when not v_eligible and v_run.desired_state='running'
+                        then 'Paper bot was unpublished, deselected, or lost risk settings.'
+                        when v_observed='error' then 'Worker cannot consume fresh public market data.'
                         else null end,
         updated_at=now()
     where id=v_run.id;
@@ -105,7 +127,8 @@ begin
 
   select name,market,is_published into v_bot from public.bots where id=v_run.bot_id;
   return jsonb_build_object(
-    'owned',true,'runId',v_run.id,'customerId',v_run.customer_id,
+    'owned',(v_eligible or v_run.desired_state <> 'running'),
+    'runId',v_run.id,'customerId',v_run.customer_id,
     'botId',v_run.bot_id,'botName',v_bot.name,'botMarket',v_bot.market,
     'isPublished',v_bot.is_published,'desiredState',v_run.desired_state,
     'observedState',v_observed,'version',v_run.control_version,

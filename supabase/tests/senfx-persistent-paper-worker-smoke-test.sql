@@ -12,6 +12,9 @@ insert into public.customer_bots(customer_id,bot_id,trading_mode,selected,contro
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','demo',true,'selected');
 insert into public.customer_bot_configurations(customer_id,bot_id,trading_mode,stake_amount,daily_loss_limit) values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','demo',10,40);
+-- Isolated CI fixture only: permit test-user metadata changes to simulate
+-- unpublished and deselected bots while the worker is active.
+grant select,update on public.bots, public.customer_bots to service_role;
 set local role service_role;
 do $smoke$
 declare
@@ -148,6 +151,47 @@ begin
   if (select count(*) from public.customer_paper_trades)<>1 then
     raise exception 'Worker crash test created extra paper trade';
   end if;
+
+  -- A bot unpublished after Start must not retain an active lease, even
+  -- before the customer sends Stop. Its unfinished paper exposure is cancelled.
+  select public.senfx_paper_worker_sync(runid,'worker_test_b','running') into w;
+  select public.senfx_paper_worker_reserve(runid,'worker_test_b',5,'R_100','CALL',100,ep+7) into pos;
+  if pos->>'allowed'<>'true' then raise exception 'Could not reserve unpublish test'; end if;
+  update public.bots set is_published=false where id=bot;
+  select public.senfx_paper_worker_sync(runid,'worker_test_b','running') into w;
+  if w->>'owned'<>'false' or w->>'observedState'<>'error' then
+    raise exception 'Unpublished bot remains running: %',w;
+  end if;
+  if (select count(*) from public.bot_execution_paper_positions where status='open')<>0 then
+    raise exception 'Unpublished bot retained an open paper reservation';
+  end if;
+  if (select count(*) from public.bot_execution_runs
+      where id=runid and (worker_id is not null or lease_expires_at is not null))<>0 then
+    raise exception 'Unpublished bot retained an active worker lease';
+  end if;
+  select public.senfx_queue_paper_bot_command(u,bot,'10000000-0000-4000-8000-000000000006','stop') into c;
+  if c->>'accepted'<>'true' then raise exception 'Stop blocked for unpublished bot'; end if;
+  update public.bots set is_published=true where id=bot;
+  select public.senfx_queue_paper_bot_command(u,bot,'10000000-0000-4000-8000-000000000007','start') into c;
+  if c->>'accepted'<>'true' then raise exception 'Start after republish blocked'; end if;
+  select public.senfx_paper_worker_sync(runid,'worker_test_b','running') into w;
+  if w->>'observedState'<>'running' then raise exception 'Restart after publish blocked'; end if;
+
+  -- Deselection also cancels risk; Stop must remain permitted.
+  select public.senfx_paper_worker_reserve(runid,'worker_test_b',7,'R_100','PUT',100,ep+8) into pos;
+  if pos->>'allowed'<>'true' then raise exception 'Cannot start deselection test'; end if;
+  update public.customer_bots set selected=false where customer_id=u and bot_id=bot;
+  select public.senfx_paper_worker_sync(runid,'worker_test_b','running') into w;
+  if w->>'owned'<>'false' or w->>'observedState'<>'error' then
+    raise exception 'Deselected bot remains active: %',w;
+  end if;
+  if (select count(*) from public.bot_execution_paper_positions where status='open')<>0 then
+    raise exception 'Deselection left open paper risk';
+  end if;
+  select public.senfx_queue_paper_bot_command(u,bot,'10000000-0000-4000-8000-000000000008','stop') into c;
+  if c->>'accepted'<>'true' then raise exception 'Stop blocked for deselected bot'; end if;
+  select public.senfx_queue_paper_bot_command(u,bot,'10000000-0000-4000-8000-000000000009','start') into c;
+  if c->>'accepted'<>'false' then raise exception 'Deselected bot restarted without consent'; end if;
 end;
 $smoke$;
 reset role;
