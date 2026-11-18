@@ -25,7 +25,8 @@ export async function createClient() {
       },
     },
     from(table) {
-      if (table !== "bot_execution_runs" && table !== "bot_execution_commands") {
+      if (!["bot_execution_runs","bot_execution_commands",
+            "bot_execution_paper_positions","customer_paper_daily_risk"].includes(table)) {
         throw Error("Unexpected user table " + table);
       }
       const filters = {};
@@ -38,11 +39,14 @@ export async function createClient() {
           if (filters.customer_id !== state.currentUser) {
             throw Error("Customer read was not filtered to authenticated user.");
           }
-          const source = table === "bot_execution_runs" ? state.rows : state.commands;
+          const source = table === "bot_execution_runs" ? state.rows
+            : table === "bot_execution_commands" ? state.commands
+            : table === "bot_execution_paper_positions" ? state.positions : state.dailyRisk;
           return {
             data:source.filter(row =>
               row.customer_id===state.currentUser &&
-              row.customer_id===filters.customer_id).slice(0,n),
+              row.customer_id===filters.customer_id &&
+              Object.entries(filters).every(([key,value])=>row[key]===value)).slice(0,n),
             error:null,
           };
         },
