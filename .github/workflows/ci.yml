@@ -33,6 +33,8 @@ jobs:
         run: npm run test:controls
       - name: Run paper-worker static and strategy tests
         run: npm run test:paper-worker
+      - name: Exercise isolated paper worker Start to Stop lifecycle
+        run: npm run test:worker-e2e
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
       - name: Run TypeScript checks
