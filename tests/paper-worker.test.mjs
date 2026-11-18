@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { evaluatePaperSignal, paperPreset } from "../lib/bots/paper-strategy.ts";
 
 const worker = readFileSync("worker/senfx-customer-paper-worker.mjs", "utf8");
@@ -34,4 +35,40 @@ test("worker SQL uses database lease, control version, and risk reservation RPCs
   assert.match(sql,/senfx_paper_settle_trade/);
   assert.match(sql,/senfx_paper_cancel_reservation/);
   assert.match(sql,/using \(customer_id = \(select auth\.uid\(\)\)\)/);
+});
+
+
+test("disabled paper worker exits safely with zero credentials and no running loop", () => {
+  const child = spawnSync(process.execPath, [
+    "--experimental-strip-types",
+    "worker/senfx-customer-paper-worker.mjs",
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      SENFX_PAPER_WORKER_ENABLED: "false",
+      SUPABASE_URL: "",
+      SUPABASE_SERVICE_ROLE_KEY: "",
+    },
+    encoding: "utf8",
+    timeout: 8_000,
+  });
+  assert.equal(child.error, undefined, child.error?.message);
+  assert.equal(child.status, 0, child.stderr);
+  assert.match(child.stderr, /paper worker is disabled/i);
+  assert.doesNotMatch(child.stdout, /connected to PUBLIC market feed|booting PUBLIC-TICKS/);
+});
+
+test("SQL rejects missing revision before authorizing reserve and settlement", () => {
+  const guardedFunctions = [
+    sql.split("create or replace function public.senfx_paper_worker_reserve(")[1]
+      ?.split("create or replace function public.senfx_paper_worker_tick(")[0],
+    sql.split("create or replace function public.senfx_paper_worker_tick(")[1]
+      ?.split("revoke all on function public.senfx_paper_worker_sync")[0],
+  ];
+  for (const fn of guardedFunctions) {
+    assert.ok(fn, "worker SQL functions must exist");
+    assert.match(fn, /p_version is null/);
+    assert.match(fn, /p_version <= 0/);
+  }
 });
