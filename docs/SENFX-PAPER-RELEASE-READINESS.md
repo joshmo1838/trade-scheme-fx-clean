@@ -36,7 +36,10 @@ test, and they do not execute Deriv broker contracts.
    `SENFX_BOT_CONTROL_ENABLED` and worker
    `SENFX_PAPER_WORKER_ENABLED` are unset/false. Do not enable Demo
    or Real contract purchasing.
-2. **Obtain and verify a restorable production database backup.** Use
+2. **Obtain and verify a restorable production database backup.** Follow
+   `docs/SENFX-PRODUCTION-BACKUP.md` and run the offline guarded
+   `scripts/senfx-backup-production.sh` on a trusted computer. The archive
+   inventory/checksum alone are not evidence of a successful restore. Use
    Supabase's supported backup/export procedure with privately held
    credentials. Do not echo secrets into CI logs, chat or source code.
    Free-plan backup/PITR capabilities vary; **do not assume PITR exists**.

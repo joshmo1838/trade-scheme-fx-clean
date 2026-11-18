@@ -37,6 +37,8 @@ jobs:
         run: npm run test:worker-e2e
       - name: Test authenticated paper control API and cross-customer isolation
         run: npm run test:auth-controls
+      - name: Validate operator-only production backup script syntax
+        run: bash -n scripts/senfx-backup-production.sh
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
       - name: Run TypeScript checks
