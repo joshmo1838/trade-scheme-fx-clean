@@ -4,13 +4,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createCipheriv, randomBytes } from "node:crypto";
 
-const REDIRECT_URI =
-  "https://www.tradesche.com/api/deriv/callback";
+const DEFAULT_ORIGIN = "https://www.tradesche.com";
 
-const DASHBOARD_URL =
-  "https://www.tradesche.com/dashboard";
+function oauthOrigin(): string {
+  const configured = process.env.DERIV_OAUTH_ORIGIN || DEFAULT_ORIGIN;
+  const url = new URL(configured);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+    throw new Error("Invalid DERIV_OAUTH_ORIGIN");
+  }
+  return url.origin;
+}
 
-const COOKIE_DOMAIN = ".tradesche.com";
+
 
 function encryptToken(token: string) {
   const keyHex = process.env.DERIV_TOKEN_ENCRYPTION_KEY;
@@ -41,7 +46,6 @@ function clearCookies(response: NextResponse) {
     secure: true,
     sameSite: "lax" as const,
     path: "/",
-    domain: COOKIE_DOMAIN,
     maxAge: 0
   };
 
@@ -52,13 +56,17 @@ function clearCookies(response: NextResponse) {
   return response;
 }
 
-function redirectToDashboard(status: string) {
-  const url = new URL(DASHBOARD_URL);
+function redirectToDashboard(status: string, origin: string) {
+  const url = new URL("/dashboard", origin);
   url.searchParams.set("deriv", status);
   return NextResponse.redirect(url);
 }
 
 export async function GET(request: NextRequest) {
+  const origin = oauthOrigin();
+  if (request.nextUrl.origin !== origin) {
+    return NextResponse.json({ error: "Invalid OAuth callback host." }, { status: 400 });
+  }
   const state = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
   const oauthError = request.nextUrl.searchParams.get("error");
@@ -82,7 +90,7 @@ export async function GET(request: NextRequest) {
     !verifier ||
     !userId
   ) {
-    const url = new URL(DASHBOARD_URL);
+    const url = new URL("/dashboard", origin);
 
     url.searchParams.set(
       "deriv",
@@ -105,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user || user.id !== userId) {
       return clearCookies(
-        redirectToDashboard("connection_failed")
+        redirectToDashboard("connection_failed", origin)
       );
     }
 
@@ -118,7 +126,7 @@ export async function GET(request: NextRequest) {
 
     if (!clientId || !serviceRole || !supabaseUrl) {
       return clearCookies(
-        redirectToDashboard("connection_failed")
+        redirectToDashboard("connection_failed", origin)
       );
     }
 
@@ -137,7 +145,7 @@ export async function GET(request: NextRequest) {
           client_id: clientId,
           code,
           code_verifier: verifier,
-          redirect_uri: REDIRECT_URI
+          redirect_uri: `${origin}/api/deriv/callback`
         }),
         cache: "no-store"
       }
@@ -149,7 +157,7 @@ export async function GET(request: NextRequest) {
       });
 
       return clearCookies(
-        redirectToDashboard("connection_failed")
+        redirectToDashboard("connection_failed", origin)
       );
     }
 
@@ -159,8 +167,17 @@ export async function GET(request: NextRequest) {
       console.error("Deriv token response did not contain an access token.");
 
       return clearCookies(
-        redirectToDashboard("connection_failed")
+        redirectToDashboard("connection_failed", origin)
       );
+    }
+
+    // The production schema requires a non-null expiry. Fail closed if the
+    // provider omits or supplies an invalid token lifetime.
+    const expiresInSeconds = Number(tokenData.expires_in);
+    if (!Number.isFinite(expiresInSeconds) || expiresInSeconds <= 0 ||
+        expiresInSeconds > 315360000) {
+      console.error("Deriv token response contained an invalid expiry.");
+      return clearCookies(redirectToDashboard("connection_failed", origin));
     }
 
     stage = "encryption";
@@ -190,10 +207,7 @@ export async function GET(request: NextRequest) {
           encrypted_token: encrypted.ciphertext,
           token_iv: encrypted.iv,
           token_tag: encrypted.tag,
-          expires_at: new Date(
-            Date.now() +
-            Number(tokenData.expires_in || 0) * 1000
-          ).toISOString(),
+          expires_at: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
           connected_at: new Date().toISOString(),
           status: "connected"
         },
@@ -211,14 +225,14 @@ export async function GET(request: NextRequest) {
       });
 
       return clearCookies(
-        redirectToDashboard("connection_failed")
+        redirectToDashboard("connection_failed", origin)
       );
     }
 
     console.info("Deriv connection saved successfully.");
 
     return clearCookies(
-      redirectToDashboard("connected")
+      redirectToDashboard("connected", origin)
     );
 
   } catch (error) {
@@ -232,7 +246,7 @@ export async function GET(request: NextRequest) {
     });
 
     return clearCookies(
-      redirectToDashboard("connection_failed")
+      redirectToDashboard("connection_failed", origin)
     );
   }
 }

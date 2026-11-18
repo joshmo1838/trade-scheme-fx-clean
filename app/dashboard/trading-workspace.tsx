@@ -174,9 +174,32 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
               </button>
             );
           })}
-          <Link className="senfxAccountConnect" href="/api/deriv/connect">
-            {connectionStatus === "Connected" ? "Reconnect Deriv ↗" : "Connect Deriv ↗"}
-          </Link>
+          {(selected || accounts.length > 0) ? (
+            <>
+              <button type="button" className="senfxAccountConnect"
+                disabled={saving || loading}
+                onClick={async () => {
+                  if (!window.confirm("Disconnect this Deriv account from Trade Scheme FX? This does not close your Deriv account.")) return;
+                  setSaving(true);
+                  setError("");
+                  try {
+                    const response = await fetch("/api/deriv/disconnect", {
+                      method: "POST", credentials: "same-origin",
+                      headers: { "Content-Type": "application/json" }, body: "{}",
+                    });
+                    const result = await response.json();
+                    if (!response.ok || result.success !== true) throw new Error(result.error || "Disconnect failed.");
+                    window.location.assign("/dashboard?deriv=disconnected");
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Unable to disconnect.");
+                    setSaving(false);
+                  }
+                }}>Disconnect Deriv</button>
+              <Link className="senfxAccountConnect" href="/api/deriv/connect">Reconnect Deriv ↗</Link>
+            </>
+          ) : (
+            <Link className="senfxAccountConnect" href="/api/deriv/connect">Connect Deriv ↗</Link>
+          )}
         </div>
       )}
     </div>
