@@ -34,12 +34,25 @@ export default function DigitMatrixScanner(){
  useEffect(()=>{
   if(!running){setStatus("Stopped — no market subscriptions active.");return;}
   let mounted=true,ws:WebSocket|null=null,attempt=0;
+  let connectedAt=0, lastObservedAt=0, directoryReceived=false;
   let retryTimer:ReturnType<typeof setTimeout>|undefined;
   let connectionTimer:ReturnType<typeof setTimeout>|undefined;
   let subscribed=new Set<string>();
   buffer.current=new Map();setView({});setActiveMarkets([]);setError("");
   const update=()=>{
    if(!mounted)return;
+   // A socket can be OPEN but fail to deliver a usable directory or ticks.
+   // Close stale connections so the backoff loop can recover autonomously.
+   if(ws?.readyState===WebSocket.OPEN && connectedAt && !directoryReceived &&
+      Date.now()-connectedAt>15_000){
+     setStatus("Market directory timed out. Reconnecting…");
+     ws.close();return;
+   }
+   if(ws?.readyState===WebSocket.OPEN && directoryReceived &&
+      subscribed.size>0 && Date.now()-Math.max(connectedAt,lastObservedAt)>30_000){
+     setStatus("Public quotes stale. Reconnecting with bounded backoff…");
+     ws.close();return;
+   }
    const latest:Partial<Record<DigitSymbol,View>>={};
    for(const market of DIGIT_MARKETS){
     const item=buffer.current.get(market.symbol);
@@ -58,7 +71,7 @@ export default function DigitMatrixScanner(){
   const connect=()=>{
    if(!mounted)return;
    setStatus("Checking available Deriv public markets…");
-   subscribed=new Set();
+   subscribed=new Set();directoryReceived=false;connectedAt=0;lastObservedAt=0;
    try{ws=new WebSocket(ENDPOINT);}
    catch{setStatus("Cannot create public data connection; retrying.");retryTimer=setTimeout(connect,5000);return;}
    const socket=ws;
@@ -67,7 +80,7 @@ export default function DigitMatrixScanner(){
    },12000);
    socket.onopen=()=>{
     if(!mounted)return;
-    clearTimeout(connectionTimer);
+    clearTimeout(connectionTimer);connectedAt=Date.now();
     socket.send(JSON.stringify({active_symbols:"brief",req_id:1001}));
     setStatus("Connected. Checking active symbols and waiting for ticks…");
    };
@@ -93,6 +106,7 @@ export default function DigitMatrixScanner(){
        const m=item as {underlying_symbol?:unknown;symbol?:unknown};
        return m.underlying_symbol??m.symbol;
       }).filter((x:unknown):x is string=>typeof x==="string"));
+     directoryReceived=true;
      const choices=DIGIT_MARKETS.filter(x=>offered.has(x.symbol));
      subscribed=new Set(choices.map(x=>x.symbol));
      setActiveMarkets(choices.map(x=>x.symbol));
@@ -111,11 +125,13 @@ export default function DigitMatrixScanner(){
     const previous=buffer.current.get(tick.symbol);
     const key=tick.tickId||String(tick.epoch)+":"+tick.quoteText;
     if(previous?.lastKey===key)return;
+    lastObservedAt=Date.now();
     buffer.current.set(tick.symbol,{
      quote:tick.quoteText,updated:Date.now(),received:(previous?.received||0)+1,
      digits:[...(previous?.digits||[]),tick.digit].slice(-DIGIT_WINDOW),lastKey:key,
     });
-    setStatus("LIVE · authentic Deriv public ticks ("+subscribed.size+" markets)");
+    setStatus(previous=>previous.startsWith("LIVE")?previous:
+      "LIVE · authentic Deriv public ticks ("+subscribed.size+" markets)");
    };
    socket.onerror=()=>{if(mounted)setStatus("Feed error. Reconnecting…");};
    socket.onclose=()=>{
