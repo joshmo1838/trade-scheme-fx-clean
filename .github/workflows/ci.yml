@@ -184,8 +184,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
-      - name: Exercise actual worker with fake public ticks and local API
-        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs
+      - name: Exercise actual worker lifecycle and public-feed failure recovery
+        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs
 
   authenticated-gotrue:
     name: Real local Supabase Auth JWT + paper API authorization

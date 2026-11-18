@@ -4,6 +4,10 @@
  * A virtual second passes for every synthetic tick, keeping contract-like
  * five-distinct-epoch paper settlement tests fast and deterministic.
  */
+const outageAfterTicks = Number(process.env.SENFX_CI_FEED_OUTAGE_AFTER_TICKS || 0);
+// Test-only opt-in: simulate a PUBLIC feed failure that persists across reconnects.
+// No external network socket or third-party broker API is ever opened.
+let feedPermanentlyDown = false;
 const RealDate = globalThis.Date;
 let virtualMs = RealDate.now();
 
@@ -29,6 +33,9 @@ class SimulatedPublicWebSocket extends EventTarget {
 
   constructor(url) {
     super();
+    if (feedPermanentlyDown) {
+      throw Error("Simulated PUBLIC market feed is permanently unavailable.");
+    }
     const expected = "wss://api.derivws.com/trading/v1/options/ws/public";
     if (url !== expected) {
       throw Error("Hermetic worker attempted an unexpected WebSocket endpoint.");
@@ -65,6 +72,11 @@ class SimulatedPublicWebSocket extends EventTarget {
         },
       };
       this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(tick) }));
+      if (Number.isSafeInteger(outageAfterTicks) && outageAfterTicks > 0 &&
+          this.#counter >= outageAfterTicks) {
+        feedPermanentlyDown = true;
+        this.close();
+      }
     }, 35);
   }
 
