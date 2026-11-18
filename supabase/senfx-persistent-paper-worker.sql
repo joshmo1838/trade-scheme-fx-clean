@@ -62,6 +62,7 @@ begin
 
   -- A crashed previous worker must not hand its prior paper risk to a new worker.
   if v_run.worker_id is distinct from p_worker_id
+     or v_run.lease_expires_at is null or v_run.lease_expires_at<=now()
      or v_run.desired_state <> 'running' then
     select * into v_position from public.bot_execution_paper_positions
       where run_id=v_run.id and status='open' for update;
