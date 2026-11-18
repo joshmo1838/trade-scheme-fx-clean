@@ -215,6 +215,8 @@ jobs:
       - name: Start isolated GoTrue Auth with disposable PostgreSQL
         run: |
           set -euo pipefail
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d gotrue_ci \
+            -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS auth;'
           docker run -d --name senfx-gotrue-ci --network host \
             -e GOTRUE_API_HOST=0.0.0.0 \
             -e PORT=9999 \
@@ -230,9 +232,14 @@ jobs:
             -e GOTRUE_MAILER_AUTOCONFIRM=true \
             -e GOTRUE_LOG_LEVEL=info \
             supabase/auth:v2.176.0
-          for i in $(seq 1 45); do
+          for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:9999/health >/dev/null 2>&1; then
               exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' senfx-gotrue-ci)" != "true" ]; then
+              echo "Local GoTrue exited before becoming healthy."
+              docker logs --tail 35 senfx-gotrue-ci
+              exit 1
             fi
             sleep 2
           done
