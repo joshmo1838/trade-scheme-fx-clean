@@ -221,7 +221,7 @@ jobs:
             -e GOTRUE_API_HOST=0.0.0.0 \
             -e PORT=9999 \
             -e GOTRUE_DB_DRIVER=postgres \
-            -e GOTRUE_DB_NAMESPACE=auth \
+            -e DB_NAMESPACE=auth \
             -e GOTRUE_DB_DATABASE_URL='postgres://postgres:postgres@127.0.0.1:5432/gotrue_ci?sslmode=disable' \
             -e GOTRUE_JWT_SECRET='SENFX-FAKE-CI-KEY-NOT-FOR-PRODUCTION-123456789' \
             -e GOTRUE_JWT_EXP=3600 \
