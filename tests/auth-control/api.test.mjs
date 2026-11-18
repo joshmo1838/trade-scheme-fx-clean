@@ -158,6 +158,10 @@ test("GET requires heartbeat AND unexpired lease before online status",async()=>
   run.heartbeat_at=new Date(Date.now()-60_000).toISOString();
   response=await json(await GET());
   assert.equal(response.workerAttached,false);
+  run.heartbeat_at=new Date(Date.now()+60_000).toISOString();
+  response=await json(await GET());
+  assert.equal(response.workerAttached,false,
+    "Future-dated heartbeat must not claim a connected worker");
 });
 
 test("DB outages fail closed with 503, not phantom worker status or order",async()=>{

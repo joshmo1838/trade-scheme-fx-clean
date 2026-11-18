@@ -64,7 +64,7 @@ export async function GET() {
       const heartbeatMs = run.heartbeat_at ? new Date(run.heartbeat_at).getTime() : NaN;
       const expiryMs = run.lease_expires_at ? new Date(run.lease_expires_at).getTime() : NaN;
       const connected = Number.isFinite(heartbeatMs) && Number.isFinite(expiryMs)
-        && now - heartbeatMs <= 15_000 && expiryMs > now;
+        && heartbeatMs <= now + 5_000 && now - heartbeatMs <= 15_000 && expiryMs > now;
       return { ...run, workerConnected: connected };
     });
     return NextResponse.json({

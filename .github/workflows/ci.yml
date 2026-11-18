@@ -210,7 +210,9 @@ jobs:
           mkdir -p /tmp/senfx-local-auth-ci
           cd /tmp/senfx-local-auth-ci
           supabase init --yes
-          supabase start -x studio,realtime,storage-api,imgproxy,postgres-meta,edge-runtime,logflare,vector,supavisor
+          # Mailbox/Inbucket is not used: local Auth auto-confirms password signups.
+          # Excluding it avoids hosted CI port 54324 collisions.
+          supabase start -x studio,realtime,storage-api,imgproxy,postgres-meta,edge-runtime,logflare,vector,supavisor,inbucket
       - name: Verify signed identities through the real local Auth server
         run: |
           set -euo pipefail
