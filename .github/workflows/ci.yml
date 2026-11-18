@@ -43,6 +43,8 @@ jobs:
         run: node --experimental-strip-types --test tests/digit-bulk-paper.test.mjs
       - name: Verify opt-in bot research filters and unchanged published paper rules
         run: node --experimental-strip-types --test tests/strategy-lab.test.mjs
+      - name: Verify all 15 independent SENFX next-tick PAPER bot strategies and risk guards
+        run: node --experimental-strip-types --test tests/fifteen-paper-bots.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states

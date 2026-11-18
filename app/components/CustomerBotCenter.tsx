@@ -634,6 +634,7 @@ export default function CustomerBotCenter() {
           <Link href="/intelligence">Market Intelligence</Link>
           <Link href="/strategy-lab">Ultra Precision Lab</Link>
           <Link href="/bot-research">Bot Research Upgrades</Link>
+          <Link href="/bot-library">15 SENFX Paper Bots</Link>
         </nav>
       </header>
 
