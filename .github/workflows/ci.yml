@@ -211,7 +211,9 @@ jobs:
       - name: Install official Supabase local stack CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.54.11
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Launch disposable local Supabase Auth and PostgreSQL
         run: |
           set -euo pipefail
