@@ -3,6 +3,8 @@
 begin;
 create table if not exists public.bots (
   id uuid primary key,
+  name text not null default 'SENFX paper QA bot',
+  market text not null default 'Synthetic Indices',
   is_published boolean not null default false
 );
 create table if not exists public.customer_bots (

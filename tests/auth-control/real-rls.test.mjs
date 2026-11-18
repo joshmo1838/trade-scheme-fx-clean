@@ -121,10 +121,98 @@ test("real GoTrue JWT plus PostgreSQL RLS prevents cross-customer bot access",{
   }
   const anonRead=await request(runsPath);
   assert.equal(anonRead.ok,false,"Anonymous visitor read private paper runs");
+  // Real GoTrue JWT -> PostgREST -> ACTUAL Phase 4 paper-worker SQL and RLS.
+  // A service-only worker reports fresh public-feed readiness; no Deriv order.
+  const workerId="senfx_ci_paper_worker_01";
+  const rpc=(name,payload,token=service)=>request(rest+"/rpc/"+name,{
+    method:"POST",token,payload,
+  });
+  const sync=expectOk(await rpc("senfx_paper_worker_sync",{
+    p_run_id:queued.runId,p_worker_id:workerId,p_report:"running",
+  }),"service-only paper worker ready");
+  assert.equal(sync.owned,true);
+  assert.equal(sync.observedState,"running");
+
+  // The worker reserves simulated risk with a signed current command version.
+  // Never substitute market price data for this mock input or call a broker API.
+  const epoch=Math.floor(Date.now()/1000)-3;
+  const entry=expectOk(await rpc("senfx_paper_worker_reserve",{
+    p_run_id:queued.runId,p_worker_id:workerId,p_version:1,
+    p_symbol:"R_100",p_direction:"CALL",p_entry:100,p_tick_epoch:epoch,
+  }),"server-only paper risk reservation");
+  assert.equal(entry.allowed,true,JSON.stringify(entry));
+  assert.ok(entry.positionId);
+  const posPath=rest+"/bot_execution_paper_positions?select=id,customer_id,status,remaining_ticks";
+  const riskPath=rest+"/customer_paper_daily_risk?select=customer_id,reserved_loss,realized_loss";
+  const reservesPath=rest+"/customer_paper_trade_reservations?select=customer_id,status";
+  const alicePositions=expectOk(await request(posPath,{token:alice.token}),"Alice sees paper position");
+  const bobPositions=expectOk(await request(posPath,{token:bob.token}),"Bob sees no paper position");
+  assert.equal(alicePositions.length,1);
+  assert.equal(alicePositions[0].customer_id,alice.id);
+  assert.equal(alicePositions[0].status,"open");
+  assert.deepEqual(bobPositions,[]);
+  const aliceRisk=expectOk(await request(riskPath,{token:alice.token}),"Alice sees reserved paper risk");
+  const bobRisk=expectOk(await request(riskPath,{token:bob.token}),"Bob sees no paper risk");
+  assert.equal(aliceRisk.length,1);
+  assert.equal(Number(aliceRisk[0].reserved_loss),10);
+  assert.deepEqual(bobRisk,[]);
+  const aliceReservations=expectOk(await request(reservesPath,{token:alice.token}),"Alice sees own reservation");
+  assert.equal(aliceReservations.length,1);
+  assert.equal(aliceReservations[0].status,"open");
+  assert.deepEqual(expectOk(await request(reservesPath,{token:bob.token}),"Bob sees no reservations"),[]);
+
+  for(const [who,token] of [["Bob",bob.token],["Alice",alice.token]]) {
+    for(const [rpcName,args] of [
+      ["senfx_paper_worker_sync",{p_run_id:queued.runId,p_worker_id:workerId,p_report:"stopped"}],
+      ["senfx_paper_worker_reserve",{
+        p_run_id:queued.runId,p_worker_id:workerId,p_version:1,
+        p_symbol:"R_100",p_direction:"PUT",p_entry:100,p_tick_epoch:epoch,
+      }],
+      ["senfx_paper_worker_tick",{
+        p_run_id:queued.runId,p_worker_id:workerId,p_version:1,
+        p_quote:101,p_tick_epoch:epoch+1,
+      }],
+    ]) {
+      const result=await rpc(rpcName,args,token);
+      assert.equal(result.ok,false,who+" invoked privileged "+rpcName);
+    }
+    const patch=await request(rest+"/bot_execution_paper_positions?id=eq."+entry.positionId,{
+      method:"PATCH",token,payload:{status:"settled"}
+    });
+    assert.equal(patch.ok,false,who+" modified paper position");
+  }
+  assert.equal((await request(posPath)).ok,false,"Anonymous visitor read paper positions");
+
+  // A customer Stop is queued by the server and then acknowledged by the
+  // actual SQL worker. It must cancel unsettled exposure, never settle it.
+  const stopped=expectOk(await rpc("senfx_queue_paper_bot_command",{
+    p_customer_id:alice.id,p_bot_id:BOT_A,
+    p_command_id:randomUUID(),p_action:"stop",
+  }),"server-only paper Stop");
+  assert.equal(stopped.accepted,true);
+  assert.equal(stopped.version,2);
+  const stoppedSync=expectOk(await rpc("senfx_paper_worker_sync",{
+    p_run_id:queued.runId,p_worker_id:workerId,p_report:"stopped",
+  }),"worker acknowledges Stop");
+  assert.equal(stoppedSync.observedState,"stopped");
+  const positionsAfter=expectOk(await request(posPath,{token:alice.token}),"post-Stop paper positions");
+  assert.equal(positionsAfter.length,1);
+  assert.equal(positionsAfter[0].status,"cancelled");
+  const riskAfter=expectOk(await request(riskPath,{token:alice.token}),"post-Stop paper risk");
+  assert.equal(Number(riskAfter[0].reserved_loss),0);
+  assert.equal(Number(riskAfter[0].realized_loss),0);
+  const stale=expectOk(await rpc("senfx_paper_worker_tick",{
+    p_run_id:queued.runId,p_worker_id:workerId,p_version:1,
+    p_quote:101,p_tick_epoch:epoch+2,
+  }),"stale worker tick");
+  assert.equal(stale.accepted,false);
+
   const finalRuns=expectOk(await request(runsPath,{token:service}),"service audit");
   const finalCommands=expectOk(await request(commandsPath,{token:service}),"service commands");
   assert.equal(finalRuns.length,1);
-  assert.equal(finalRuns[0].desired_state,"running");
+  assert.equal(finalRuns[0].desired_state,"stopped");
   assert.equal(finalRuns[0].observed_state,"stopped");
-  assert.equal(finalCommands.length,1);
+  assert.equal(finalCommands.length,2);
+  assert.deepEqual(expectOk(await request(runsPath,{token:bob.token}),"Bob still isolated"),[]);
+  assert.deepEqual(expectOk(await request(posPath,{token:bob.token}),"Bob still sees no positions"),[]);
 });
