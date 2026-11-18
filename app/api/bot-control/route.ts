@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ...data, mode: "paper",
       executed: false, brokerOrderPlaced: false,
-      message: "Command queued. No persistent trading worker is connected yet.",
+      message: "Command queued. Verify observed state and worker connection in bot control status. No broker order was placed.",
     }, { status: 202, headers: noStore });
   } catch {
     return NextResponse.json({ error: "Bot control service unavailable." },

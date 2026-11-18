@@ -250,7 +250,7 @@ jobs:
           export SENFX_TEST_AUTH_ANON_KEY="${ANON_KEY}"
           export SENFX_TEST_AUTH_SERVICE_KEY="${SERVICE_ROLE_KEY}"
           cd "$GITHUB_WORKSPACE"
-          node --test tests/auth-control/full-local-worker-e2e.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/auth-control/real-route-loader.mjs --test tests/auth-control/full-local-worker-e2e.test.mjs
       - name: Remove local Auth and PostgreSQL test stack
         if: always()
         run: |

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { randomUUID } from "node:crypto";
+import { GET as getBotControl, POST as postBotControl } from "../../app/api/bot-control/route.ts";
+import { NextRequest } from "./mock-next.mjs";
 
 /**
  * Full LOCAL integration: real GoTrue-signed customer sessions,
@@ -22,6 +24,27 @@ if (!api || !/^http:\/\/127\.0\.0\.1:\d+$/.test(api) ||
 const rest=api+"/rest/v1";
 const auth=api+"/auth/v1";
 const sleep=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
+const browserOrigin="https://senfx-local-test.invalid";
+process.env.SENFX_BOT_CONTROL_ENABLED="true";
+process.env.NEXT_PUBLIC_SUPABASE_URL=api;
+process.env.SUPABASE_SERVICE_ROLE_KEY=service;
+
+async function customerPost(token,botId,action,commandId=randomUUID(),extra={},origin=browserOrigin) {
+  process.env.SENFX_TEST_CUSTOMER_JWT=token;
+  const response=await postBotControl(new NextRequest(browserOrigin+"/api/bot-control",{
+    method:"POST",
+    headers:{"Content-Type":"application/json",origin},
+    body:JSON.stringify({botId,action,commandId,...extra})
+  }));
+  const data=await response.json();
+  return {status:response.status,data};
+}
+async function customerGet(token){
+  process.env.SENFX_TEST_CUSTOMER_JWT=token;
+  const response=await getBotControl();
+  return {status:response.status,data:await response.json()};
+}
+
 
 async function call(path,{method="GET",token=service,body,prefer}={}){
   const resp=await fetch(path,{
@@ -43,8 +66,6 @@ async function call(path,{method="GET",token=service,body,prefer}={}){
   }
   return data;
 }
-const rpc=(name,body)=>call(rest+"/rpc/"+name,{method:"POST",body});
-
 async function localUser(label){
   const email=label+"-"+randomUUID()+"@example.invalid";
   const password="CI-disposable-only-"+randomUUID();
@@ -77,14 +98,40 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     customer_id:alice.id,bot_id:bot,trading_mode:"demo",
     stake_amount:10,daily_loss_limit:20
   }});
-  const started=await rpc("senfx_queue_paper_bot_command",{
-    p_customer_id:alice.id,p_bot_id:bot,p_command_id:randomUUID(),p_action:"start"
+  // Actual customer API: real GoTrue JWT -> route identity -> local
+  // service-only SQL RPC. Caller-provided IDs must NEVER grant authority.
+  assert.equal((await customerGet("")).status,401,"Anonymous session read controls");
+  assert.equal((await customerPost("invalid-jwt",bot,"start")).status,401,
+    "Malformed signed session invoked control");
+  assert.equal((await customerPost(alice.token,bot,"start",randomUUID(),{},
+    "https://attacker.invalid")).status,403,"Cross-site POST was accepted");
+  assert.equal((await customerPost(bob.token,bot,"start")).status,409,
+    "Different signed user controlled another user's bot");
+  const startKey=randomUUID();
+  const startedResponse=await customerPost(alice.token,bot,"start",startKey,{
+    customerId:bob.id,userId:bob.id,
   });
+  assert.equal(startedResponse.status,202,JSON.stringify(startedResponse));
+  const started=startedResponse.data;
   assert.equal(started.accepted,true);
   assert.equal(started.version,1);
+  assert.equal(started.executed,false);
+  assert.equal(started.brokerOrderPlaced,false);
+  const idempotent=await customerPost(alice.token,bot,"start",startKey);
+  assert.equal(idempotent.status,202);
+  assert.equal(idempotent.data.duplicate,true);
+  assert.equal(idempotent.data.version,1);
+  const queuedStatus=await customerGet(alice.token);
+  assert.equal(queuedStatus.status,200);
+  assert.equal(queuedStatus.data.enabled,true);
+  assert.equal(queuedStatus.data.workerAttached,false,
+    "Queued Start must not be advertised as running");
+  assert.equal(queuedStatus.data.runs.length,1);
+  assert.equal(queuedStatus.data.runs[0].observed_state,"stopped");
+  assert.equal((await customerGet(bob.token)).data.runs.length,0,
+    "Route exposed a signed-in foreign customer's paper bot");
   const runId=started.runId;
   let child,log="";
-  let stopAfter;
   const runRows=()=>call(rest+"/bot_execution_runs?select=id,customer_id,desired_state,observed_state,control_version&id=eq."+runId);
   const ownTrades=()=>call(rest+"/customer_paper_trades?select=id,customer_id,bot_id,pnl&bot_id=eq."+bot,{token:alice.token});
   const userRows=(path,token)=>call(rest+"/"+path+"?select=id,customer_id&customer_id=eq."+alice.id,{token});
@@ -123,8 +170,16 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     child.stderr.on("data",x=>{log=(log+x).slice(-6000);});
 
     await wait("worker heartbeat reports running",async()=>{
-      const rows=await runRows();return rows[0]?.observed_state==="running";
+      const result=await customerGet(alice.token);
+      return result.status===200 &&
+        result.data.runs[0]?.observed_state==="running" &&
+        result.data.runs[0]?.workerConnected===true;
     },20_000);
+    const runningStatus=await customerGet(bob.token);
+    assert.equal(runningStatus.status,200);
+    assert.equal(runningStatus.data.workerAttached,false);
+    assert.deepEqual(runningStatus.data.runs,[]);
+
     // This trade is written ONLY by the actual child worker through the
     // actual Phase 4 SQL RPCs; nothing directly injects paper trades.
     const first=await wait("actual worker records simulated paper settlement",
@@ -137,28 +192,25 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     assert.equal((await call(rest+"/bot_execution_runs?select=id&customer_id=eq."+alice.id,{
       token:bob.token})).length,0,"Bob cannot see Alice's running paper bot");
 
-    const paused=await rpc("senfx_queue_paper_bot_command",{
-      p_customer_id:alice.id,p_bot_id:bot,p_command_id:randomUUID(),p_action:"pause"
-    });
-    assert.equal(paused.accepted,true);
+    const paused=await customerPost(alice.token,bot,"pause");
+    assert.equal(paused.status,202,JSON.stringify(paused));
+    assert.equal(paused.data.accepted,true);
     await wait("Pause acknowledged by actual child worker",async()=>{
       const rows=await runRows();return rows[0]?.observed_state==="paused";
     },13_000);
     assert.equal((await call(rest+"/bot_execution_paper_positions?select=id&status=eq.open&run_id=eq."+runId)).length,0,
       "Pause must cancel open simulated risk");
 
-    const resumed=await rpc("senfx_queue_paper_bot_command",{
-      p_customer_id:alice.id,p_bot_id:bot,p_command_id:randomUUID(),p_action:"resume"
-    });
-    assert.equal(resumed.accepted,true);
+    const resumed=await customerPost(alice.token,bot,"resume");
+    assert.equal(resumed.status,202,JSON.stringify(resumed));
+    assert.equal(resumed.data.accepted,true);
     await wait("Resume acknowledged by actual child worker",async()=>{
       const rows=await runRows();return rows[0]?.observed_state==="running";
     },13_000);
 
-    const stopped=await rpc("senfx_queue_paper_bot_command",{
-      p_customer_id:alice.id,p_bot_id:bot,p_command_id:randomUUID(),p_action:"stop"
-    });
-    assert.equal(stopped.accepted,true);
+    const stopped=await customerPost(alice.token,bot,"stop");
+    assert.equal(stopped.status,202,JSON.stringify(stopped));
+    assert.equal(stopped.data.accepted,true);
     await wait("Stop acknowledged by actual child worker",async()=>{
       const rows=await runRows();return rows[0]?.observed_state==="stopped";
     },13_000);
@@ -169,6 +221,11 @@ test("signed customer -> real SQL paper Start -> actual worker settlement -> Pau
     const commands=await call(rest+"/bot_execution_commands?select=action,status&run_id=eq."+runId);
     assert.deepEqual(commands.map(c=>c.action).sort(),["pause","resume","start","stop"]);
     assert.ok(commands.every(c=>c.status==="acknowledged"),"All commands must be acknowledged, not merely queued");
+    const finalGet=await customerGet(alice.token);
+    assert.equal(finalGet.status,200);
+    assert.equal(finalGet.data.workerAttached,false,"Stop must end worker connection");
+    assert.equal(finalGet.data.runs[0].observed_state,"stopped");
+    assert.equal((await customerGet(bob.token)).data.runs.length,0);
     assert.match(log,/paper risk reserved/,"Worker never reserved its own simulated paper risk");
     assert.match(log,/paper trade recorded/,"Worker never settled its own simulated paper trade");
     assert.doesNotMatch(log,/broker order placed|real-money order/i);
