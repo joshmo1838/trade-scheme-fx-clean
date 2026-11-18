@@ -8,6 +8,7 @@ const callback = readFileSync("app/api/deriv/callback/route.ts", "utf8");
 test("OAuth start and callback enforce the configured host", () => {
   for (const source of [connect, callback]) {
     assert.match(source, /process\.env\.DERIV_OAUTH_ORIGIN/);
+    assert.match(source, /const DEFAULT_ORIGIN = "https:\/\/www\.tradesche\.com";/);
     assert.match(source, /request\.nextUrl\.origin !== origin/);
     assert.match(source, /url\.protocol !== "https:"/);
     assert.doesNotMatch(source, /domain:\s*COOKIE_DOMAIN/);
