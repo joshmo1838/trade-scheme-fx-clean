@@ -3,6 +3,24 @@ export async function createClient() {
   return {
     auth: {
       async getUser() {
+        // Only when CI starts a genuine local Supabase Auth (GoTrue) process.
+        // Never trust a user ID supplied by our fixture: Auth must verify JWT.
+        if (process.env.SENFX_TEST_REAL_AUTH_URL) {
+          if (!state.currentToken) {
+            return {data:{user:null},error:{message:"No authentication token"}};
+          }
+          const response=await fetch(process.env.SENFX_TEST_REAL_AUTH_URL + "/user",{
+            headers:{
+              Authorization:"Bearer " + state.currentToken,
+              apikey:"local-auth-ci-placeholder"
+            }
+          });
+          if (!response.ok) {
+            return {data:{user:null},error:{message:"Auth token rejected",status:response.status}};
+          }
+          const verifiedUser=await response.json();
+          return {data:{user:verifiedUser},error:null};
+        }
         return {data:{user:state.currentUser ? {id:state.currentUser} : null},error:null};
       },
     },

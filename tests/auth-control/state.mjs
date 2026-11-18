@@ -6,6 +6,7 @@ export const BOB_BOT = "22222222-2222-4222-8222-222222222222";
 
 export const state = {
   currentUser: null,
+  currentToken: null,
   enabled: true,
   rows: [],
   commands: [],
@@ -17,6 +18,7 @@ export const state = {
 
 export function reset() {
   state.currentUser = null;
+  state.currentToken = null;
   state.enabled = true;
   state.rows.length = 0;
   state.commands.length = 0;

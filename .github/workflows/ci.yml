@@ -184,3 +184,65 @@ jobs:
         run: npm install
       - name: Exercise actual worker with fake public ticks and local API
         run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs
+
+  authenticated-gotrue:
+    name: Real isolated Supabase Auth JWT + paper API authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gotrue_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gotrue_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Start isolated GoTrue Auth with disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          docker run -d --name senfx-gotrue-ci --network host \
+            -e GOTRUE_API_HOST=0.0.0.0 \
+            -e PORT=9999 \
+            -e GOTRUE_DB_DRIVER=postgres \
+            -e GOTRUE_DB_NAMESPACE=auth \
+            -e GOTRUE_DB_DATABASE_URL='postgres://postgres:postgres@127.0.0.1:5432/gotrue_ci?sslmode=disable' \
+            -e GOTRUE_JWT_SECRET='SENFX-FAKE-CI-KEY-NOT-FOR-PRODUCTION-123456789' \
+            -e GOTRUE_JWT_EXP=3600 \
+            -e API_EXTERNAL_URL=http://127.0.0.1:9999 \
+            -e GOTRUE_SITE_URL=http://127.0.0.1:9999 \
+            -e GOTRUE_DISABLE_SIGNUP=false \
+            -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true \
+            -e GOTRUE_MAILER_AUTOCONFIRM=true \
+            -e GOTRUE_LOG_LEVEL=info \
+            supabase/auth:v2.176.0
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:9999/health >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Local Supabase Auth did not become ready."
+          docker logs --tail 80 senfx-gotrue-ci
+          exit 1
+      - name: Verify actual Auth JWTs across two isolated customer identities
+        env:
+          SENFX_TEST_REAL_AUTH_URL: http://127.0.0.1:9999
+        run: node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/gotrue-route.test.mjs
+      - name: Clean up disposable Auth test
+        if: always()
+        run: docker rm -f senfx-gotrue-ci >/dev/null 2>&1 || true
