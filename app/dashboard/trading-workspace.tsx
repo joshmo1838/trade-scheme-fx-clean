@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TradingLandingVisual from "@/components/TradingLandingVisual";
+import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
 import LiveCandleChart from "@/app/components/LiveCandleChart";
 import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
 
@@ -22,6 +23,7 @@ const videoNav = [
   { label: "Free Bots", href: "/bot-center", icon: "◈" },
   { label: "Markets", href: "/markets", icon: "⌁" },
   { label: "Charts", href: "/charts", icon: "▤" },
+  { label: "Risk Center", href: "/risk-center", icon: "⚖" },
   { label: "Market Scanner", href: "/ai-scanner", icon: "✧" },
   { label: "Manual Trader", href: "/manual-trader", icon: "▣" },
   { label: "History", href: "/history", icon: "◷" },
@@ -217,6 +219,7 @@ export default function TradingWorkspace({
           <small>TRADING WORKSPACE</small>
         </Link>
         <div className="workspaceTopActions">
+          <WorkspaceQuickSwitch />
           <DerivBalanceMenu connectionStatus={derivStatus} />
           <Link className="workspaceTopLink" href="/messages">Support</Link>
           <form action="/auth/signout" method="post">
@@ -267,6 +270,33 @@ export default function TradingWorkspace({
                 </Link>
               </div>
               <p className="videoHeroFootnote">Charts on this welcome screen are illustrative. Bot and manual paper results are not Deriv contracts or verified returns.</p>
+            </div>
+          </section>
+          <section className="senfxWorkflowRibbon" aria-labelledby="senfx-workflow-title">
+            <div className="senfxWorkflowRibbonHead">
+              <div>
+                <p className="senfxOpsDeckEyebrow">YOUR WORKSPACE · FOUR SIMPLE STEPS</p>
+                <h2 id="senfx-workflow-title">Research. Plan. Practice. Verify.</h2>
+              </div>
+              <p>No broker orders are placed from these shortcuts.</p>
+            </div>
+            <div className="senfxWorkflowSteps">
+              <Link href="/charts">
+                <span>01 / OBSERVE</span><strong>Watch real market ticks</strong>
+                <small>Public candlestick charts</small>
+              </Link>
+              <Link href="/risk-center">
+                <span>02 / PLAN</span><strong>Stress-test your risk</strong>
+                <small>Virtual stakes and loss budgets</small>
+              </Link>
+              <Link href="/bot-center">
+                <span>03 / PRACTICE</span><strong>Explore paper bots</strong>
+                <small>Customer-controlled simulation tools</small>
+              </Link>
+              <Link href="/bot-controls">
+                <span>04 / VERIFY</span><strong>Check actual worker state</strong>
+                <small>Queued is not the same as running</small>
+              </Link>
             </div>
           </section>
           <section className="senfxOpsDeck" aria-labelledby="senfx-ops-deck-title">

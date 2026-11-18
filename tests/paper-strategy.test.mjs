@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { evaluatePaperSignal, paperPreset } from '../lib/bots/paper-strategy.ts';
+// Include deterministic risk planning checks in the existing CI engine test job.
+import './risk-command-center.test.mjs';
 
 const synthetic = paperPreset({ name: 'SENFX Synthetic pro', market: 'Synthetic Indices' });
 

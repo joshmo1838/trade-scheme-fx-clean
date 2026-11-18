@@ -1,0 +1,77 @@
+/* Trade Scheme FX Risk Command Center — responsive research-only planning surface. */
+.senfxRiskPage{min-height:100vh;background:radial-gradient(ellipse at 72% -20%,rgba(15,133,174,.22),transparent 40%),linear-gradient(135deg,#030d1c,#07192f 70%,#061326);color:#edf7ff;font-family:'DM Sans',sans-serif}
+.senfxRiskPage *{box-sizing:border-box}
+.senfxRiskTopbar{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px clamp(16px,3vw,44px);border-bottom:1px solid rgba(108,199,238,.23);background:rgba(4,17,34,.85)}
+.senfxRiskBrand{font:750 17px 'Space Grotesk',sans-serif;letter-spacing:.06em;white-space:nowrap;color:#f3fbff}
+.senfxRiskBrand span{color:#6ce8ff}
+.senfxRiskTopbar nav{display:flex;gap:10px;flex-wrap:wrap}
+.senfxRiskTopbar nav a{padding:9px 12px;border-radius:8px;background:#112b47;border:1px solid #315577;font-size:12px;font-weight:650;color:#caeafc}
+.senfxRiskTopbar nav a:hover,.senfxRiskTopbar nav a:focus-visible{border-color:#7cdcff;background:#1b4668}
+.senfxRiskWrap{width:min(1460px,calc(100% - 40px));margin:0 auto;padding:30px 0 60px}
+.senfxRiskHero{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:22px;align-items:end;margin-bottom:26px}
+.senfxRiskEyebrow{font-size:10px;letter-spacing:.2em;font-weight:750;color:#69e3f6;margin:0 0 10px}
+.senfxRiskHero h1{font:750 clamp(33px,4.8vw,59px)/1.08 'Space Grotesk',sans-serif;letter-spacing:-.04em;margin:0 0 13px}
+.senfxRiskHero h1 span{color:#7ddced}
+.senfxRiskHero>div>p:last-child{margin:0;line-height:1.7;font-size:14px;color:#bbcee2;max-width:780px}
+.senfxRiskSafety{padding:17px 18px;border-radius:12px;background:rgba(14,40,64,.8);border:1px solid #416d85}
+.senfxRiskSafety strong{display:block;font-size:13px;color:#bceafb}
+.senfxRiskSafety p{font-size:12px;color:#b0cadf;line-height:1.65;margin:7px 0 0}
+.senfxRiskLayout{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.2fr);align-items:start;gap:18px}
+.senfxRiskInputs,.senfxRiskResults,.senfxRiskScenarios{padding:24px;border-radius:15px;border:1px solid rgba(99,184,227,.23);background:linear-gradient(140deg,#09213c,#071629);box-shadow:0 16px 45px rgba(0,0,0,.12);min-width:0}
+.senfxRiskPanelHeading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.senfxRiskPanelHeading h2{font:700 clamp(17px,2vw,22px) 'Space Grotesk',sans-serif;margin:0}
+.senfxRiskPanelHeading>button,.senfxRiskActions button{font:700 12px 'DM Sans',sans-serif;background:#0e3754;color:#d6f5ff;border:1px solid #417a9b;border-radius:8px;padding:9px 12px;cursor:pointer}
+.senfxRiskPanelHeading>button:hover,.senfxRiskActions button:hover{background:#1c5275}
+.senfxRiskReadOnly{font-size:9px;font-weight:750;letter-spacing:.08em;color:#9dcee5;text-align:right}
+.senfxRiskHelper{font-size:12px;color:#b2cde0;margin:0 0 19px}
+.senfxRiskForm{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.senfxRiskForm label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.senfxRiskForm label>span{color:#eaf6ff;font-weight:700;font-size:12px;line-height:1.45}
+.senfxRiskForm input{min-width:0;width:100%;padding:12px;background:#06162a;color:#f7fdff;border:1px solid #375d7b;border-radius:8px;font:600 15px 'DM Sans',sans-serif;outline-offset:3px}
+.senfxRiskForm input:focus{outline:2px solid #52d6f3;border-color:#52d6f3}
+.senfxRiskForm small{font-size:10px;line-height:1.6;color:#9ebcd1}
+.senfxRiskPreset{margin-top:22px;border-top:1px solid #34506d;padding-top:18px}
+.senfxRiskPreset p{color:#d4ecfa;font-weight:650;font-size:12px;margin:0 0 10px}
+.senfxRiskPreset>div{display:flex;gap:8px}
+.senfxRiskPreset button{background:#12334f;border:1px solid #39627e;padding:9px 16px;color:#d6f2fe;border-radius:7px;cursor:pointer;font-weight:700}
+.senfxRiskPreset button:hover{background:#1f5175}
+.senfxRiskPreset button:disabled{opacity:.4;cursor:not-allowed}
+.senfxRiskPreset small{display:block;font-size:10px;color:#aac4d8;line-height:1.65;margin-top:12px}
+.senfxRiskScore{background:linear-gradient(115deg,#0e3150,#0a253d);border:1px solid #366b8d;border-radius:12px;padding:20px;margin-bottom:16px}
+.senfxRiskScore>span{display:block;color:#bcd9e9;font-size:12px;line-height:1.45}
+.senfxRiskScore>strong{font:750 clamp(28px,4vw,42px)/1.35 'Space Grotesk',sans-serif;display:block;color:#f4fbff}
+.senfxRiskScore>small{color:#9cd3e5;font-size:13px}
+.senfxRiskScore p{font-size:10px;color:#aac8db;line-height:1.55;margin:10px 0 0}
+.senfxRiskMeter{height:10px;background:#07182e;border:1px solid #335877;border-radius:99px;overflow:hidden;margin-top:14px}
+.senfxRiskMeter>div{height:100%;border-radius:99px;transition:width .2s}
+.senfxRiskKpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.senfxRiskKpis article{display:flex;flex-direction:column;justify-content:space-between;gap:9px;min-height:92px;background:#081b33;border:1px solid #254968;padding:14px;border-radius:9px}
+.senfxRiskKpis span{font-size:11px;line-height:1.5;color:#a8c7d9}
+.senfxRiskKpis strong{font:700 23px 'Space Grotesk',sans-serif;overflow-wrap:anywhere}
+.senfxRiskWarning,.senfxRiskWithin{margin-top:15px;border:1px solid #94664c;background:rgba(112,50,31,.2);padding:13px 15px;border-radius:10px;color:#ffdbbd;font-size:12px;line-height:1.65}
+.senfxRiskWarning strong{display:block;margin-bottom:6px}
+.senfxRiskWarning p{margin:4px 0}
+.senfxRiskWithin{border-color:#2f716e;background:#0a393d;color:#b2f0e1}
+.senfxRiskStreak,.senfxRiskPayout{margin-top:13px;background:#091c34;border:1px solid #294867;padding:15px;border-radius:10px;display:flex;flex-direction:column;gap:5px}
+.senfxRiskStreak span,.senfxRiskPayout span{font-size:12px;color:#c4deed;font-weight:700}
+.senfxRiskStreak strong,.senfxRiskPayout strong{font:700 26px 'Space Grotesk',sans-serif}
+.senfxRiskStreak strong{color:#f7b9b0}
+.senfxRiskPayout strong{color:#9be2e9}
+.senfxRiskStreak small,.senfxRiskPayout small,.senfxRiskStreak p{margin:0;font-size:11px;line-height:1.6;color:#b4ccdb}
+.senfxRiskActions{display:flex;flex-wrap:wrap;gap:9px;margin-top:17px;align-items:center}
+.senfxRiskActions a{font-weight:700;font-size:12px;color:#7ce0f6}
+.senfxRiskCopyMessage{color:#a7efd8;font-size:12px;line-height:1.5}
+.senfxRiskInvalid{background:#422b21;color:#ffe5c6;padding:20px;border:1px solid #b08157;border-radius:10px;line-height:1.6}
+.senfxRiskScenarios{margin-top:20px}
+.senfxRiskScenarios>p{font-size:12px;color:#afc8d9;line-height:1.65}
+.senfxRiskTableScroll{overflow-x:auto;max-width:100%}
+.senfxRiskTableScroll table{border-collapse:collapse;width:100%;min-width:580px;font-size:13px}
+.senfxRiskTableScroll th,.senfxRiskTableScroll td{text-align:left;padding:12px 14px;border-bottom:1px solid #2b4963}
+.senfxRiskTableScroll th{font-size:11px;color:#b6d6e8;background:#10304c}
+.senfxRiskTableScroll td{color:#e9f7ff}
+.senfxRiskTableScroll td.senfxRiskNegative{color:#f5a6a6}
+.senfxRiskTableScroll td.senfxRiskPositive{color:#95e4c5}
+.senfxRiskDisclaimer{color:#a2bcd1;font-size:11px;line-height:1.75;margin-top:22px}
+@media(max-width:960px){.senfxRiskLayout{grid-template-columns:minmax(0,1fr)}.senfxRiskHero{grid-template-columns:1fr}.senfxRiskSafety{max-width:670px}}
+@media(max-width:650px){.senfxRiskTopbar{align-items:flex-start;flex-direction:column}.senfxRiskTopbar nav{width:100%}.senfxRiskTopbar nav a{flex:1;text-align:center;font-size:11px;padding:8px}.senfxRiskWrap{width:calc(100% - 24px);padding-top:23px}.senfxRiskInputs,.senfxRiskResults,.senfxRiskScenarios{padding:16px}.senfxRiskForm{grid-template-columns:1fr}.senfxRiskPanelHeading h2{font-size:18px}.senfxRiskKpis article{padding:11px}.senfxRiskKpis strong{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.senfxRiskMeter>div{transition:none}}

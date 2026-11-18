@@ -153,6 +153,7 @@ export default function WorkspaceOperationsStatus({
       <div className="senfxOpsActions">
         <Link href="/bot-controls">Paper bot controls ↗</Link>
         <Link href="/history">Paper history ↗</Link>
+        <Link href="/risk-center">Risk planning ↗</Link>
       </div>
       <p className="senfxOpsFooter">Real-money bot execution: disabled · Read-only monitoring</p>
     </aside>
