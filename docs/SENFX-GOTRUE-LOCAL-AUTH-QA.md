@@ -27,3 +27,23 @@ A green result **does not authorize activating** the production paper worker.
 The CI job uses the official `supabase/setup-cli@v1` and `supabase start`
 inside a temporary directory, then reads the local API URL and anonymous key
 from `supabase status -o env`. It does not connect to the hosted project.
+
+## Full Auth token + actual local Postgres RLS integration
+
+CI now also applies the **exact** `supabase/senfx-persistent-bot-controls.sql`
+control-plane migration against a disposable local Supabase database, using
+only a tiny dependent test fixture for bots/selection/risk settings. A separate
+Node test registers two new REAL GoTrue users, issues their signed JWTs, and
+sends real HTTP requests through the local Supabase PostgREST API. It checks:
+
+- Alice sees only Alice's queued paper run and command, Bob sees neither;
+- Bob cannot view Alice's records by supplying Alice's ID in a filter;
+- neither authenticated customer can directly insert/update worker records
+  or call the service-role-only command RPC;
+- the server-only service role can enqueue a paper Start, which remains
+  observed `stopped` until a worker genuinely acknowledges it;
+- anonymous requests cannot read execution records.
+
+This is true token + REST + PostgreSQL authorization, but **not** a browser
+cookie-to-Next.js integration and **not** a hosted production worker test.
+The local schema fixture is not a replacement for full production migrations.
