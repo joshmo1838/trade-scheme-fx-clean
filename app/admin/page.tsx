@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,9 +21,10 @@ export default async function AdminPage() {
     .select("id, full_name, email, role, created_at")
     .order("created_at", { ascending: false });
 
-  const { count: botCount } = await supabase.from("bots").select("id", { count: "exact", head: true });
-  const { count: publishedBotCount } = await supabase.from("bots").select("id", { count: "exact", head: true }).eq("is_published", true);
-  const { count: selectionCount } = await supabase.from("customer_bots").select("id", { count: "exact", head: true });
+  const { count: botCount, error: botCountError } = await supabase.from("bots").select("id", { count: "exact", head: true });
+  const { count: publishedBotCount, error: publishedBotCountError } = await supabase.from("bots").select("id", { count: "exact", head: true }).eq("is_published", true);
+  const { count: selectionCount, error: selectionCountError } = await supabase.from("customer_bots").select("id", { count: "exact", head: true });
+  const countsAvailable = !botCountError && !publishedBotCountError && !selectionCountError && botCount !== null && publishedBotCount !== null && selectionCount !== null;
 
   return (
     <main className="appShell">
@@ -37,18 +39,25 @@ export default async function AdminPage() {
           <h2>Admin access verified</h2>
           <p className="muted">You are signed in as an administrator. View customers and message them privately inside the platform.</p>
         </div>
+        <WorkspaceEvidence
+          label="Administrative data access"
+          state={error || !countsAvailable ? "unavailable" : "verified"}
+          source="Authenticated, role-gated Supabase profile and aggregate queries"
+        >
+          <p className="muted">{error ? "One or more administrative queries could not be verified. Review unavailable metrics below." : "Customer profile access was checked. Aggregate counts are verified only when every query succeeds."}</p>
+        </WorkspaceEvidence>
         <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link><Link className="button secondary" href="/admin/bots">Publish / unpublish bots</Link></div>
         <div className="dashGrid">
-          <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
-          <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCount ?? 0}</h2><p>{publishedBotCount ?? 0} currently published.</p></article>
-          <article className="panel"><p className="eyebrow">CUSTOMER BOT SELECTIONS</p><h2>{selectionCount ?? 0}</h2><p>Saved bot preferences across customer accounts.</p></article>
+          <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{error ? "Unavailable" : customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
+          <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCountError ? "Unavailable" : botCount ?? "Unavailable"}</h2><p>{publishedBotCountError ? "Unavailable" : publishedBotCount ?? "Unavailable"} currently published.</p></article>
+          <article className="panel"><p className="eyebrow">CUSTOMER BOT SELECTIONS</p><h2>{selectionCountError ? "Unavailable" : selectionCount ?? "Unavailable"}</h2><p>Saved bot preferences across customer accounts.</p></article>
         </div>
         <div className="adminSectionHead">
           <div><p className="eyebrow">CUSTOMER MANAGEMENT</p><h2>Registered customers</h2></div>
-          <span className="customerCount">{customers?.length ?? 0} accounts</span>
+          <span className="customerCount">{error ? "Count unavailable" : `${customers?.length ?? 0} accounts`}</span>
         </div>
         {error ? (
-          <div className="panel"><p className="notice">Could not load customer records. Run the SQL migration in supabase/admin-customer-email.sql in your Supabase SQL Editor, then refresh this page.</p></div>
+          <div className="panel"><p className="notice">Could not load customer records. Contact platform support to review database access and query status; do not run schema changes from this page.</p></div>
         ) : !customers?.length ? (
           <div className="panel"><p className="muted">No customer profiles were found yet.</p></div>
         ) : (

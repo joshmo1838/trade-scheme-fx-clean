@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { WorkspaceEvidence, type WorkspaceEvidenceState } from "@/app/components/WorkspaceEvidence";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   summarizePaperOperations,
@@ -89,6 +90,15 @@ export default function WorkspaceOperationsStatus({
     }
   }
   const active = summary?.state === "verified-paper-worker";
+  const evidenceState: WorkspaceEvidenceState = loading && !lastChecked
+    ? "loading"
+    : error || !summary
+      ? "unavailable"
+      : summary.state === "verified-paper-worker"
+        ? "simulation"
+        : summary.state === "unverified"
+          ? "unavailable"
+          : "verified";
   const connected = derivStatus === "Connected";
   const derivLabel = connected ? "Connected" :
     derivStatus === "Expired" ? "Connection expired" :
@@ -118,6 +128,15 @@ export default function WorkspaceOperationsStatus({
           {connected ? "Review Deriv accounts in the header" : "Connect or reconnect Deriv"} ↗
         </Link>
       </section>
+
+      <WorkspaceEvidence
+        label="Account-scoped paper activity evidence"
+        state={evidenceState}
+        source="Authenticated GET /api/bot-control snapshot"
+        observedAt={lastChecked !== null ? new Date(lastChecked).toLocaleString() : undefined}
+      >
+        <p className="muted">Worker counts and queued requests are limited snapshots, not confirmed broker trades or investment returns.</p>
+      </WorkspaceEvidence>
 
       <section className="senfxOpsWorker">
         <span className="senfxOpsField">HOSTED PAPER WORKER</span>

@@ -2,7 +2,7 @@ name: SENFX validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/senfx-unified-workspace-release-20261118]
   push:
     branches: [main, feature/senfx-one-pull-full-build]
 
@@ -31,6 +31,8 @@ jobs:
         run: npm run test:workspace
       - name: Verify unified customer dashboard integrations
         run: npm run test:integration
+      - name: Verify Phase 16 read-only evidence and role-gate regression checks
+        run: node --test tests/phase16-workspace-evidence.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
@@ -209,7 +211,9 @@ jobs:
       - name: Install official Supabase local stack CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.54.11
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Launch disposable local Supabase Auth and PostgreSQL
         run: |
           set -euo pipefail
