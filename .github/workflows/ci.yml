@@ -33,6 +33,8 @@ jobs:
         run: npm run test:integration
       - name: Verify Phase 16 read-only evidence and role-gate regression checks
         run: node --test tests/phase16-workspace-evidence.test.mjs
+      - name: Test observed-only market graphs and tick activity
+        run: node --experimental-strip-types --test tests/market-session-analytics.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
