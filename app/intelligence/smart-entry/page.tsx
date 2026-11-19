@@ -87,7 +87,9 @@ export default function SmartEntryResearchPage() {
       const now = Date.now();
       const parsed = parsePublicDerivTick(message, symbol, now);
       if (!parsed.ok) {
-        if (parsed.reason === "feed-error") stop("Public feed error");
+        if (parsed.reason === "feed-error" || parsed.reason === "stale-or-future-tick" || parsed.reason === "invalid-symbol-or-quote" || parsed.reason === "invalid-feed-message") {
+          stop("Public feed validation failed: " + parsed.reason);
+        }
         return;
       }
       lastReceived.current = now;
