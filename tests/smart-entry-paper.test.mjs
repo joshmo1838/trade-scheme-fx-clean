@@ -40,3 +40,21 @@ test("duplicate tick cannot be counted twice", () => {
   assert.equal(second.action, "wait");
   assert.equal(second.state.completed, 1);
 });
+
+test("minimum research threshold cannot be lowered below 75", () => {
+  const result = smartEntryStep(beginSmartEntry(1000), { ...SMART_ENTRY_DEFAULTS, minimumScore: 60 }, 1000, tick(1), 99);
+  assert.equal(result.action, "stop");
+  assert.equal(result.state.completed, 0);
+});
+test("corrupted state fails closed without recording observations", () => {
+  for (const changes of [{ exposure: -1 }, { completed: 11 }, { completed: NaN }, { signalStartedAtMs: NaN }]) {
+    const result = smartEntryStep({ ...beginSmartEntry(1000), ...changes }, SMART_ENTRY_DEFAULTS, 1000, tick(1), 90);
+    assert.equal(result.action, "stop");
+  }
+});
+test("two distinct ticks with the same timestamp cannot be replayed", () => {
+  const first = smartEntryStep(beginSmartEntry(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1), 90);
+  const second = smartEntryStep(first.state, SMART_ENTRY_DEFAULTS, 1001, { ...tick(1), id: "another-id" }, 90);
+  assert.equal(second.action, "wait");
+  assert.equal(second.state.completed, 1);
+});
