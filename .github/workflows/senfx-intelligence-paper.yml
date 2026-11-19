@@ -6,6 +6,9 @@ on:
       - feature/senfx-ai-intelligence-suite
     paths:
       - 'lib/market/smart-entry-paper.ts'
+      - 'lib/market/smart-entry-next-tick.ts'
+      - 'tests/smart-entry-next-tick.test.mjs'
+      - 'app/intelligence/suite/**'
       - 'tests/smart-entry-paper.test.mjs'
       - '.github/workflows/senfx-intelligence-paper.yml'
       - 'app/intelligence/smart-entry/**'
@@ -31,4 +34,4 @@ jobs:
       - name: Verify TypeScript dashboard and engine
         run: npm run typecheck
       - name: Run isolated deterministic paper-only Smart Entry tests
-        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs
+        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs tests/smart-entry-next-tick.test.mjs
