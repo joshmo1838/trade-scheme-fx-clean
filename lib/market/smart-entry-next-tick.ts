@@ -1,5 +1,5 @@
 /** Browser-local research settlement. Pure logic: never places Deriv orders. */
-import { beginSmartEntry, validateTick, smartEntryStep, type EntryConfig, type EntryState, type Tick } from "./smart-entry-paper.ts";
+import { beginSmartEntry, validateTick, smartEntryStep, type EntryConfig, type EntryState, type Tick } from "./smart-entry-paper";
 
 export type PaperOutcome = "up" | "down" | "flat";
 export type PaperObservation = {
@@ -15,9 +15,6 @@ export function beginPaperSession(nowMs: number): PaperSession {
 
   return { gate: beginSmartEntry(nowMs), observations: [] };
 }
-// Static import helper keeps the engine independent of any browser or broker APIs.
-function requireNever() { return { beginSmartEntry: importedBeginSmartEntry }; }
-import { beginSmartEntry as importedBeginSmartEntry, validateTick } from "./smart-entry-paper";
 
 export function paperNextTickStep(session: PaperSession, config: EntryConfig, nowMs: number, tick: Tick | null, score: number | null, emergencyStop = false): PaperUpdate {
   const stop = (reason: string): PaperUpdate => ({ session: { ...session, gate: { ...session.gate, stopped: true } }, action: "stop", reason });
