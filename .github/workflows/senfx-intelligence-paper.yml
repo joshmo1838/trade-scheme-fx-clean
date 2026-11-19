@@ -8,6 +8,7 @@ on:
       - 'lib/market/smart-entry-paper.ts'
       - 'tests/smart-entry-paper.test.mjs'
       - '.github/workflows/senfx-intelligence-paper.yml'
+      - 'app/intelligence/smart-entry/**'
   workflow_dispatch:
 
 permissions:
@@ -22,5 +23,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Verify TypeScript dashboard and engine
+        run: npm run typecheck
       - name: Run isolated deterministic paper-only Smart Entry tests
         run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs
