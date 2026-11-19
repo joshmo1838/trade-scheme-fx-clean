@@ -1,5 +1,5 @@
 /** Browser-local research settlement. Pure logic: never places Deriv orders. */
-import { beginSmartEntry, validateTick, smartEntryStep, type EntryConfig, type EntryState, type Tick } from "./smart-entry-paper";
+import { beginSmartEntry, validateTick, smartEntryStep, type EntryConfig, type EntryState, type Tick } from "./smart-entry-paper.ts";
 
 export type PaperOutcome = "up" | "down" | "flat";
 export type PaperObservation = {
