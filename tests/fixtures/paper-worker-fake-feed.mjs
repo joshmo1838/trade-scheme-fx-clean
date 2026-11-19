@@ -62,6 +62,7 @@ class SimulatedPublicWebSocket extends EventTarget {
       throw Error("Cannot send on a closed simulated socket.");
     }
     const request = JSON.parse(String(raw));
+    if (request.ping === 1) return; // Deriv public keepalive; no market tick or contract.
     if (!request.subscribe || !request.ticks ||
         !["R_10","R_25","R_50","R_75","R_100","frxEURUSD"].includes(request.ticks)) {
       throw Error("Hermetic worker sent an unsupported public subscription.");
