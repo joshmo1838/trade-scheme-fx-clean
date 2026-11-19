@@ -46,7 +46,7 @@ export default async function AdminPage() {
         >
           <p className="muted">{error ? "One or more administrative queries could not be verified. Review unavailable metrics below." : "Customer profile access was checked. Aggregate counts are verified only when every query succeeds."}</p>
         </WorkspaceEvidence>
-        <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link><Link className="button secondary" href="/admin/bots">Publish / unpublish bots</Link></div>
+        <div className="actions"><Link className="button" href="/admin/bots">Manage trading bots</Link><Link className="button secondary" href="/admin/forward-test">R100 forward study</Link><Link className="button secondary" href="/admin/bots">Publish / unpublish bots</Link></div>
         <div className="dashGrid">
           <article className="panel"><p className="eyebrow">CUSTOMER ACCOUNTS</p><h2>{error ? "Unavailable" : customers?.length ?? 0}</h2><p>Registered platform profiles.</p></article>
           <article className="panel"><p className="eyebrow">BOT PROFILES</p><h2>{botCountError ? "Unavailable" : botCount ?? "Unavailable"}</h2><p>{publishedBotCountError ? "Unavailable" : publishedBotCount ?? "Unavailable"} currently published.</p></article>

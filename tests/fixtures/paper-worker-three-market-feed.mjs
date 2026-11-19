@@ -36,6 +36,7 @@ class FleetFeed extends EventTarget {
   }
   send(payload) {
     const request = JSON.parse(String(payload));
+    if (request.ping === 1) return; // Harmless public keepalive.
     if (request.subscribe !== 1 ||
         !["R_100","R_50","R_75"].includes(request.ticks)) {
       throw Error("Unapproved fleet public subscription");

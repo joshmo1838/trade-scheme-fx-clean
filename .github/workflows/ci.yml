@@ -45,6 +45,8 @@ jobs:
         run: node --experimental-strip-types --test tests/strategy-lab.test.mjs
       - name: Verify all 15 independent SENFX next-tick PAPER bot strategies and risk guards
         run: node --experimental-strip-types --test tests/fifteen-paper-bots.test.mjs
+      - name: Verify admin-only R100 forward research dashboard and outcome arithmetic
+        run: node --experimental-strip-types --test tests/forward-test-metrics.test.mjs tests/forward-test-admin-security.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
@@ -210,7 +212,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Exercise actual worker lifecycle and public-feed failure recovery
-        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs tests/paper-worker-three-market-runtime.test.mjs
+        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs tests/paper-worker-three-market-runtime.test.mjs tests/paper-worker-idle-feed.test.mjs
 
   authenticated-gotrue:
     name: Real local Supabase Auth JWT + paper API authorization
