@@ -1,0 +1,26 @@
+name: SENFX Intelligence isolated paper tests
+
+on:
+  push:
+    branches:
+      - feature/senfx-ai-intelligence-suite
+    paths:
+      - 'lib/market/smart-entry-paper.ts'
+      - 'tests/smart-entry-paper.test.mjs'
+      - '.github/workflows/senfx-intelligence-paper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smart-entry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated deterministic paper-only Smart Entry tests
+        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs
