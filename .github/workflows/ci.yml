@@ -210,7 +210,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Exercise actual worker lifecycle and public-feed failure recovery
-        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs tests/paper-worker-three-market-runtime.test.mjs
+        run: node --experimental-strip-types --test tests/paper-worker-runtime.test.mjs tests/paper-worker-feed-outage.test.mjs tests/paper-worker-three-market-runtime.test.mjs tests/paper-worker-idle-feed.test.mjs
 
   authenticated-gotrue:
     name: Real local Supabase Auth JWT + paper API authorization
