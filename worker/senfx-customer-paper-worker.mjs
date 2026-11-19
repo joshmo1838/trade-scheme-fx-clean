@@ -37,7 +37,7 @@ let pollBusy = false;
 let reconnectMs = 1_000;
 let reconnectTimer;
 let pollTimer;
-let lastConnected = 0;
+let pingTimer;
 
 function logError(context, error) {
   const code = error && typeof error === "object" ? error.code : null;
@@ -172,7 +172,7 @@ async function poll() {
       if(!active.has(id))sessions.delete(id);
     }
   } catch(error){logError("control database poll failed",error);}
-  finally{pollBusy=false;}
+  finally{pollBusy=false;reconcileFeedDemand();}
 }
 async function onPaperTick(s,price,epoch) {
   if (stopped || !s.owned || s.desired!=="running" || !s.published ||
@@ -238,45 +238,107 @@ function onMessage(raw) {
     if(s.market===market)void onPaperTick(s,price,epoch);
   }
 }
+// No active/authorized PAPER run means no Deriv subscription is needed.
+// An idle WebSocket was previously repeatedly closed by the public service.
+function needsFeed() {
+  for (const session of sessions.values()) {
+    if (session.owned && session.desired === "running" &&
+        session.published && session.market && ALL_MARKETS.has(session.market)) return true;
+  }
+  return false;
+}
+function reconcileFeedDemand() {
+  if (stopped) return;
+  if (needsFeed()) {
+    // Respect scheduled exponential backoff after an unexpected disconnect.
+    if (!reconnectTimer && (!socket || socket.readyState === WebSocket.CLOSED)) connectFeed();
+    return;
+  }
+  clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
+  clearInterval(pingTimer);
+  pingTimer = undefined;
+  reconnectMs = 1_000;
+  subscribed.clear();
+  marketTicks.clear();
+  const old = socket;
+  socket = null; // Ignore the close event from our own intentional disconnect.
+  if (old && old.readyState !== WebSocket.CLOSED) {
+    try { old.close(); } catch { /* idle connection is already unavailable */ }
+  }
+}
 function connectFeed(){
-  if(stopped)return;
+  if (stopped || !needsFeed() || reconnectTimer ||
+      (socket && (socket.readyState === WebSocket.CONNECTING ||
+                  socket.readyState === WebSocket.OPEN))) return;
   try{
     const ws=new WebSocket(PUBLIC_WS);
     socket=ws;
     ws.addEventListener("open",()=>{
+      if (socket !== ws || stopped || !needsFeed()) {
+        try { ws.close(); } catch {}
+        return;
+      }
       subscribed.clear();
       reconnectMs=1_000;
-      lastConnected=Date.now();
-      for(const s of sessions.values())if(s.market)ensureFeed(s.market);
+      for(const session of sessions.values()){
+        if(session.owned && session.published && session.desired==="running" && session.market)
+          ensureFeed(session.market);
+      }
+      clearInterval(pingTimer);
+      // Deriv documents a 30–60 second ping for otherwise idle connections.
+      pingTimer=setInterval(()=>{
+        if(socket===ws && ws.readyState===WebSocket.OPEN && needsFeed()){
+          try { ws.send(JSON.stringify({ping:1,req_id:95001})); }
+          catch(error) { logError("public feed keepalive failed",error); }
+        }
+      },30_000);
       console.log("[paper-worker] connected to PUBLIC market feed");
     });
-    ws.addEventListener("message",event=>onMessage(event.data));
-    ws.addEventListener("error",()=>logError("public WebSocket error",{}));
+    ws.addEventListener("message",event=>{if(socket===ws)onMessage(event.data);});
+    ws.addEventListener("error",()=>{if(socket===ws)logError("public WebSocket error",{});});
     ws.addEventListener("close",()=>{
-      if(stopped)return;
+      if(socket!==ws)return;
+      const hadDemand=needsFeed();
+      socket=null;
+      clearInterval(pingTimer);
+      pingTimer=undefined;
       subscribed.clear();
       marketTicks.clear();
-      for(const s of sessions.values()) {s.owned=false;s.prices=[];}
+      for(const session of sessions.values()) {session.owned=false;session.prices=[];}
+      if(stopped || !hadDemand)return;
       clearTimeout(reconnectTimer);
-      reconnectTimer=setTimeout(connectFeed,reconnectMs);
+      const delay=reconnectMs;
+      reconnectTimer=setTimeout(()=>{
+        reconnectTimer=undefined;
+        if(needsFeed())connectFeed();
+      },delay);
       reconnectMs=Math.min(reconnectMs*2,30_000);
     });
   }catch(error){
+    socket=null;
     logError("could not connect public feed",error);
-    reconnectTimer=setTimeout(connectFeed,reconnectMs);
+    if(!needsFeed())return;
+    const delay=reconnectMs;
+    reconnectTimer=setTimeout(()=>{
+      reconnectTimer=undefined;
+      if(needsFeed())connectFeed();
+    },delay);
     reconnectMs=Math.min(reconnectMs*2,30_000);
   }
 }
+
 async function shutdown(){
   stopped=true;
   clearTimeout(reconnectTimer);
   clearInterval(pollTimer);
+  clearInterval(pingTimer);
   try{socket?.close();}catch{}
   // Lease expires within 20s. No new paper entries can pass SQL after expiry.
 }
 process.on("SIGTERM",()=>{void shutdown();});
 process.on("SIGINT",()=>{void shutdown();});
 console.log("[paper-worker] booting PUBLIC-TICKS PAPER-ONLY worker");
-connectFeed();
+// Perform the database eligibility check BEFORE opening a public connection.
 await poll();
 pollTimer=setInterval(()=>{void poll();},POLL_MS);
