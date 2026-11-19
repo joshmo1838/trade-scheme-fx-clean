@@ -9,8 +9,8 @@ export function validateTick(input: Tick, previous: Tick | null, nowMs: number, 
   if (![input.epochMs, input.quote, nowMs].every(Number.isFinite)) return { ok: false, reason: "invalid-number" };
   if (input.quote <= 0 || input.epochMs > nowMs) return { ok: false, reason: "invalid-tick" };
   if (nowMs - input.epochMs > maxAgeMs) return { ok: false, reason: "stale-tick" };
-  if (previous && (input.id === previous.id || input.epochMs === previous.epochMs)) return { ok: false, reason: "duplicate-tick" };
-  if (previous && input.epochMs < previous.epochMs) return { ok: false, reason: "out-of-order-tick" };
+  if (previous && input.id === previous.id) return { ok: false, reason: "duplicate-tick" };
+  if (previous && input.epochMs <= previous.epochMs) return { ok: false, reason: "out-of-order-tick" };
   return { ok: true, tick: input };
 }
 
@@ -37,8 +37,8 @@ export function smartEntryStep(state: EntryState, config: EntryConfig, nowMs: nu
   if (state.stopped || emergencyStop) return stop("emergency-or-stopped");
   if (![nowMs, config.maxRuns, config.minimumScore, config.waitMs, config.stake, config.exposureCap].every(Number.isFinite) ||
       !Number.isInteger(config.maxRuns) || config.maxRuns < 1 || config.maxRuns > 10 ||
-      config.minimumScore < 0 || config.minimumScore > 100 || config.waitMs <= 0 || config.waitMs > 60000 ||
-      config.stake <= 0 || config.exposureCap <= 0 || nowMs < state.signalStartedAtMs) return stop("invalid-config-or-clock");
+      config.minimumScore < 75 || config.minimumScore > 100 || config.waitMs <= 0 || config.waitMs > 60000 ||
+      config.stake <= 0 || config.exposureCap <= 0 || !Number.isInteger(state.completed) || state.completed < 0 || state.completed > 10 || !Number.isFinite(state.exposure) || state.exposure < 0 || !Number.isFinite(state.signalStartedAtMs) || !Number.isFinite(state.startedAtMs) || nowMs < state.startedAtMs || nowMs < state.signalStartedAtMs) return stop("invalid-config-or-clock");
   if (state.completed >= config.maxRuns) return stop("batch-complete");
   if (state.exposure + config.stake > config.exposureCap) return stop("exposure-cap");
   if (nowMs - state.signalStartedAtMs >= config.waitMs) return stop("signal-timeout-no-entry");
