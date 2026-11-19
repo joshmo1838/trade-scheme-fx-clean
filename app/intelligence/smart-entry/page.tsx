@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import "./smart-entry-visuals.css";
 import { beginSmartEntry, smartEntryStep, SMART_ENTRY_DEFAULTS, type EntryState, type Tick } from "@/lib/market/smart-entry-paper";
 
 export default function SmartEntryResearchPage() {
@@ -35,7 +36,7 @@ export default function SmartEntryResearchPage() {
     setStatus("Emergency Stop — no further observations");
   }
   return (
-    <main style={{ minHeight: "100vh", background: "#081326", color: "#eaf4ff", padding: "clamp(20px,4vw,52px)", fontFamily: "system-ui,sans-serif" }}>
+    <main className="senfx-smart-entry" style={{ minHeight: "100vh", background: "#081326", color: "#eaf4ff", padding: "clamp(20px,4vw,52px)", fontFamily: "system-ui,sans-serif" }}>
       <div style={{ maxWidth: 1050, margin: "0 auto" }}>
         <p style={{ color: "#67e8f9", letterSpacing: 2, fontSize: 12 }}>SENFX / AI INTELLIGENCE / RESEARCH</p>
         <h1 style={{ fontSize: "clamp(28px,4vw,46px)", marginBottom: 8 }}>Smart Entry Engine</h1>
