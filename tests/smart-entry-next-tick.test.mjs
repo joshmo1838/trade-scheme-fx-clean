@@ -46,3 +46,31 @@ test("invalid paper history is stopped", () => {
   const s = beginPaperSession(1000);
   assert.equal(paperNextTickStep({ ...s, observations: [{ entry: tick(1), settlement: null, outcome: null, researchScore: 99 }] }, SMART_ENTRY_DEFAULTS, 1000, tick(1), 99).action, "stop");
 });
+
+test("ten sequential observations cap the paper batch without creating an eleventh", () => {
+  let session = beginPaperSession(1000);
+  for (let n = 1; n <= 10; n++) {
+    const entry = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, (n * 2 - 1) * 1000, tick(n * 2 - 1), 75);
+    assert.equal(entry.action, "observe");
+    session = entry.session;
+    const settle = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, n * 2 * 1000, tick(n * 2), 75);
+    assert.equal(settle.action, "settle");
+    session = settle.session;
+  }
+  assert.equal(session.observations.length, 10);
+  assert.equal(session.observations.filter(o => o.settlement !== null).length, 10);
+  assert.equal(session.gate.exposure, 10);
+  const extra = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 21000, tick(21), 99);
+  assert.equal(extra.action, "stop");
+  assert.equal(extra.session.observations.length, 10);
+});
+test("duplicate and out-of-order settlement ticks cannot settle pending observations", () => {
+  let session = paperNextTickStep(beginPaperSession(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1), 75).session;
+  const duplicate = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 1001, tick(1), 75);
+  assert.equal(duplicate.action, "wait");
+  assert.equal(duplicate.session.observations[0].settlement, null);
+  const older = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 1002, { id: "other", epochMs: 1000, quote: 900 }, 75);
+  assert.equal(older.action, "wait");
+  assert.equal(older.reason, "out-of-order-tick");
+  assert.equal(older.session.observations[0].settlement, null);
+});
