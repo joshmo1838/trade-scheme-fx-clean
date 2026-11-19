@@ -20,14 +20,14 @@ permissions:
 jobs:
   smart-entry:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
+      - name: Install dependencies without modifying repository lockfiles
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
       - name: Verify TypeScript dashboard and engine
         run: npm run typecheck
       - name: Run isolated deterministic paper-only Smart Entry tests
