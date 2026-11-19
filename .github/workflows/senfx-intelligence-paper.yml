@@ -9,6 +9,9 @@ on:
       - 'tests/smart-entry-paper.test.mjs'
       - '.github/workflows/senfx-intelligence-paper.yml'
       - 'app/intelligence/smart-entry/**'
+      - 'app/components/WorkspaceAIOrb.tsx'
+      - 'app/components/workspace-ai-orb.css'
+      - 'app/layout.tsx'
   workflow_dispatch:
 
 permissions:
