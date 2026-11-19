@@ -97,6 +97,7 @@ test("idle paper worker opens no socket; Start connects and Stop disconnects", {
     await waitFor("on-demand public feed connection", () =>
       output.includes("connected to PUBLIC market feed"), 10_000);
     assert.ok(state.commands.includes("starting"));
+    await waitFor("first fresh tick confirmed as running", () => state.observed === "running", 12_000);
     state.desired = "stopped";
     await waitFor("Stop acknowledged", () => state.observed === "stopped", 9_000);
     const connectionsAtStop = output.match(/connected to PUBLIC market feed/g)?.length || 0;
