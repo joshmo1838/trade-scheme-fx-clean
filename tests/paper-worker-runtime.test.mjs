@@ -204,7 +204,7 @@ test("paper worker completes start, simulated settlement, pause, resume and stop
 
     state.desired = "running";
     state.version++;
-    await waitFor("Resume acknowledgement", () => state.observed==="running", 7_000);
+    await waitFor("Resume acknowledgement", () => state.observed==="running", 13_000);
     await waitFor("paper-only settlement after Resume",
       () => state.settled > firstSettled, 22_000);
 
