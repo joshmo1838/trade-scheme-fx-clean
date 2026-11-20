@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   DEMO_MARKETS,
-  DEMO_STAKE,
   DemoApiError,
   getDerivDemoContext,
   getDemoStatement,
@@ -189,7 +188,7 @@ async function reconcileBuyOrder(
       Math.abs(actualPayout - Number(order.payout)) > 0.02 ||
       Math.abs(dateStart - parsedShortcode.start) > 2 ||
       Math.abs(dateExpiry - parsedShortcode.expiry) > 2 ||
-      actualBuyPrice <= 0 || actualBuyPrice > DEMO_STAKE ||
+      actualBuyPrice <= 0 || actualBuyPrice > Number(order.stake_amount) ||
       Math.abs((dateExpiry - dateStart) - 300) > 2
     ) {
       return { state: "waiting" as const, reason: "Deriv found a buy, but its contract details do not match the saved five-minute Demo quote. Risk remains reserved while the order is reviewed." };
@@ -278,10 +277,10 @@ function safeRisk(risk: any, orders: any[]) {
   return {
     dailyLoss: Number(risk?.realized_loss ?? 0),
     reservedLoss: Number(risk?.reserved_loss ?? 0),
-    unlimitedDemoPractice: false,
-    dailyLossLimit: 20,
-    remainingLossBudget: Math.max(0, 20 - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
-    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= 20,
+    unlimitedDemoPractice: true,
+    dailyLossLimit: null,
+    remainingLossBudget: null,
+    limitReached: false,
     orders,
   };
 }
@@ -345,6 +344,12 @@ export async function POST(request: NextRequest) {
     if (action === "quote") {
       const marketSymbol = body?.marketSymbol;
       const direction = body?.direction;
+      const stake = body?.stake;
+      const virtualBalance = Number(context.account.balance);
+      if (typeof stake !== "number" || !Number.isFinite(stake) || stake <= 0 ||
+          !Number.isFinite(virtualBalance) || virtualBalance <= 0 || stake > virtualBalance) {
+        return jsonError("Enter a positive Demo stake within your available virtual balance.", 400, "INVALID_DEMO_STAKE");
+      }
       if (typeof marketSymbol !== "string" || !DEMO_MARKETS.has(marketSymbol)) return jsonError("This market is not enabled for SENFX Demo execution.");
       if (direction !== "CALL" && direction !== "PUT") return jsonError("Choose Rise (CALL) or Fall (PUT).");
 
@@ -382,7 +387,7 @@ export async function POST(request: NextRequest) {
       session = await openDerivDemoSession(context);
       const proposalResponse: any = await session.request("proposal", {
         proposal: 1,
-        amount: DEMO_STAKE,
+        amount: stake,
         basis: "stake",
         contract_type: direction,
         currency: context.account.currency,
@@ -399,13 +404,13 @@ export async function POST(request: NextRequest) {
       const dateExpiry = Number(proposal?.date_expiry);
       if (
         !/^[A-Za-z0-9_-]{32,128}$/.test(proposalId) ||
-        !Number.isFinite(askPrice) || askPrice <= 0 || askPrice > DEMO_STAKE ||
+        !Number.isFinite(askPrice) || askPrice <= 0 || askPrice > stake ||
         !Number.isFinite(payout) || payout <= 0 ||
         !Number.isFinite(dateStart) || !Number.isFinite(dateExpiry) ||
         Math.abs(dateExpiry - dateStart - 300) > 2 ||
         typeof proposal?.longcode !== "string"
       ) {
-        return jsonError("Deriv returned a proposal that does not meet SENFX's fixed five-minute, 10-unit Demo rules.", 502, "INVALID_DERIV_PROPOSAL");
+        return jsonError("Deriv returned a proposal that does not meet SENFX's five-minute Demo quote validation rules.", 502, "INVALID_DERIV_PROPOSAL");
       }
 
       const { data: order, error } = await context.admin.from("deriv_demo_orders").insert({
@@ -417,7 +422,7 @@ export async function POST(request: NextRequest) {
         contract_type: direction,
         duration: 5,
         duration_unit: "m",
-        stake_amount: DEMO_STAKE,
+        stake_amount: stake,
         proposal_id: proposalId,
         ask_price: askPrice,
         payout,
@@ -442,7 +447,7 @@ export async function POST(request: NextRequest) {
           marketSymbol,
           direction,
           durationMinutes: 5,
-          stakeAmount: DEMO_STAKE,
+          stakeAmount: stake,
         },
       }, { headers: noStore });
     }
