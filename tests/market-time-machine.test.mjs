@@ -32,3 +32,20 @@ test("replay caps observations at ten and never submits orders", () => {
   assert.equal(result.session.observations.every(o => o.settlement !== null), true);
   assert.equal(result.events.length, 20);
 });
+
+test("replay rejects malformed and out-of-order inputs without hypothetical settlement", () => {
+  const malformed = replayPaperTicks([input(1), { ...input(2), tick: { ...tick(2), quote: NaN } }], 1000);
+  assert.equal(malformed.session.observations[0].settlement, null);
+  assert.equal(malformed.events[1].reason, "invalid-number");
+  const reversed = replayPaperTicks([input(1), { ...input(2), tick: tick(1) }], 1000);
+  assert.equal(reversed.events[1].reason, "duplicate-tick");
+  assert.equal(reversed.session.observations[0].settlement, null);
+  const stale = replayPaperTicks([input(1), { ...input(2), receivedAtMs: 8000 }], 1000);
+  assert.equal(stale.events[1].reason, "stale-tick");
+  assert.equal(stale.session.observations[0].settlement, null);
+});
+test("low quality research scores never create paper observations", () => {
+  const result = replayPaperTicks([input(1, 74), input(2, 74), input(3, 74)], 1000);
+  assert.equal(result.session.observations.length, 0);
+  assert.equal(result.events.every(e => e.reason === "no-qualifying-signal"), true);
+});
