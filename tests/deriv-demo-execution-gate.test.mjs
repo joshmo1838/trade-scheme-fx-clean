@@ -75,3 +75,9 @@ test("configured overrides cannot raise immutable demo safety ceilings", () => {
   }
   assert.equal(evaluateDemoOrderGate(base, { enabled: true, limits: { maxStake: 5, maxDailyLoss: 15 } }).allowed, true);
 });
+
+test("reserved exposure plus loss plus proposed stake must remain within daily budget", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, dailyLoss: 12, aggregateExposure: 5, stake: 5 }, enabled).code, "DAILY_LOSS_LIMIT");
+  assert.equal(evaluateDemoOrderGate({ ...base, dailyLoss: 10, aggregateExposure: 5, stake: 5 }, enabled).allowed, true);
+  assert.equal(evaluateDemoOrderGate({ ...base, dailyLoss: 10.01, aggregateExposure: 5, stake: 5 }, enabled).code, "DAILY_LOSS_LIMIT");
+});
