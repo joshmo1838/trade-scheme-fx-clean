@@ -90,7 +90,7 @@ export async function GET() {
 
     const { data, error: dbError } = await admin
       .from("deriv_connections")
-      .select("active_account_id, status")
+      .select("active_account_id, active_account_type, status")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -105,6 +105,7 @@ export async function GET() {
       {
         success: true,
         active_account_id: data.active_account_id || "",
+        active_account_type: data.active_account_type || null,
         status: data.status
       },
       { headers: { "Cache-Control": "no-store" } }
@@ -226,12 +227,11 @@ export async function POST(request: NextRequest) {
     const result = await derivResponse.json();
     const accounts = result?.data ?? [];
 
-    const accountBelongsToUser = accounts.some(
-      (account: { account_id?: string }) =>
-        account.account_id === accountId
-    );
+    const selectedAccount = Array.isArray(accounts)
+      ? accounts.find((account: { account_id?: string }) => account.account_id === accountId)
+      : null;
 
-    if (!accountBelongsToUser) {
+    if (!selectedAccount) {
       return NextResponse.json(
         {
           error:
@@ -241,10 +241,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const accountType = selectedAccount.account_type;
+    if (accountType !== "demo" && accountType !== "real") {
+      return NextResponse.json(
+        { error: "Deriv returned an unrecognized account type. Selection was not saved." },
+        { status: 409 }
+      );
+    }
+
     const { error: updateError } = await admin
       .from("deriv_connections")
       .update({
-        active_account_id: accountId
+        active_account_id: accountId,
+        active_account_type: accountType
       })
       .eq("user_id", user.id);
 
@@ -260,6 +269,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       active_account_id: accountId,
+      active_account_type: accountType,
       message: "Deriv account selection saved successfully."
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
