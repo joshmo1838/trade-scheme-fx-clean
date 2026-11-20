@@ -9,7 +9,7 @@ Status: design-stage, not a production migration. Broker purchases remain hard-d
 - The live senfx_demo_reserve_order routine is the legacy unlimited-loss version, but has no reliable one-active-order, finite stake, or broker-side consent checks.
 - A UNIQUE (user_id, request_id) constraint protects idempotency; unique active-order index on (user_id) WHERE status IN ('reserved','open','buy_unknown') provides one active order per user.
 - All seven senfx_demo_* RPCs are callable by service_role, not anon or authenticated.
-- The browser-independent JS execution gate still rejects stakes above 10 and cumulative daily loss above 20. The API buy action returns DEMO_BUY_SAFETY_HOLD.
+- The current pure offline JS execution gate permits positive finite stakes and cumulative Demo losses without SENFX-defined numeric ceilings, while requiring explicit consent, verified Demo account status, risk-state verification, Emergency Stop clearance, a UUID request key, and at most one outstanding order. This is advisory only and does not establish database atomicity.\n- Production still contains the incompatible fixed-limit CHECK constraints and legacy reservation routine. The coordinated API/SQL migration has not been applied or independently verified. Broker execution remains prohibited pending separate authorization.
 
 ## Intended pilot behavior
 - No SENFX-defined numerical maximum stake or cumulative daily loss; broker virtual balance, quote, contract limits and finite positive numeric validation still apply.
