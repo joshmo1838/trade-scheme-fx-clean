@@ -88,3 +88,13 @@ test("Bot Center and server APIs block this scanner from directional trading",()
  assert.match(scanner,/No broker purchases/);
  assert.doesNotMatch(scanner,/\bbuy\s*:|\bbuy\(|\bproposal\s*:|trade\/buy|\/ws\/real/);
 });
+
+
+test("browser scanner rejects older epochs and same-second quote replays without relying on subscription IDs",()=>{
+ const scanner=readFileSync(new URL("../app/components/DigitMatrixScanner.tsx",import.meta.url),"utf8");
+ assert.match(scanner,/tick\.epoch<previous\.epoch/);
+ assert.match(scanner,/seen\.quotes\.has\(tick\.quoteText\)/);
+ assert.match(scanner,/seen\.quotes\.add\(tick\.quoteText\)/);
+ assert.match(scanner,/seenThisSecond\.current=new Map\(\)/);
+ assert.doesNotMatch(scanner,/const key=tick\.tickId\|\|/);
+});
