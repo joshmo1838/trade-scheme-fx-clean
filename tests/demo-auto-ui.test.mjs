@@ -9,7 +9,7 @@ test("Demo auto bot starts only after user interaction and never retries a purch
  assert.match(client,/onClick=\{begin\}/);
  assert.match(client,/Start \$1 Demo auto bot/);
  assert.match(client,/buyStarted\.current=true/);
- assert.match(client,/if\(stopped\.current\|\|buyStarted\.current\)return/);
+ assert.match(client,/if\(stopped\.current\|\|buyStarted\.current\|\|generation!==socketGeneration\.current\)return/);
  assert.match(client,/if\(evaluation\.eligible\)/);
  assert.match(client,/void executeSingleCandidate\(evaluation\)/);
  assert.match(client,/if\(!ready\|\|virtualBalance<1/);
