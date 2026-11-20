@@ -8,6 +8,7 @@ export function replayPaperTicks(inputs: readonly ReplayInput[], startMs: number
   let session = beginPaperSession(startMs);
   const events: ReplayResult["events"] = [];
   if (!Array.isArray(inputs) || inputs.length > 10000) throw new Error("invalid-replay-input");
+  if (emergencyStopAtIndex !== null && (!Number.isInteger(emergencyStopAtIndex) || emergencyStopAtIndex < 0 || emergencyStopAtIndex >= inputs.length)) throw new Error("invalid-emergency-stop-index");
   for (let i = 0; i < inputs.length; i++) {
     if (session.gate.stopped) break;
     const row = inputs[i];
