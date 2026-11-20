@@ -7,6 +7,8 @@ on:
       - 'tests/deriv-demo-account-allowlist.test.mjs'
       - 'tests/deriv-demo-variable-stake-source.test.mjs'
       - 'tests/deriv-demo-reservation-source.test.mjs'
+      - 'tests/deriv-demo-one-dollar-postgres.sql'
+      - 'supabase/senfx-deriv-demo-one-dollar-stage-only.sql'
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'
       - 'app/api/deriv/demo/orders/route.ts'
       - 'app/components/DemoTradingConsole.tsx'
@@ -26,3 +28,69 @@ jobs:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
         run: node --test tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs
+
+  isolated-postgres-reservation-qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: senfx_demo_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d senfx_demo_qa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: senfx_demo_qa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client on the ephemeral runner
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Apply committed RPC and test single $1 virtual reservation fail-closed rules
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-one-dollar-postgres.sql
+      - name: Two concurrent same-user orders cannot both reserve virtual risk
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -XAt -v ON_ERROR_STOP=1 -c \
+            "select public.senfx_demo_reserve_order('00000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000009')->>'allowed';" \
+            > /tmp/demo-reservation-a.txt &
+          first=$!
+          psql -XAt -v ON_ERROR_STOP=1 -c \
+            "select public.senfx_demo_reserve_order('00000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000010')->>'allowed';" \
+            > /tmp/demo-reservation-b.txt &
+          second=$!
+          wait "$first"
+          wait "$second"
+          cat /tmp/demo-reservation-a.txt /tmp/demo-reservation-b.txt
+          test "$(grep -hxc true /tmp/demo-reservation-{a,b}.txt | awk -F: '{s+=$NF} END {print s+0}')" -eq 1
+          test "$(grep -hxc false /tmp/demo-reservation-{a,b}.txt | awk -F: '{s+=$NF} END {print s+0}')" -eq 1
+          psql -XAt -v ON_ERROR_STOP=1 -c "
+            do \$verify\$
+            begin
+              if (select count(*) from public.deriv_demo_orders
+                  where user_id='00000000-0000-4000-8000-000000000007'
+                    and status='reserved') <> 1
+                or (select reserved_loss from public.deriv_demo_daily_risk
+                    where user_id='00000000-0000-4000-8000-000000000007') <> 1
+              then
+                raise exception 'Concurrent reservations exceeded the single $1 limit';
+              end if;
+            end
+            \$verify\$;
+          "
