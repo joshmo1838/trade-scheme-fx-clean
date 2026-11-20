@@ -278,10 +278,10 @@ function safeRisk(risk: any, orders: any[]) {
   return {
     dailyLoss: Number(risk?.realized_loss ?? 0),
     reservedLoss: Number(risk?.reserved_loss ?? 0),
-    unlimitedDemoPractice: true,
-    dailyLossLimit: null,
-    remainingLossBudget: null,
-    limitReached: false,
+    unlimitedDemoPractice: false,
+    dailyLossLimit: 20,
+    remainingLossBudget: Math.max(0, 20 - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
+    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= 20,
     orders,
   };
 }
