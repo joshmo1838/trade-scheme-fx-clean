@@ -280,5 +280,5 @@ test("200-study fails closed on invalid parameters and preserves partial progres
 });
 test("200-study module has no broker-order or persistence calls",()=>{
  const code=readFileSync(new URL("../lib/bots/paper-200-study.ts",import.meta.url),"utf8");
- assert.doesNotMatch(code,/fetch\\(|WebSocket|DERIV_TOKEN|SUPABASE|buy\\(|\/api\/deriv\//i);
+ assert.doesNotMatch(code,/fetch\(|WebSocket|DERIV_TOKEN|SUPABASE|buy\(|\/api\/deriv\//i);
 });

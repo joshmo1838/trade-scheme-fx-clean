@@ -377,11 +377,11 @@ export default function FifteenPaperBotLibrary(){
         onChange={e=>setStake(Number(e.target.value))}/></label>
       <label>Future observations (1–10)
        <input type="number" min="1" max="10" step="1" value={count}
-        disabled={session?.state==="running"}
+        disabled={session?.state==="running"||study?.status==="running"}
         onChange={e=>setCount(Number(e.target.value))}/></label>
       <label>Per-batch hypothetical exposure cap (USD)
        <input type="number" min="1" step=".01" value={cap}
-        disabled={session?.state==="running"}
+        disabled={session?.state==="running"||study?.status==="running"}
         onChange={e=>setCap(Number(e.target.value))}/></label>
      </div>
      <div className={styles.exposure}>
