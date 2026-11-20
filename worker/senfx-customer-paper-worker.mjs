@@ -38,6 +38,7 @@ let reconnectMs = 1_000;
 let reconnectTimer;
 let pollTimer;
 let lastConnected = 0;
+let heartbeatTimer;
 
 function logError(context, error) {
   const code = error && typeof error === "object" ? error.code : null;
@@ -247,13 +248,23 @@ function connectFeed(){
       subscribed.clear();
       reconnectMs=1_000;
       lastConnected=Date.now();
+      clearInterval(heartbeatTimer);
+      // Public Deriv connections may be closed after inactivity. Ping only
+      // while OPEN; this is a market-data keepalive, never a broker order.
+      heartbeatTimer=setInterval(()=>{
+        if(ws.readyState!==WebSocket.OPEN)return;
+        try{ws.send(JSON.stringify({ping:1}));}
+        catch(error){logError("public feed keepalive send failed",error);}
+      },30_000);
       for(const s of sessions.values())if(s.market)ensureFeed(s.market);
       console.log("[paper-worker] connected to PUBLIC market feed");
     });
     ws.addEventListener("message",event=>onMessage(event.data));
     ws.addEventListener("error",()=>logError("public WebSocket error",{}));
-    ws.addEventListener("close",()=>{
+    ws.addEventListener("close",event=>{
+      clearInterval(heartbeatTimer);
       if(stopped)return;
+      console.warn("[paper-worker] public feed closed code="+String(event.code)+" clean="+String(event.wasClean)+" uptimeMs="+String(Date.now()-lastConnected));
       subscribed.clear();
       marketTicks.clear();
       for(const s of sessions.values()) {s.owned=false;s.prices=[];}
@@ -271,6 +282,7 @@ async function shutdown(){
   stopped=true;
   clearTimeout(reconnectTimer);
   clearInterval(pollTimer);
+  clearInterval(heartbeatTimer);
   try{socket?.close();}catch{}
   // Lease expires within 20s. No new paper entries can pass SQL after expiry.
 }
