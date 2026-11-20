@@ -40,12 +40,15 @@ export default function FifteenPaperBotLibrary(){
  const [cap,setCap]=useState(5);
  const [session,setSession]=useState<FifteenSession|null>(null);
  const [study,setStudy]=useState<PaperStudy|null>(null);
+ const [studyQueued,setStudyQueued]=useState(false);
  const [notice,setNotice]=useState("Select an original SENFX strategy and gather fresh public-market ticks.");
  const history=useRef(new Map<DigitSymbol,ObservedTick[]>());
  const lastReceived=useRef(new Map<DigitSymbol,number>());
  const sessionRef=useRef<FifteenSession|null>(null);
  const studyRef=useRef<PaperStudy|null>(null);
  const awaitingNextBatch=useRef(false);
+ const studyQueuedRef=useRef(false);
+ const verifiedMarketsRef=useRef(new Set<string>());
 
  const selected=useMemo(()=>findFifteenBot(selectedId)||FIFTEEN_BOTS[0],[selectedId]);
  const sample=snapshots[selected.market]?.quotes||[];
@@ -53,6 +56,11 @@ export default function FifteenPaperBotLibrary(){
  const marketFresh=enabled&&marketStatus.includes(selected.market)&&
    Date.now()-lastAt<15_000;
  const nextResearchSignal=useMemo(()=>predictFifteenBot(selected,sample),[selected,sample]);
+ const studyBot=findFifteenBot(STUDY_BOT_ID);
+ const studySamples=studyBot?(snapshots[studyBot.market]?.quotes.length||0):0;
+ const studyVerified=!!studyBot&&marketStatus.includes(studyBot.market);
+ const studyFeedFresh=!!studyBot&&enabled&&studyVerified&&
+  Date.now()-(snapshots[studyBot.market]?.lastAt||0)<15_000;
  const exposure=Number.isFinite(stake)&&Number.isFinite(count)?Math.round(stake*count*100)/100:0;
  const budgetOk=stake>=1&&stake<=25&&Number.isFinite(stake)&&
    Number.isInteger(count)&&count>=1&&count<=10&&Number.isFinite(cap)&&cap>=exposure;
@@ -65,22 +73,29 @@ export default function FifteenPaperBotLibrary(){
    sessionRef.current=next;setSession(next);
   }
   const activeStudy=studyRef.current;
+  const wasQueued=studyQueuedRef.current;
+  if(wasQueued){studyQueuedRef.current=false;setStudyQueued(false);}
   if(activeStudy?.status==="running"){
    // Preserve partial outcomes already counted before the interruption.
    const stopped=stopPaperStudy(activeStudy,reason);
    studyRef.current=stopped;setStudy(stopped);
    awaitingNextBatch.current=false;
   }
-  if(old?.state==="running"||activeStudy?.status==="running")setNotice(reason);
+  if(old?.state==="running"||activeStudy?.status==="running"||wasQueued)setNotice(reason);
  };
  const changeBot=(id:string)=>{
-  if(id!==selectedId)stopPaperBatch("Changed strategy. Previous paper batch stopped.");
+  if(id!==selectedId||sessionRef.current?.state==="running"||studyQueuedRef.current)
+   stopPaperBatch("Changed strategy. Previous paper batch stopped.");
   setSelectedId(id);
   setSession(null);sessionRef.current=null;
   studyRef.current=null;setStudy(null);awaitingNextBatch.current=false;
+  studyQueuedRef.current=false;setStudyQueued(false);
   setNotice("Strategy selected. Wait for fresh market samples, then start a paper batch.");
  };
  const start=()=>{
+  if(studyQueuedRef.current){
+   setNotice("200-observation study is queued. Cancel it before starting a manual batch.");return;
+  }
   if(studyRef.current?.status==="running"){
    setNotice("A 200-observation study is running. Use Emergency Stop first.");return;
   }
@@ -97,23 +112,37 @@ export default function FifteenPaperBotLibrary(){
   sessionRef.current=result.session;setSession(result.session);
   setNotice("PAPER ONLY: strategy armed. One future public tick tests the prior hypothesis.");
  };
- const start200Study=()=>{
-  if(selected.id!==STUDY_BOT_ID){setNotice("Select SENFX Digit Differs before starting the 200-study.");return;}
-  if(sessionRef.current?.state==="running"||studyRef.current?.status==="running"){
-   setNotice("Stop the current paper batch before starting another.");return;
-  }
-  if(!enabled||!marketFresh||!nextResearchSignal){
-   setNotice("Fresh verified Digit Differs public ticks are required.");return;
-  }
+ // Explicit user tap queues the study; market verification still gates its start.
+ const tryArm200Study=(nowMs:number)=>{
+  const bot=findFifteenBot(STUDY_BOT_ID);
+  if(!studyQueuedRef.current||!bot||!verifiedMarketsRef.current.has(bot.market)||
+     sessionRef.current?.state==="running"||studyRef.current?.status==="running")
+   return false;
   const initial=startFifteenPaperSession({
-   botId:STUDY_BOT_ID,history:history.current.get(selected.market)||[],
-   stake:STUDY_STAKE,count:STUDY_BATCH_SIZE,cap:STUDY_BATCH_CAP,nowMs:Date.now(),
+   botId:STUDY_BOT_ID,history:history.current.get(bot.market)||[],
+   stake:STUDY_STAKE,count:STUDY_BATCH_SIZE,cap:STUDY_BATCH_CAP,nowMs,
   });
-  if(!initial.ok){setNotice(initial.reason);return;}
+  if(!initial.ok)return false;
+  studyQueuedRef.current=false;setStudyQueued(false);
   const freshStudy=beginPaperStudy();
   studyRef.current=freshStudy;setStudy(freshStudy);awaitingNextBatch.current=false;
   sessionRef.current=initial.session;setSession(initial.session);
-  setNotice("200-study started: 20 sequential batches, $1 hypothetical per outcome. No broker orders.");
+  setNotice("200-study running: Matches/Differs Radar, 20 × 10 paper observations. No broker orders.");
+  return true;
+ };
+ const start200Study=()=>{
+  if(sessionRef.current?.state==="running"||studyRef.current?.status==="running"||
+     studyQueuedRef.current){
+   setNotice("Stop the current paper session before starting another.");return;
+  }
+  if(!findFifteenBot(STUDY_BOT_ID)){
+   setNotice("Matches/Differs Radar is unavailable. Study not started.");return;
+  }
+  setSelectedId(STUDY_BOT_ID);
+  studyQueuedRef.current=true;setStudyQueued(true);
+  if(!enabled)setEnabled(true);
+  if(enabled&&tryArm200Study(Date.now()))return;
+  setNotice("200-study queued for Matches/Differs Radar. Waiting for 40 verified public ticks and a fresh quote.");
  };
 
  useEffect(()=>{
@@ -128,6 +157,7 @@ export default function FifteenPaperBotLibrary(){
   let openAt=0,lastObservedAt=0,receivedDirectory=false;
   let subscribed=new Set<string>();
   history.current=new Map();lastReceived.current=new Map();
+  verifiedMarketsRef.current=new Set();
   setSnapshots({});setMarketStatus([]);
   const stopForFeed=(reason:string)=>{stopPaperBatch(reason);};
   const snapshot=()=>{
@@ -199,6 +229,7 @@ export default function FifteenPaperBotLibrary(){
      }).filter((x:unknown):x is string=>typeof x==="string"));
      const symbols=DIGIT_MARKETS.map(x=>x.symbol).filter(s=>TRACKED_MARKETS.has(s)&&offered.has(s));
      subscribed=new Set(symbols);receivedDirectory=true;
+     verifiedMarketsRef.current=new Set(symbols);
      setMarketStatus(symbols);
      symbols.forEach((symbol,i)=>{
       if(socket.readyState===WebSocket.OPEN){
@@ -262,6 +293,8 @@ export default function FifteenPaperBotLibrary(){
      lastReceived.current.set(tick.symbol,receivedAt);
      lastObservedAt=receivedAt;
      setFeedStatus("LIVE: genuine Deriv public quotes received · no broker orders.");
+     if(studyQueuedRef.current&&tick.symbol===findFifteenBot(STUDY_BOT_ID)?.market)
+      tryArm200Study(receivedAt); // Arming tick never scores a result.
     }else{
      setFeedStatus("Delayed Deriv tick detected. Paper results paused until fresh ticks arrive.");
     }
@@ -271,6 +304,7 @@ export default function FifteenPaperBotLibrary(){
     if(!mounted)return;
     stopForFeed("Public feed disconnected. Paper batch stopped.");
     subscribed.clear();setMarketStatus([]);
+    verifiedMarketsRef.current=new Set();
     history.current=new Map();lastReceived.current=new Map();
     setSnapshots({});
     setFeedStatus("Feed disconnected. Retrying safely…");
@@ -393,29 +427,37 @@ export default function FifteenPaperBotLibrary(){
      </p>
      <div className={styles.controls}>
       <button className={styles.startButton}
-       disabled={!budgetOk||!marketFresh||!nextResearchSignal||session?.state==="running"||study?.status==="running"}
+       disabled={!budgetOk||!marketFresh||!nextResearchSignal||session?.state==="running"||study?.status==="running"||studyQueued}
        onClick={start}>Start paper bot</button>
-      <button className={styles.stopButton} disabled={session?.state!=="running"&&study?.status!=="running"}
+      <button className={styles.stopButton} disabled={session?.state!=="running"&&study?.status!=="running"&&!studyQueued}
        onClick={()=>stopPaperBatch()}>Emergency Stop</button>
      </div>
      <p className={styles.notice} role="status">{notice}</p>
     </section>
     <section className={styles.panel}>
      <p className={styles.kicker}>OPTIONAL LONG-RUN PAPER EVALUATION</p>
-     <h2>Digit Differs · 200 observations</h2>
-     <p>One tap starts 20 sequential 10-observation batches using fresh Deriv public ticks.
-      Each hypothetical observation is $1, with a $10 per-batch cap and $200 maximum
-      cumulative illustrative exposure. Batches stop on feed loss, invalid history,
-      repeated delayed data or Emergency Stop. No broker contracts.</p>
+     <h2>Matches/Differs Radar · 200 observations</h2>
+     <p>One tap selects your Matches/Differs Radar (Bot 13) and requests
+      20 sequential batches of 10. You can tap before the feed is ready:
+      SENFX waits for 40 verified fresh public ticks without counting
+      historical observations. Fixed $1 hypothetical stake, $10 cap
+      per batch, $200 maximum total. Safety stops remain active.
+      No Deriv Demo or Real contract purchases.</p>
+     <p className={styles.notice} role="status">
+      Radar market: {studyBot?.market||"UNAVAILABLE"} ·
+      {studyVerified?" Verified":" Awaiting verification"} ·
+      {studyFeedFresh?" Fresh feed":" Waiting for fresh feed"} ·
+      Samples {studySamples}/{studyBot?.minTicks||40}
+      {studyQueued?" · Study queued — gathering data":""}
+     </p>
      <div className={styles.controls}>
       <button className={styles.startButton}
-       disabled={selected.id!==STUDY_BOT_ID||!marketFresh||!nextResearchSignal||
-        session?.state==="running"||study?.status==="running"}
-       onClick={start200Study}>Start 200 paper observations</button>
+       disabled={session?.state==="running"||study?.status==="running"||studyQueued}
+       onClick={start200Study}>{studyQueued?"Waiting for fresh ticks…":"Start 200 paper observations"}</button>
       <button className={styles.stopButton}
-       disabled={study?.status!=="running"}
-       onClick={()=>stopPaperBatch("Emergency Stop: 200-study stopped by user.")}>
-       Stop 200-study</button>
+       disabled={study?.status!=="running"&&!studyQueued}
+       onClick={()=>stopPaperBatch("Emergency Stop: 200-study cancelled or stopped by user.")}>
+       Cancel / Stop 200-study</button>
      </div>
      {study&&<>
       <p className={styles.notice} role="status">

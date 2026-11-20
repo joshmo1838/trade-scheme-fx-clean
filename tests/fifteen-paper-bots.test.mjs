@@ -282,3 +282,25 @@ test("200-study module has no broker-order or persistence calls",()=>{
  const code=readFileSync(new URL("../lib/bots/paper-200-study.ts",import.meta.url),"utf8");
  assert.doesNotMatch(code,/fetch\(|WebSocket|DERIV_TOKEN|SUPABASE|buy\(|\/api\/deriv\//i);
 });
+
+test("200-study targets original variable-barrier Matches/Differs Radar",()=>{
+ assert.equal(STUDY_BOT_ID,"pattern-differs");
+ const favorite=findFifteenBot(STUDY_BOT_ID);
+ assert.ok(favorite);
+ assert.equal(favorite.family,"pattern-differs");
+ assert.equal(favorite.market,"1HZ75V");
+ assert.equal(favorite.minTicks,40);
+ const samples=history(favorite);
+ const prediction=predictFifteenBot(favorite,samples);
+ assert.equal(prediction?.prediction,"DIFFERS");
+ assert.equal(prediction?.barrier,samples.at(-1).digit);
+});
+test("200-study can be requested while feed warms up with no broker bypass",()=>{
+ const code=readFileSync(new URL("../app/bot-library/FifteenPaperBotLibrary.tsx",import.meta.url),"utf8");
+ assert.ok(code.includes("studyQueuedRef.current=true;setStudyQueued(true)"));
+ assert.ok(code.includes("verifiedMarketsRef.current.has(bot.market)"));
+ assert.ok(code.includes("const initial=startFifteenPaperSession("));
+ assert.ok(code.includes("tryArm200Study(receivedAt)"));
+ assert.ok(!code.includes("disabled={selected.id!==STUDY_BOT_ID"));
+ assert.ok(code.includes("Cancel / Stop 200-study"));
+});

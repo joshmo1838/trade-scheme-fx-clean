@@ -1,7 +1,7 @@
 import type {FifteenSession, PaperObservation} from "./fifteen-paper-bots";
 
 // This experiment only summarizes public-tick paper conditions. It cannot buy contracts.
-export const STUDY_BOT_ID = "digit-differs";
+export const STUDY_BOT_ID = "pattern-differs";
 export const STUDY_BATCH_SIZE = 10;
 export const STUDY_BATCHES = 20;
 export const STUDY_TARGET = STUDY_BATCH_SIZE * STUDY_BATCHES;
