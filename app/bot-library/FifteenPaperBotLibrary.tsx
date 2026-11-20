@@ -34,6 +34,7 @@ export default function FifteenPaperBotLibrary(){
  const [cap,setCap]=useState(5);
  const [session,setSession]=useState<FifteenSession|null>(null);
  const [notice,setNotice]=useState("Select an original SENFX strategy and gather fresh public-market ticks.");
+ const [showEntryMonitor,setShowEntryMonitor]=useState(false);
  const history=useRef(new Map<DigitSymbol,ObservedTick[]>());
  const lastReceived=useRef(new Map<DigitSymbol,number>());
  const sessionRef=useRef<FifteenSession|null>(null);
@@ -44,6 +45,17 @@ export default function FifteenPaperBotLibrary(){
  const marketFresh=enabled&&marketStatus.includes(selected.market)&&
    Date.now()-lastAt<15_000;
  const nextResearchSignal=useMemo(()=>predictFifteenBot(selected,sample),[selected,sample]);
+ // Transparent readiness score, NOT a trained AI model or win probability.
+ const researchScore=marketFresh?Math.min(100,Math.round(
+  Math.min(1,sample.length/Math.max(1,selected.minTicks))*60+
+  (nextResearchSignal?30:0)+10)):0;
+ const chartQuotes=sample.slice(-55);
+ const chartPrices=chartQuotes.map(t=>t.price).filter(Number.isFinite);
+ const chartLow=chartPrices.length?Math.min(...chartPrices):0;
+ const chartHigh=chartPrices.length?Math.max(...chartPrices):0;
+ const chartPoints=chartPrices.map((price,i)=>
+  (chartPrices.length===1?50:i/(chartPrices.length-1)*100).toFixed(2)+","+
+  (95-(price-chartLow)/Math.max(chartHigh-chartLow,0.000001)*90).toFixed(2)).join(" ");
  const exposure=Number.isFinite(stake)&&Number.isFinite(count)?Math.round(stake*count*100)/100:0;
  const budgetOk=stake>=1&&stake<=25&&Number.isFinite(stake)&&
    Number.isInteger(count)&&count>=1&&count<=10&&Number.isFinite(cap)&&cap>=exposure;
@@ -124,7 +136,8 @@ export default function FifteenPaperBotLibrary(){
    }
    setSnapshots(next);
   };
-  const snapshotInterval=setInterval(snapshot,1100);
+  // Faster display updates; actual observations still use genuine feed ticks.
+  const snapshotInterval=setInterval(snapshot,400);
   const connect=()=>{
    if(!mounted)return;
    subscribed=new Set();receivedDirectory=false;openAt=0;lastObservedAt=0;
@@ -284,6 +297,30 @@ export default function FifteenPaperBotLibrary(){
      <p className={styles.details}><b>Market:</b> {selected.market}
        <b>Category:</b> {selected.category}
        <b>Enhancement:</b> {selected.difference}</p>
+     <button type="button" className={styles.startButton} aria-expanded={showEntryMonitor}
+      onClick={()=>setShowEntryMonitor(x=>!x)}>{showEntryMonitor?"Hide Live Entry Monitor":"View Live Entry Monitor"}</button>
+     {showEntryMonitor&&<div className={styles.monitorTerminal} role="region" aria-label="Live paper entry monitor">
+      <div className={styles.monitorTitle}><strong>SENFX Intelligence · Live Research</strong><span>{marketFresh?"● LIVE TICKS":"○ FEED UNAVAILABLE"}</span></div>
+      <p>Transparent rules-based signal analysis · not a trained AI prediction or probability of winning.</p>
+      <div className={styles.monitorScore}><span>Research readiness</span><strong>{researchScore}/100</strong></div>
+      <div className={styles.scoreTrack}><div style={{width:researchScore+"%"}}/></div>
+      <svg className={styles.liveChart} viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={"Real public tick price trend for "+selected.market}>
+       <defs><linearGradient id="senfxLiveLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#3c8eff"/><stop offset="100%" stopColor="#e1ba67"/></linearGradient></defs>
+       <path d="M0 25 H100 M0 50 H100 M0 75 H100" stroke="#40658a" strokeWidth=".35" strokeDasharray="2 2" fill="none"/>
+       {chartPrices.length>1&&<polyline points={chartPoints} fill="none" stroke="url(#senfxLiveLine)" strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>}
+      </svg>
+      <small>Chart updates only from received, validated public market quotes. No generated prices.</small>
+      <div className={styles.marketState}>
+      <span>Market feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
+      <span>Analysis <b>{!marketFresh?"Waiting for verified ticks":sample.length<selected.minTicks?"Collecting genuine market samples":nextResearchSignal?"Eligible research hypothesis":"Scanning strategy filters"}</b></span>
+      <span>Next hypothesis <b>{nextResearchSignal?nextResearchSignal.prediction+(nextResearchSignal.barrier===undefined?"":" "+nextResearchSignal.barrier):"NONE"}</b></span>
+      <span>Paper execution <b>{session?.state==="running"?"OBSERVING NEXT TICK":session?.state==="completed"?"COMPLETED":session?.state==="stopped"?"STOPPED":"NOT STARTED"}</b></span>
+      <span>Progress <b>{session?.observations.length||0} / {session?.count||count}</b></span>
+      <span>Latest result <b>{session?.observations.at(-1)?(session.observations.at(-1)?.hit?"HIT":"MISS")+" · "+session.observations.at(-1)?.quote:"Awaiting paper observation"}</b></span>
+      <span>Last genuine quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
+      <span>Safety <b>Paper only · no broker orders</b></span>
+      </div>
+     </div>}
      <div className={styles.marketState}>
       <span>Feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
       <span>Real samples <b>{sample.length}</b></span>
