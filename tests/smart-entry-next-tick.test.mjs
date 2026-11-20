@@ -95,3 +95,21 @@ test("corrupted settled paper history fails closed without accepting new ticks",
     assert.equal(result.session.observations.length, 1);
   }
 });
+
+test("paper ledger rejects inconsistent last-tick gate state", () => {
+  let s = paperNextTickStep(beginPaperSession(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1), 75).session;
+  const tampered = { ...s, gate: { ...s.gate, lastTick: { ...tick(1), quote: 999 } } };
+  const result = paperNextTickStep(tampered, SMART_ENTRY_DEFAULTS, 2000, tick(2), 75);
+  assert.equal(result.action, "stop");
+  assert.equal(result.reason, "invalid-paper-history");
+});
+test("newer nonqualifying tick does not invalidate settled ledger", () => {
+  let s = paperNextTickStep(beginPaperSession(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1), 75).session;
+  s = paperNextTickStep(s, SMART_ENTRY_DEFAULTS, 2000, tick(2), 75).session;
+  const rejected = paperNextTickStep(s, SMART_ENTRY_DEFAULTS, 3000, tick(3), 74);
+  assert.equal(rejected.action, "wait");
+  assert.equal(rejected.reason, "no-qualifying-signal");
+  const next = paperNextTickStep(rejected.session, SMART_ENTRY_DEFAULTS, 4000, tick(4), 75);
+  assert.equal(next.action, "observe");
+  assert.equal(next.session.observations.length, 2);
+});
