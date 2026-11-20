@@ -65,6 +65,9 @@ begin
      v_risk.realized_loss + v_risk.reserved_loss + v_order.stake_amount > v_risk.daily_loss_limit then
     return jsonb_build_object('allowed', false, 'reason', 'Daily Demo loss budget exhausted or invalid.');
   end if;
+  -- Serialize reservations for this account through its daily risk ledger.
+  -- This row is already locked FOR UPDATE above, preventing two distinct
+  -- quoted orders from simultaneously passing the outstanding-order check.
   if exists (
     select 1 from public.deriv_demo_orders o
     where o.user_id = p_user_id and o.account_id = v_order.account_id
