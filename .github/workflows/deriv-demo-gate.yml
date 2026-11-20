@@ -74,7 +74,7 @@ jobs:
       - name: Apply committed RPC and test single $1 virtual reservation fail-closed rules
         run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-one-dollar-postgres.sql
       - name: Verify separately authorized second one-shot phase without rewriting trade history
-        run: psql -X -v ON_ERROR_STOP=1 -d postgres -c "DROP DATABASE IF EXISTS senfx_auto_phase_qa;" && psql -X -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE senfx_auto_phase_qa;" && PGDATABASE=senfx_auto_phase_qa psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-auto-phase2-postgres.sql
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-auto-phase2-postgres.sql
       - name: Two concurrent same-user orders cannot both reserve virtual risk
         shell: bash
         run: |
