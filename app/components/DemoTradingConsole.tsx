@@ -56,7 +56,7 @@ export default function DemoTradingConsole() {
   const [risk, setRisk] = useState<Risk>({ dailyLoss: 0, reservedLoss: 0 });
   const [market, setMarket] = useState("R_100");
   const [direction, setDirection] = useState<"CALL" | "PUT">("CALL");
-  const [stakeText, setStakeText] = useState("10");
+  const [stakeText, setStakeText] = useState("1");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [activeOrder, setActiveOrder] = useState<ActiveOrder | null>(null);
   const [contract, setContract] = useState<ContractStatus | null>(null);
@@ -305,7 +305,7 @@ export default function DemoTradingConsole() {
 
   const locked = Boolean(activeOrder);
   const enteredStake = Number(stakeText);
-  const invalidStake = stakeText.trim() === "" || !Number.isFinite(enteredStake) || enteredStake <= 0;
+  const invalidStake = stakeText.trim() === "" || enteredStake !== 1 || (account !== null && account.currency !== "USD");
   const insufficientVirtualFunds = account !== null && (!Number.isFinite(Number(account.balance)) || Number(account.balance) < (quote?.askPrice ?? enteredStake));
   const openProfit = contract ? Number(contract.profit) : null;
 
@@ -344,10 +344,10 @@ export default function DemoTradingConsole() {
         <section className="workspaceAccountGrid" style={{ marginTop: 18 }}>
           <article className="workspacePanel">
             <div className="workspacePanelTop">
-              <div><p className="workspaceEyebrow">UNLIMITED DAILY DEMO PRACTICE</p><h2>No SENFX daily loss cap</h2></div>
+              <div><p className="workspaceEyebrow">ONE-TRADE DEMO PILOT</p><h2>Maximum 1 USD virtual stake</h2></div>
               <span className={ready ? "workspaceStatusDot online" : "workspaceStatusDot"} />
             </div>
-            <p className="muted">Practice using virtual funds in your own connected Deriv Demo account. SENFX does not stop Demo learning after a daily loss threshold. Your available Demo balance and Deriv's own rules still apply. Losses and outstanding reservations are recorded for your learning history.</p>
+            <p className="muted">Only one explicitly confirmed 1-USD virtual-money purchase is permitted for this isolated pilot. The risk budget is limited to 1 USD; no repeat orders after a purchase attempt, even after settlement. Real-money accounts are excluded.</p>
           </article>
 
           <article className="workspacePanel">
@@ -364,7 +364,7 @@ export default function DemoTradingConsole() {
         <section className="workspacePanel" style={{ marginTop: 18 }}>
           <p className="workspaceEyebrow">MANUAL DEMO CONTRACT TEST</p>
           <h2>Request a price and confirm one Demo trade</h2>
-          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 10, five-minute Rise/Fall, one open position, no SENFX daily loss cap. Trades use only your connected Deriv Demo account's virtual balance.</p>
+          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 1 USD, five-minute Rise/Fall, one purchase attempt and a 1-USD Demo loss budget. Trades use only your connected Deriv Demo account's virtual balance.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginTop: 18 }}>
             <label className="muted">Market
               <select value={market} onChange={e => { setMarket(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
@@ -378,14 +378,14 @@ export default function DemoTradingConsole() {
               </select>
             </label>
             <label className="muted">Stake
-              <input type="number" min="0.01" step="any" value={stakeText} onChange={e => { setStakeText(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || locked} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
+              <input type="number" min="1" max="1" step="1" value={stakeText} readOnly disabled={!ready || busy || locked} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
             </label>
             <label className="muted">Duration
               <input value="5 minutes" readOnly className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
             </label>
           </div>
 
-          {insufficientVirtualFunds && <p role="alert" className="muted">Your available virtual balance is below the selected stake. Reduce your stake or top up your Demo account in Deriv.</p>}
+          {insufficientVirtualFunds && <p role="alert" className="muted">The pilot requires a USD Demo account with at least 1 USD of virtual balance.</p>}
           {!quote ? (
             <button className="workspacePrimaryButton" onClick={() => void requestQuote()} disabled={!ready || busy || locked || invalidStake || insufficientVirtualFunds}>
               {busy ? "Working…" : "Get Deriv price"}
@@ -452,7 +452,7 @@ export default function DemoTradingConsole() {
           )}
         </section>
 
-        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full quoted stake must be reserved before purchase; there is no SENFX daily loss cap for virtual-money practice. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
+        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full quoted stake must be reserved before purchase; a 1-USD per-user virtual-loss budget and single attempted buy are enforced in the QA reservation design. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
       </div>
     </main>
   );
