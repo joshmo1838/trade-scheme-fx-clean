@@ -34,6 +34,7 @@ export default function FifteenPaperBotLibrary(){
  const [cap,setCap]=useState(5);
  const [session,setSession]=useState<FifteenSession|null>(null);
  const [notice,setNotice]=useState("Select an original SENFX strategy and gather fresh public-market ticks.");
+ const [showEntryMonitor,setShowEntryMonitor]=useState(false);
  const history=useRef(new Map<DigitSymbol,ObservedTick[]>());
  const lastReceived=useRef(new Map<DigitSymbol,number>());
  const sessionRef=useRef<FifteenSession|null>(null);
@@ -285,6 +286,18 @@ export default function FifteenPaperBotLibrary(){
      <p className={styles.details}><b>Market:</b> {selected.market}
        <b>Category:</b> {selected.category}
        <b>Enhancement:</b> {selected.difference}</p>
+     <button type="button" className={styles.startButton} aria-expanded={showEntryMonitor}
+      onClick={()=>setShowEntryMonitor(x=>!x)}>{showEntryMonitor?"Hide Live Entry Monitor":"View Live Entry Monitor"}</button>
+     {showEntryMonitor&&<div className={styles.marketState} role="region" aria-label="Live paper entry monitor">
+      <span>Market feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
+      <span>Analysis <b>{!marketFresh?"Waiting for verified ticks":sample.length<selected.minTicks?"Collecting genuine market samples":nextResearchSignal?"Eligible research hypothesis":"Scanning strategy filters"}</b></span>
+      <span>Next hypothesis <b>{nextResearchSignal?nextResearchSignal.prediction+(nextResearchSignal.barrier===undefined?"":" "+nextResearchSignal.barrier):"NONE"}</b></span>
+      <span>Paper execution <b>{session?.state==="running"?"OBSERVING NEXT TICK":session?.state==="completed"?"COMPLETED":session?.state==="stopped"?"STOPPED":"NOT STARTED"}</b></span>
+      <span>Progress <b>{session?.observations.length||0} / {session?.count||count}</b></span>
+      <span>Latest result <b>{session?.observations.at(-1)?(session.observations.at(-1)?.hit?"HIT":"MISS")+" · "+session.observations.at(-1)?.quote:"Awaiting paper observation"}</b></span>
+      <span>Last genuine quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
+      <span>Safety <b>Paper only · no broker orders</b></span>
+     </div>}
      <div className={styles.marketState}>
       <span>Feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
       <span>Real samples <b>{sample.length}</b></span>
