@@ -36,6 +36,17 @@ test("Demo console shows one fixed USD virtual stake and does not claim unlimite
   assert.doesNotMatch(consoleSource, /UNLIMITED DAILY DEMO PRACTICE|No SENFX daily loss cap|Fixed stake 10/);
 });
 
+
+test("buy re-quotes a streaming proposal and uses same authenticated session", () => {
+  assert.match(route, /session = await openDerivDemoSession\(context\);[\s\S]*?session\.request\("proposal",/);
+  assert.match(route, /subscribe: 1,[\s\S]*?underlying_symbol: order\.market_symbol/);
+  assert.match(route, /currentAskPrice > Number\(order\.ask_price\) \|\| currentPayout < Number\(order\.payout\)/);
+  assert.match(route, /\.eq\("updated_at", order\.updated_at\)/);
+  assert.match(route, /buy: freshOrder\.proposal_id/);
+  assert.match(route, /price: Number\(freshOrder\.ask_price\)/);
+  assert.doesNotMatch(route, /buy: order\.proposal_id/);
+});
+
 test("staging-only schema proposal enforces exact 1 USD pilot amounts", () => {
   assert.match(migration, /DO NOT APPLY TO PRODUCTION/);
   assert.match(migration, /empty, isolated QA Demo tables/);
