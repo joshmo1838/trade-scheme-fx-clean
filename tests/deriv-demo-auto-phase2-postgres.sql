@@ -1,6 +1,6 @@
 -- Disposable Postgres 17 only; NO production data, broker API, or credentials.
 \set ON_ERROR_STOP on
-\ir deriv-demo-one-dollar-postgres.sql
+-- Runs in the same disposable database after the base one-dollar fixture.
 
 -- The existing base fixture reproduces one old settled virtual-money attempt.
 create schema auth;
