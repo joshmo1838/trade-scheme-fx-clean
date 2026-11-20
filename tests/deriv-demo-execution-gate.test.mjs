@@ -64,3 +64,14 @@ test("a pure gate cannot guarantee idempotency or atomic concurrency", () => {
   assert.equal(a.allowed, true);
   assert.equal(b.allowed, true);
 });
+
+test("configured overrides cannot raise immutable demo safety ceilings", () => {
+  for (const limits of [
+    { maxStake: 10.01 }, { maxDailyLoss: 20.01 },
+    { maxOpenOrders: 2 }, { maxAggregateExposure: 10.01 },
+    { maxOpenOrders: 0.5 }, { maxStake: Infinity }, { maxDailyLoss: NaN }
+  ]) {
+    assert.equal(evaluateDemoOrderGate(base, { enabled: true, limits }).code, "INVALID_RISK_LIMITS");
+  }
+  assert.equal(evaluateDemoOrderGate(base, { enabled: true, limits: { maxStake: 5, maxDailyLoss: 15 } }).allowed, true);
+});
