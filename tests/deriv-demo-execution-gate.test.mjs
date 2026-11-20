@@ -41,3 +41,26 @@ test("missing emergency stop state fails closed", () => {
 test("real broker account is rejected even with consent", () => {
   assert.equal(evaluateDemoOrderGate({ ...base, accountType: "real" }, enabled).allowed, false);
 });
+
+test("malformed order payloads and absent verification fail closed", () => {
+  for (const input of [null, undefined, {}, { ...base, stake: Infinity }, { ...base, stake: "5" },
+    { ...base, openOrders: -1 }, { ...base, aggregateExposure: NaN },
+    { ...base, brokerVerifiedDemo: "true" }, { ...base, customerConfirmed: "true" },
+    { ...base, riskStateVerified: undefined }, { ...base, accountType: "REAL" }]) {
+    assert.equal(evaluateDemoOrderGate(input, enabled).allowed, false);
+  }
+});
+test("loss and reserved exposure are independently enforced at boundaries", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 10, dailyLoss: 10, aggregateExposure: 0 }, enabled).allowed, true);
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 10, dailyLoss: 10.001 }, enabled).code, "DAILY_LOSS_LIMIT");
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 5, aggregateExposure: 5.001 }, enabled).code, "EXPOSURE_LIMIT");
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 0 }, enabled).code, "STAKE_LIMIT");
+});
+test("a pure gate cannot guarantee idempotency or atomic concurrency", () => {
+  // Two identical requests both pass a pure local snapshot; the SQL transaction
+  // must enforce idempotency, lock the risk row and reserve before any broker buy.
+  const a = evaluateDemoOrderGate(base, enabled);
+  const b = evaluateDemoOrderGate({ ...base }, enabled);
+  assert.equal(a.allowed, true);
+  assert.equal(b.allowed, true);
+});
