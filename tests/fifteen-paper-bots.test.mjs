@@ -76,8 +76,10 @@ test("one future public quote settles exactly one observation, with no replay or
   assert.equal(recorded.observations[0].hit,testPaperSignal(current.pending,future));
   assert.equal(observeFifteenPaperTick(recorded,future,[...hist,future],(EPOCH+60)*1000),recorded);
   const late=mk(bot.market,EPOCH+61,61);
-  assert.equal(observeFifteenPaperTick(recorded,late,[...hist,future],(EPOCH+90)*1000),recorded,
-   "stale quote cannot produce paper outcome");
+  const stale=observeFifteenPaperTick(recorded,late,[...hist,future],(EPOCH+90)*1000);
+  assert.equal(stale.state,"stopped","stale quote must fail closed");
+  assert.equal(stale.observations.length,1,"stale quote cannot produce paper outcome");
+  assert.equal(stale.pending,null);
  }
 });
 test("fixed stake, three outcomes, risk cap and emergency Stop",()=>{
@@ -127,4 +129,16 @@ test("existing published worker presets and 200-trade experimental workflow unch
  const code=readFileSync(new URL("../lib/bots/fifteen-paper-bots.ts",import.meta.url),"utf8");
  assert.doesNotMatch(code,/SUPABASE_SERVICE_ROLE_KEY|DERIV_TOKEN|\/api\/deriv\/buy|db\.from\(|\.buy\(/i);
  assert.doesNotMatch(code,/martingale\s*:\s*true|d.alembert.*increase.*stake/i);
+});
+
+test("history divergence fails closed without fabricating a paper outcome",()=>{
+ const bot=FIFTEEN_BOTS[0],hist=history(bot),armed=start(bot);
+ assert.equal(armed.ok,true);
+ if(!armed.ok)return;
+ const tick=mk(bot.market,EPOCH+61,61);
+ const divergent=observeFifteenPaperTick(armed.session,tick,hist.slice(0,-1),(EPOCH+61)*1000);
+ assert.equal(divergent.state,"stopped");
+ assert.equal(divergent.pending,null);
+ assert.equal(divergent.observations.length,0);
+ assert.match(divergent.message,/history changed/i);
 });
