@@ -3,6 +3,8 @@
 \set ON_ERROR_STOP on
 
 create role service_role nologin;
+create role anon nologin;
+create role authenticated nologin;
 
 create table public.deriv_connections (
   user_id uuid primary key,
