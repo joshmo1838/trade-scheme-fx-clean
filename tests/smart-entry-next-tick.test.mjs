@@ -113,3 +113,20 @@ test("newer nonqualifying tick does not invalidate settled ledger", () => {
   assert.equal(next.action, "observe");
   assert.equal(next.session.observations.length, 2);
 });
+
+test("invalid, future and stale settlement ticks never resolve a pending paper observation", () => {
+  const pending = paperNextTickStep(beginPaperSession(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1, 100), 75).session;
+  const cases = [
+    { now: 2000, value: { id: "bad-price", epochMs: 2000, quote: -1 }, reason: "invalid-tick" },
+    { now: 2000, value: { id: "future", epochMs: 2001, quote: 101 }, reason: "invalid-tick" },
+    { now: 8000, value: { id: "stale", epochMs: 2000, quote: 101 }, reason: "stale-tick" },
+    { now: 2000, value: { id: "nonfinite", epochMs: 2000, quote: Number.NaN }, reason: "invalid-number" }
+  ];
+  for (const { now, value, reason } of cases) {
+    const result = paperNextTickStep(pending, SMART_ENTRY_DEFAULTS, now, value, 99);
+    assert.equal(result.action, "wait");
+    assert.equal(result.reason, reason);
+    assert.equal(result.session.observations[0].settlement, null);
+    assert.equal(result.session.gate.completed, 1);
+  }
+});
