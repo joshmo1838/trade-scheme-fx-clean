@@ -28,7 +28,7 @@ export function paperNextTickStep(session: PaperSession, config: EntryConfig, no
           o.settlement.id === o.entry.id ||
           o.outcome !== (o.settlement.quote > o.entry.quote ? "up" : o.settlement.quote < o.entry.quote ? "down" : "flat"))) ||
         !Number.isFinite(o.entry.quote) || !Number.isFinite(o.entry.epochMs) ||
-        typeof o.entry.id !== "string" || !o.entry.id.trim()))) return stop("invalid-paper-history");
+        typeof o.entry.id !== "string" || !o.entry.id.trim())) return stop("invalid-paper-history");
   if (emergencyStop || session.gate.stopped) return stop("emergency-or-stopped");
   // Check the same deadline, exposure, clock and configuration gates even when settling.
   const guard = smartEntryStep(session.gate, config, nowMs, null, null);
