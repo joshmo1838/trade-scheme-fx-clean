@@ -58,3 +58,15 @@ test("idempotency key must be exact UUID shape, not permissive hyphen padding",(
   for (const requestId of malformed) assert.equal(evaluateDemoOrderGate({...base,requestId},enabled).code,"IDEMPOTENCY_KEY_REQUIRED");
   assert.equal(evaluateDemoOrderGate({...base,requestId:"ABCDEF12-1234-1234-1234-123456789ABC"},enabled).allowed,true);
 });
+
+test("malformed execution configuration fails closed without throwing",()=>{
+  for (const config of [null,false,0,"enabled",[],{enabled:false},{enabled:true,limits:[]},{enabled:true,limits:null,extra:"ignored"}]) {
+    const result = evaluateDemoOrderGate(base,config);
+    if (config?.enabled === true && config?.limits === null) {
+      assert.equal(result.allowed,true);
+    } else {
+      assert.equal(result.allowed,false);
+    }
+  }
+  assert.equal(evaluateDemoOrderGate(base,{enabled:true,limits:[]}).code,"INVALID_RISK_LIMITS");
+});
