@@ -89,7 +89,7 @@ jobs:
                 or (select reserved_loss from public.deriv_demo_daily_risk
                     where user_id='00000000-0000-4000-8000-000000000007') <> 1
               then
-                raise exception 'Concurrent reservations exceeded the single $1 limit';
+                raise exception 'Concurrent reservations exceeded the one-dollar limit';
               end if;
             end
             \$verify\$;
