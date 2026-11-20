@@ -465,8 +465,65 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "buy") {
-      // No broker purchase path is reachable until the server-side risk controls are integrated and tested.
-      return jsonError("Demo broker purchases are pending risk-control verification.", 503, "DEMO_BUY_SAFETY_HOLD");
+      // Separate pilot switch: an ordinary Demo deployment must never send broker buys.
+      if (process.env.DERIV_DEMO_BROKER_BUY_ENABLED !== "true") {
+        return jsonError("Demo broker purchase pilot is disabled.", 503, "DEMO_BUY_SAFETY_HOLD");
+      }
+      if (body?.confirmVirtualPurchase !== true) {
+        return jsonError("Explicit confirmation of the virtual-money purchase is required.", 400, "DEMO_BUY_CONFIRMATION_REQUIRED");
+      }
+      const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
+      if (order.account_id !== context.account.account_id || order.currency !== context.account.currency ||
+          order.status !== "quoted" || order.stake_amount !== 10 ||
+          order.duration !== 5 || order.duration_unit !== "m" ||
+          !DEMO_MARKETS.has(order.market_symbol) ||
+          !["CALL", "PUT"].includes(order.contract_type) ||
+          new Date(order.quote_expires_at).getTime() <= Date.now()) {
+        return jsonError("The saved Demo quote is invalid, expired, or belongs to another account.", 409, "DEMO_QUOTE_INVALID");
+      }
+      const { data: reservation, error: reservationError } = await context.admin.rpc("senfx_demo_reserve_order", {
+        p_user_id: context.user.id,
+        p_order_id: order.id,
+      });
+      if (reservationError || !reservation?.allowed) {
+        return jsonError("Demo risk reservation was rejected. No broker order was sent.", 409, "DEMO_RESERVATION_REJECTED");
+      }
+      // Fail closed against the older production RPC which allows unlimited losses.
+      // Never send a buy unless the replacement RPC confirms its enforced budget.
+      if (reservation.unlimitedDemoPractice !== false ||
+          reservation.dailyLossLimit !== 20 ||
+          !Number.isFinite(Number(reservation.remainingLossBudget)) ||
+          Number(reservation.remainingLossBudget) < 0 ||
+          !Number.isFinite(Number(reservation.reservedLoss)) ||
+          Number(reservation.reservedLoss) < 10) {
+        return jsonError("Demo reservation did not prove enforced risk limits. No broker order was sent; reservation requires reconciliation.", 503, "DEMO_RISK_ENFORCEMENT_UNVERIFIED");
+      }
+      // Persist an irrevocable attempt marker before contacting Deriv. Any
+      // timeout or uncertain response requires statement reconciliation, never retry.
+      const { data: marked, error: markError } = await context.admin.from("deriv_demo_orders")
+        .update({ status: "buy_unknown", buy_requested_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", order.id).eq("user_id", context.user.id)
+        .eq("status", "reserved").is("buy_requested_at", null)
+        .select("id,buy_requested_at").maybeSingle();
+      if (markError || !marked) {
+        return jsonError("Could not safely record the purchase attempt. No broker buy was sent.", 503, "DEMO_BUY_MARK_FAILED");
+      }
+      try {
+        session = await openDerivDemoSession(context);
+        await session.request("buy", {
+          buy: order.proposal_id,
+          price: Number(order.ask_price),
+        }, 12_000);
+      } catch {
+        return jsonError("Deriv purchase outcome is uncertain. Do not retry; reconcile the statement first.", 503, "DEMO_BUY_RECONCILIATION_REQUIRED");
+      }
+      // Even a successful buy response must be verified against the Deriv
+      // statement and contract details before SENFX marks an order open.
+      const result = await reconcileBuyOrder(context, { ...order, status: "buy_unknown", buy_requested_at: marked.buy_requested_at || new Date().toISOString() });
+      if (result.state !== "open") {
+        return jsonError("Deriv buy submitted; contract verification is pending. Do not buy again.", 202, "DEMO_BUY_RECONCILIATION_REQUIRED");
+      }
+      return NextResponse.json({ success: true, ...result }, { headers: noStore });
     }
 
     if (action === "status" || action === "settle" || action === "sell") {
