@@ -220,11 +220,16 @@ export function observeFifteenPaperTick(
  session:FifteenSession,tick:ObservedTick,historyBefore:readonly ObservedTick[],
  nowMs:number,
 ):FifteenSession{
- if(session.state!=="running"||tick.symbol!==session.symbol||
-   tick.epoch<=session.lastEpoch||
-   !Number.isFinite(nowMs)||nowMs-tick.epoch*1000<0||
-   nowMs-tick.epoch*1000>12_000||
-   historyBefore.at(-1)?.epoch!==session.lastEpoch)return session;
+ if(session.state!=="running")return session;
+ if(tick.symbol!==session.symbol)return session;
+ // A missed tick invalidates the one-next-tick hypothesis. Never score
+ // a later tick against it or leave the paper session stuck at 0/N.
+ if(historyBefore.at(-1)?.epoch!==session.lastEpoch)
+   return stopFifteenPaperSession(session,"Market history changed while paper batch was armed. Stopped safely; restart with fresh ticks.");
+ if(tick.epoch<=session.lastEpoch)return session;
+ if(!Number.isFinite(nowMs)||nowMs-tick.epoch*1000<0||
+   nowMs-tick.epoch*1000>12_000)
+   return stopFifteenPaperSession(session,"Selected market tick was stale or invalid. Stopped safely; reconnect and restart.");
  const bot=findFifteenBot(session.botId);
  if(!bot)return stopFifteenPaperSession(session,"Unknown bot. Stopped.");
  const observations=[...session.observations];
