@@ -40,7 +40,6 @@ type ContractStatus = {
 };
 
 const API = "/api/deriv/demo/orders";
-const DEMO_STAKE = 10;
 const MARKETS = [
   { value: "R_10", label: "Volatility 10 Index" },
   { value: "R_25", label: "Volatility 25 Index" },
@@ -57,6 +56,7 @@ export default function DemoTradingConsole() {
   const [risk, setRisk] = useState<Risk>({ dailyLoss: 0, reservedLoss: 0 });
   const [market, setMarket] = useState("R_100");
   const [direction, setDirection] = useState<"CALL" | "PUT">("CALL");
+  const [stakeText, setStakeText] = useState("10");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [activeOrder, setActiveOrder] = useState<ActiveOrder | null>(null);
   const [contract, setContract] = useState<ContractStatus | null>(null);
@@ -167,7 +167,7 @@ export default function DemoTradingConsole() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "quote", marketSymbol: market, direction }),
+        body: JSON.stringify({ action: "quote", marketSymbol: market, direction, stake: Number(stakeText) }),
       });
       const result = await response.json();
       if (!response.ok || !result.success || !result.orderId || !result.quote) {
@@ -183,7 +183,7 @@ export default function DemoTradingConsole() {
   }
 
   async function buyDemoContract() {
-    if (!quote || !ready || busy || activeOrder || !account || Number(account.balance) < DEMO_STAKE) return;
+    if (!quote || !ready || busy || activeOrder || !account || Number(account.balance) < quote.askPrice) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -304,7 +304,9 @@ export default function DemoTradingConsole() {
   }
 
   const locked = Boolean(activeOrder);
-  const insufficientVirtualFunds = account !== null && (!Number.isFinite(Number(account.balance)) || Number(account.balance) < DEMO_STAKE);
+  const enteredStake = Number(stakeText);
+  const invalidStake = stakeText.trim() === "" || !Number.isFinite(enteredStake) || enteredStake <= 0;
+  const insufficientVirtualFunds = account !== null && (!Number.isFinite(Number(account.balance)) || Number(account.balance) < (quote?.askPrice ?? enteredStake));
   const openProfit = contract ? Number(contract.profit) : null;
 
   return (
@@ -376,16 +378,16 @@ export default function DemoTradingConsole() {
               </select>
             </label>
             <label className="muted">Stake
-              <input value={"10 " + (account?.currency || "")} readOnly className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
+              <input type="number" min="0.01" step="any" value={stakeText} onChange={e => { setStakeText(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || locked} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
             </label>
             <label className="muted">Duration
               <input value="5 minutes" readOnly className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }} />
             </label>
           </div>
 
-          {insufficientVirtualFunds && <p role="alert" className="muted">Your connected Deriv Demo balance is below the required 10 {account?.currency || ""} virtual units. Top up your Demo account in Deriv before placing a trade.</p>}
+          {insufficientVirtualFunds && <p role="alert" className="muted">Your available virtual balance is below the selected stake. Reduce your stake or top up your Demo account in Deriv.</p>}
           {!quote ? (
-            <button className="workspacePrimaryButton" onClick={() => void requestQuote()} disabled={!ready || busy || locked}>
+            <button className="workspacePrimaryButton" onClick={() => void requestQuote()} disabled={!ready || busy || locked || invalidStake || insufficientVirtualFunds}>
               {busy ? "Working…" : "Get Deriv price"}
             </button>
           ) : (
@@ -408,7 +410,7 @@ export default function DemoTradingConsole() {
             <h2>{activeOrder.market_symbol} · {activeOrder.contract_type}</h2>
             {activeOrder.status === "buy_unknown" || activeOrder.status === "reserved" ? (
               <>
-                <p role="alert">Purchase confirmation is unresolved. The 10 {account?.currency || ""} risk remains reserved. SENFX checks Deriv's account statement before releasing it. Do not retry the purchase.</p>
+                <p role="alert">Purchase confirmation is unresolved. The {Number(activeOrder.stake_amount || 0).toFixed(2)} {account?.currency || ""} risk remains reserved. SENFX checks Deriv's account statement before releasing it. Do not retry the purchase.</p>
                 <button className="workspacePrimaryButton" onClick={() => void reconcileUnknownOrder()} disabled={busy}>
                   {busy ? "Checking…" : "Check Deriv statement"}
                 </button>
@@ -450,7 +452,7 @@ export default function DemoTradingConsole() {
           )}
         </section>
 
-        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full 10 stake is reserved before purchase; there is no SENFX daily loss cap for virtual-money practice. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
+        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full quoted stake must be reserved before purchase; there is no SENFX daily loss cap for virtual-money practice. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
       </div>
     </main>
   );
