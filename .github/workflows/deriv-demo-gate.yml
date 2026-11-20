@@ -6,6 +6,8 @@ on:
       - 'tests/deriv-demo-execution-gate.test.mjs'
       - 'tests/deriv-demo-account-allowlist.test.mjs'
       - 'tests/deriv-demo-variable-stake-source.test.mjs'
+      - 'tests/deriv-demo-reservation-source.test.mjs'
+      - 'supabase/senfx-deriv-demo-safe-reservation.sql'
       - 'app/api/deriv/demo/orders/route.ts'
       - 'app/components/DemoTradingConsole.tsx'
       - 'supabase/senfx-deriv-demo-unlimited-pilot-draft.sql'
@@ -23,4 +25,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs
+        run: node --test tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs
