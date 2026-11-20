@@ -33,6 +33,7 @@ export default function DigitMatrixScanner(){
  const [bulkNotice,setBulkNotice]=useState("Choose a market and wait for a fresh tick before starting a paper batch.");
  const batchRef=useRef<DigitPaperBatch|null>(null);
  const buffer=useRef(new Map<DigitSymbol,Observed>());
+ const seenThisSecond=useRef(new Map<DigitSymbol,{epoch:number;quotes:Set<string>}>());
  const plan=useMemo(()=>plannedExposure(stake,bulk,cap),[stake,bulk,cap]);
  const current=view[selected];
  const stats=current?.stats;
@@ -82,7 +83,7 @@ export default function DigitMatrixScanner(){
   let retryTimer:ReturnType<typeof setTimeout>|undefined;
   let connectionTimer:ReturnType<typeof setTimeout>|undefined;
   let subscribed=new Set<string>();
-  buffer.current=new Map();setView({});setActiveMarkets([]);setError("");
+  buffer.current=new Map();seenThisSecond.current=new Map();setView({});setActiveMarkets([]);setError("");
   const update=()=>{
    if(!mounted)return;
    // Fail closed if all market data have become stale during an active batch.
@@ -176,8 +177,15 @@ export default function DigitMatrixScanner(){
     const tick=parsePublicDigitTick(message,Date.now());
     if(!tick||!subscribed.has(tick.symbol))return;
     const previous=buffer.current.get(tick.symbol);
-    const key=tick.tickId||String(tick.epoch)+":"+tick.quoteText;
-    if(previous?.lastKey===key)return;
+    // Deriv tick.id identifies a subscription, not a unique market tick.
+    // Reject older epochs and exact repeats, but allow distinct quotes within
+    // the same second (especially on 1-second volatility markets).
+    const key=String(tick.epoch)+":"+tick.quoteText;
+    if(previous && tick.epoch<previous.epoch)return;
+    const seen=seenThisSecond.current.get(tick.symbol);
+    if(seen?.epoch===tick.epoch && seen.quotes.has(tick.quoteText))return;
+    if(seen?.epoch!==tick.epoch)seenThisSecond.current.set(tick.symbol,{epoch:tick.epoch,quotes:new Set([tick.quoteText])});
+    else seen.quotes.add(tick.quoteText);
     lastObservedAt=Date.now();
     buffer.current.set(tick.symbol,{
      quote:tick.quoteText,updated:Date.now(),epoch:tick.epoch,received:(previous?.received||0)+1,
