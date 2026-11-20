@@ -49,3 +49,11 @@ test("low quality research scores never create paper observations", () => {
   assert.equal(result.session.observations.length, 0);
   assert.equal(result.events.every(e => e.reason === "no-qualifying-signal"), true);
 });
+
+test("invalid emergency stop indices are rejected before replay", () => {
+  const rows = [input(1), input(2)];
+  for (const index of [-1, 0.5, NaN, Infinity, 2]) {
+    assert.throws(() => replayPaperTicks(rows, 1000, index), /invalid-emergency-stop-index/);
+  }
+  assert.equal(replayPaperTicks(rows, 1000, 0).session.gate.stopped, true);
+});
