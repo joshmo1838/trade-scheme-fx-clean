@@ -10,6 +10,11 @@ import {
 import {
  DIGIT_MARKETS,parsePublicDigitTick,type DigitSymbol,type ObservedTick,
 } from "@/lib/bots/digit-matrix";
+import {
+ beginPaperStudy,stopPaperStudy,recordPaperStudySnapshot,paperStudyHits,
+ STUDY_BOT_ID,STUDY_BATCH_SIZE,STUDY_BATCHES,STUDY_TARGET,STUDY_STAKE,STUDY_BATCH_CAP,
+ type PaperStudy,
+} from "@/lib/bots/paper-200-study";
 import styles from "./fifteen.module.css";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
@@ -34,10 +39,13 @@ export default function FifteenPaperBotLibrary(){
  const [count,setCount]=useState(5);
  const [cap,setCap]=useState(5);
  const [session,setSession]=useState<FifteenSession|null>(null);
+ const [study,setStudy]=useState<PaperStudy|null>(null);
  const [notice,setNotice]=useState("Select an original SENFX strategy and gather fresh public-market ticks.");
  const history=useRef(new Map<DigitSymbol,ObservedTick[]>());
  const lastReceived=useRef(new Map<DigitSymbol,number>());
  const sessionRef=useRef<FifteenSession|null>(null);
+ const studyRef=useRef<PaperStudy|null>(null);
+ const awaitingNextBatch=useRef(false);
 
  const selected=useMemo(()=>findFifteenBot(selectedId)||FIFTEEN_BOTS[0],[selectedId]);
  const sample=snapshots[selected.market]?.quotes||[];
@@ -52,17 +60,30 @@ export default function FifteenPaperBotLibrary(){
 
  const stopPaperBatch=(reason="Emergency Stop pressed. No further paper observations.")=>{
   const old=sessionRef.current;
-  if(!old||old.state!=="running")return;
-  const next=stopFifteenPaperSession(old,reason);
-  sessionRef.current=next;setSession(next);setNotice(reason);
+  if(old?.state==="running"){
+   const next=stopFifteenPaperSession(old,reason);
+   sessionRef.current=next;setSession(next);
+  }
+  const activeStudy=studyRef.current;
+  if(activeStudy?.status==="running"){
+   // Preserve partial outcomes already counted before the interruption.
+   const stopped=stopPaperStudy(activeStudy,reason);
+   studyRef.current=stopped;setStudy(stopped);
+   awaitingNextBatch.current=false;
+  }
+  if(old?.state==="running"||activeStudy?.status==="running")setNotice(reason);
  };
  const changeBot=(id:string)=>{
   if(id!==selectedId)stopPaperBatch("Changed strategy. Previous paper batch stopped.");
   setSelectedId(id);
   setSession(null);sessionRef.current=null;
+  studyRef.current=null;setStudy(null);awaitingNextBatch.current=false;
   setNotice("Strategy selected. Wait for fresh market samples, then start a paper batch.");
  };
  const start=()=>{
+  if(studyRef.current?.status==="running"){
+   setNotice("A 200-observation study is running. Use Emergency Stop first.");return;
+  }
   if(sessionRef.current?.state==="running"){
    setNotice("A paper batch is already in progress. Press Emergency Stop first.");return;
   }
@@ -72,17 +93,32 @@ export default function FifteenPaperBotLibrary(){
    stake,count,cap,nowMs:Date.now(),
   });
   if(!result.ok){setNotice(result.reason);return;}
+  studyRef.current=null;setStudy(null);awaitingNextBatch.current=false;
   sessionRef.current=result.session;setSession(result.session);
   setNotice("PAPER ONLY: strategy armed. One future public tick tests the prior hypothesis.");
+ };
+ const start200Study=()=>{
+  if(selected.id!==STUDY_BOT_ID){setNotice("Select SENFX Digit Differs before starting the 200-study.");return;}
+  if(sessionRef.current?.state==="running"||studyRef.current?.status==="running"){
+   setNotice("Stop the current paper batch before starting another.");return;
+  }
+  if(!enabled||!marketFresh||!nextResearchSignal){
+   setNotice("Fresh verified Digit Differs public ticks are required.");return;
+  }
+  const initial=startFifteenPaperSession({
+   botId:STUDY_BOT_ID,history:history.current.get(selected.market)||[],
+   stake:STUDY_STAKE,count:STUDY_BATCH_SIZE,cap:STUDY_BATCH_CAP,nowMs:Date.now(),
+  });
+  if(!initial.ok){setNotice(initial.reason);return;}
+  const freshStudy=beginPaperStudy();
+  studyRef.current=freshStudy;setStudy(freshStudy);awaitingNextBatch.current=false;
+  sessionRef.current=initial.session;setSession(initial.session);
+  setNotice("200-study started: 20 sequential batches, $1 hypothetical per outcome. No broker orders.");
  };
 
  useEffect(()=>{
   if(!enabled){
-   const current=sessionRef.current;
-   if(current?.state==="running"){
-    const stopped=stopFifteenPaperSession(current,"Public feed manually paused. Paper batch stopped.");
-    sessionRef.current=stopped;setSession(stopped);
-   }
+   stopPaperBatch("Public feed manually paused. Paper study stopped.");
    setFeedStatus("Public data feed paused.");
    return;
   }
@@ -93,12 +129,7 @@ export default function FifteenPaperBotLibrary(){
   let subscribed=new Set<string>();
   history.current=new Map();lastReceived.current=new Map();
   setSnapshots({});setMarketStatus([]);
-  const stopForFeed=(reason:string)=>{
-   const current=sessionRef.current;
-   if(current?.state!=="running")return;
-   const stopped=stopFifteenPaperSession(current,reason);
-   sessionRef.current=stopped;setSession(stopped);setNotice(reason);
-  };
+  const stopForFeed=(reason:string)=>{stopPaperBatch(reason);};
   const snapshot=()=>{
    if(!mounted)return;
    const now=Date.now();
@@ -112,9 +143,11 @@ export default function FifteenPaperBotLibrary(){
     ws.close();return;
    }
    const active=sessionRef.current;
-   if(active?.state==="running"){
-    const last=lastReceived.current.get(active.symbol)||0;
-    if(now-last>16000)stopForFeed("Selected market feed stale. Paper batch stopped.");
+   const liveStudy=studyRef.current?.status==="running";
+   if(active?.state==="running"||(liveStudy&&awaitingNextBatch.current)){
+    const symbol=active?.symbol||findFifteenBot(STUDY_BOT_ID)?.market;
+    const last=symbol?lastReceived.current.get(symbol)||0:0;
+    if(now-last>16000)stopForFeed("Selected market feed stale. Paper study stopped.");
    }
    const next:MarketSnapshots={};
    for(const market of DIGIT_MARKETS){
@@ -191,8 +224,36 @@ export default function FifteenPaperBotLibrary(){
      const next=observeFifteenPaperTick(current,tick,prev,receivedAt);
      if(next!==current){
       sessionRef.current=next;setSession(next);
-      if(next.state==="completed")setNotice("Paper batch complete. No broker trades or payouts.");
+      const ongoing=studyRef.current;
+      if(ongoing?.status==="running"&&ongoing.botId===current.botId){
+       const updated=recordPaperStudySnapshot(ongoing,next);
+       studyRef.current=updated;setStudy(updated);
+       if(updated.status==="completed"){
+        awaitingNextBatch.current=false;
+        setNotice("200 genuine paper observations complete. No broker trades.");
+       }else if(updated.status==="stopped"){
+        awaitingNextBatch.current=false;setNotice(updated.message);
+       }else if(next.state==="completed"){
+        awaitingNextBatch.current=true;
+        setNotice("Batch "+updated.completedBatches+"/"+STUDY_BATCHES+
+         " complete. Waiting for a new fresh tick to arm the next batch.");
+       }else if(next.message!==current.message)setNotice(next.message);
+      }else if(next.state==="completed")setNotice("Paper batch complete. No broker trades or payouts.");
       else if(next.state==="stopped"||next.message!==current.message)setNotice(next.message);
+     }
+    }else if(current?.state==="completed"&&awaitingNextBatch.current&&
+       studyRef.current?.status==="running"&&current.symbol===tick.symbol&&tickFresh){
+     // Boundary tick only arms the NEXT batch; it never settles a prior hypothesis.
+     const armed=startFifteenPaperSession({
+      botId:STUDY_BOT_ID,history:[...prev,tick].slice(-MAX_TICKS),
+      stake:STUDY_STAKE,count:STUDY_BATCH_SIZE,cap:STUDY_BATCH_CAP,nowMs:receivedAt,
+     });
+     if(!armed.ok)stopPaperBatch("Next paper batch could not arm safely: "+armed.reason);
+     else{
+      awaitingNextBatch.current=false;
+      sessionRef.current=armed.session;setSession(armed.session);
+      setNotice("Paper batch "+((studyRef.current?.completedBatches||0)+1)+
+       "/"+STUDY_BATCHES+" armed; waiting for its next genuine tick.");
      }
     }
     history.current.set(tick.symbol,[...prev,tick].slice(-MAX_TICKS));
@@ -312,15 +373,15 @@ export default function FifteenPaperBotLibrary(){
      <div className={styles.inputs}>
       <label>Hypothetical stake per trial (USD)
        <input type="number" min="1" max="25" step=".01" value={stake}
-        disabled={session?.state==="running"}
+        disabled={session?.state==="running"||study?.status==="running"}
         onChange={e=>setStake(Number(e.target.value))}/></label>
       <label>Future observations (1–10)
        <input type="number" min="1" max="10" step="1" value={count}
-        disabled={session?.state==="running"}
+        disabled={session?.state==="running"||study?.status==="running"}
         onChange={e=>setCount(Number(e.target.value))}/></label>
       <label>Per-batch hypothetical exposure cap (USD)
        <input type="number" min="1" step=".01" value={cap}
-        disabled={session?.state==="running"}
+        disabled={session?.state==="running"||study?.status==="running"}
         onChange={e=>setCap(Number(e.target.value))}/></label>
      </div>
      <div className={styles.exposure}>
@@ -332,12 +393,46 @@ export default function FifteenPaperBotLibrary(){
      </p>
      <div className={styles.controls}>
       <button className={styles.startButton}
-       disabled={!budgetOk||!marketFresh||!nextResearchSignal||session?.state==="running"}
+       disabled={!budgetOk||!marketFresh||!nextResearchSignal||session?.state==="running"||study?.status==="running"}
        onClick={start}>Start paper bot</button>
-      <button className={styles.stopButton} disabled={session?.state!=="running"}
+      <button className={styles.stopButton} disabled={session?.state!=="running"&&study?.status!=="running"}
        onClick={()=>stopPaperBatch()}>Emergency Stop</button>
      </div>
      <p className={styles.notice} role="status">{notice}</p>
+    </section>
+    <section className={styles.panel}>
+     <p className={styles.kicker}>OPTIONAL LONG-RUN PAPER EVALUATION</p>
+     <h2>Digit Differs · 200 observations</h2>
+     <p>One tap starts 20 sequential 10-observation batches using fresh Deriv public ticks.
+      Each hypothetical observation is $1, with a $10 per-batch cap and $200 maximum
+      cumulative illustrative exposure. Batches stop on feed loss, invalid history,
+      repeated delayed data or Emergency Stop. No broker contracts.</p>
+     <div className={styles.controls}>
+      <button className={styles.startButton}
+       disabled={selected.id!==STUDY_BOT_ID||!marketFresh||!nextResearchSignal||
+        session?.state==="running"||study?.status==="running"}
+       onClick={start200Study}>Start 200 paper observations</button>
+      <button className={styles.stopButton}
+       disabled={study?.status!=="running"}
+       onClick={()=>stopPaperBatch("Emergency Stop: 200-study stopped by user.")}>
+       Stop 200-study</button>
+     </div>
+     {study&&<>
+      <p className={styles.notice} role="status">
+       Study {study.status.toUpperCase()} · {study.completedBatches}/{STUDY_BATCHES} batches completed.
+       {study.status==="stopped"?" "+study.message:""}
+      </p>
+      <div className={styles.resultGrid}>
+       <div><small>OBSERVED / TARGET</small><b>{study.observations.length} / {STUDY_TARGET}</b></div>
+       <div><small>CONDITION HITS</small><b>{paperStudyHits(study)}</b></div>
+       <div><small>MISSES</small><b>{study.observations.length-paperStudyHits(study)}</b></div>
+       <div><small>HYPOTHETICAL STAKE TESTED</small><b>{usd(study.observations.length*STUDY_STAKE)}</b></div>
+       <div><small>DELAYED TICKS SKIPPED</small><b>{study.skippedStaleTicks}</b></div>
+      </div>
+     </>}
+     <p className={styles.finePrint}>Keep this page open and your device awake.
+      Closing or refreshing loses the browser-local study. This tests digit conditions,
+      not Deriv contract wins, financial returns or profitability.</p>
     </section>
     <section className={styles.panel}>
      <p className={styles.kicker}>OBSERVED RESULTS · THIS BROWSER SESSION</p>
