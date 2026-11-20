@@ -39,3 +39,16 @@ test("accepts exact freshness boundaries but rejects one millisecond beyond", ()
   assert.equal(parsePublicDerivTick(message(), "R_100", 99000).ok, true);
   assert.equal(parsePublicDerivTick(message(), "R_100", 98999).ok, false);
 });
+
+
+test("rejects array-shaped messages and tick bodies, invalid selectors and clock types", () => {
+  for (const raw of [[], [message()], { msg_type: "tick", tick: [] }]) {
+    assert.equal(parsePublicDerivTick(raw, "R_100", 100000).ok, false);
+  }
+  for (const selector of [[], ["R_100"], {}, 100, true, "   "]) {
+    assert.equal(parsePublicDerivTick(message(), selector, 100000).ok, false);
+  }
+  for (const now of ["100000", null, undefined, {}, []]) {
+    assert.equal(parsePublicDerivTick(message(), "R_100", now).ok, false);
+  }
+});
