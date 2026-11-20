@@ -1,4 +1,5 @@
 import { createDecipheriv } from "node:crypto";
+import { isAuthorizedDemoPilot } from "@/lib/deriv/demo-account-allowlist.mjs";
 import { createClient as createSupabaseAdmin, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
@@ -53,6 +54,9 @@ export async function getDerivDemoContext(): Promise<DerivDemoContext> {
 
   if (authError || !user) {
     throw new DemoApiError("Please sign in first.", 401, "AUTH_REQUIRED");
+  }
+  if (!isAuthorizedDemoPilot(user.id, process.env.DERIV_DEMO_PILOT_USER_ID)) {
+    throw new DemoApiError("Deriv Demo pilot is not enabled for this account.", 403, "DEMO_PILOT_NOT_AUTHORIZED");
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
