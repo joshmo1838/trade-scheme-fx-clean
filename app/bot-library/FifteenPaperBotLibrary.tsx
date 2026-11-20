@@ -224,7 +224,7 @@ export default function FifteenPaperBotLibrary(){
   <section className={styles.hero}>
    <p className={styles.kicker}>SENFX LABS · DERIV PUBLIC MARKET DATA · PAPER ONLY</p>
    <h1>{BOT_COUNT} original SENFX <span>trading research bots</span></h1>
-   <p>Explore Digit Over/Under, Matches/Differs, Even/Odd, direction,
+   <p>Bulk Bots are paper-only research strategies. Explore Digit Over/Under, Matches/Differs, Even/Odd, direction,
     volatility, momentum and fixed-stake risk studies. Each candidate has a
     real next-tick paper evaluator, live data safeguards and an emergency Stop.</p>
    <p className={styles.warning}>No bots on this page place Deriv Demo or Real contracts.
