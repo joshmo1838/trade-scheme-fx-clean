@@ -49,6 +49,17 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'A previous-day Demo order is unresolved. Reconcile it before opening another contract.');
   end if;
 
+  -- The user has one pilot allocation across ALL Demo account IDs, not one
+  -- allocation per account. The connection row FOR UPDATE above serializes
+  -- concurrent requests for this user before this cross-account check.
+  if exists (
+    select 1 from public.deriv_demo_orders o
+    where o.user_id = p_user_id and o.id <> p_order_id
+      and o.status in ('reserved','open','buy_unknown')
+  ) then
+    return jsonb_build_object('allowed', false, 'reason', 'An outstanding Demo pilot order already exists for this user.');
+  end if;
+
   -- An attempted buy is permanent evidence for this one-trade pilot, even if
   -- Deriv later reports a win, loss, rejection or uncertain outcome.
   if exists (
