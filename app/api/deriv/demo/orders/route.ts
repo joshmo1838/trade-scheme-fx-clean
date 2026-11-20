@@ -278,9 +278,9 @@ function safeRisk(risk: any, orders: any[]) {
     dailyLoss: Number(risk?.realized_loss ?? 0),
     reservedLoss: Number(risk?.reserved_loss ?? 0),
     unlimitedDemoPractice: false,
-    dailyLossLimit: Number(risk?.daily_loss_limit ?? 20),
-    remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit ?? 20) - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
-    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= Number(risk?.daily_loss_limit ?? 20),
+    dailyLossLimit: Number(risk?.daily_loss_limit ?? 1),
+    remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit ?? 1) - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
+    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= Number(risk?.daily_loss_limit ?? 1),
     orders,
   };
 }
@@ -347,8 +347,8 @@ export async function POST(request: NextRequest) {
       const stake = body?.stake;
       const virtualBalance = Number(context.account.balance);
       if (typeof stake !== "number" || !Number.isFinite(stake) || stake <= 0 ||
-          !Number.isFinite(virtualBalance) || virtualBalance <= 0 || stake > virtualBalance || stake !== 10) {
-        return jsonError("The pilot requires exactly 10 units of virtual currency, within your available Demo balance.", 400, "INVALID_DEMO_STAKE");
+          !Number.isFinite(virtualBalance) || virtualBalance <= 0 || stake > virtualBalance || stake !== 1 || context.account.currency !== "USD") {
+        return jsonError("The single-trade pilot requires exactly 1 USD in virtual funds and a verified USD Demo account.", 400, "INVALID_DEMO_STAKE");
       }
       if (typeof marketSymbol !== "string" || !DEMO_MARKETS.has(marketSymbol)) return jsonError("This market is not enabled for SENFX Demo execution.");
       if (direction !== "CALL" && direction !== "PUT") return jsonError("Choose Rise (CALL) or Fall (PUT).");
@@ -474,7 +474,7 @@ export async function POST(request: NextRequest) {
       }
       const order = await readOrder(context.admin, context.user.id, String(body?.orderId || ""));
       if (order.account_id !== context.account.account_id || order.currency !== context.account.currency ||
-          order.status !== "quoted" || order.stake_amount !== 10 ||
+          order.status !== "quoted" || order.stake_amount !== 1 || order.currency !== "USD" ||
           order.duration !== 5 || order.duration_unit !== "m" ||
           !DEMO_MARKETS.has(order.market_symbol) ||
           !["CALL", "PUT"].includes(order.contract_type) ||
@@ -491,11 +491,11 @@ export async function POST(request: NextRequest) {
       // Fail closed against the older production RPC which allows unlimited losses.
       // Never send a buy unless the replacement RPC confirms its enforced budget.
       if (reservation.unlimitedDemoPractice !== false ||
-          reservation.dailyLossLimit !== 20 ||
+          reservation.dailyLossLimit !== 1 ||
           !Number.isFinite(Number(reservation.remainingLossBudget)) ||
           Number(reservation.remainingLossBudget) < 0 ||
           !Number.isFinite(Number(reservation.reservedLoss)) ||
-          Number(reservation.reservedLoss) < 10) {
+          Number(reservation.reservedLoss) < 1) {
         return jsonError("Demo reservation did not prove enforced risk limits. No broker order was sent; reservation requires reconciliation.", 503, "DEMO_RISK_ENFORCEMENT_UNVERIFIED");
       }
       // Persist an irrevocable attempt marker before contacting Deriv. Any
