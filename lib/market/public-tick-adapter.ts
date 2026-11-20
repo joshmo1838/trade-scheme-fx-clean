@@ -3,10 +3,10 @@ import type { Tick } from "./smart-entry-paper.ts";
 
 export type PublicTickResult = { ok: true; tick: Tick } | { ok: false; reason: string };
 export function parsePublicDerivTick(raw: unknown, symbol: string, nowMs: number): PublicTickResult {
-  if (!raw || typeof raw !== "object" || !symbol || !Number.isFinite(nowMs)) return { ok: false, reason: "invalid-feed-message" };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof symbol !== "string" || !symbol.trim() || typeof nowMs !== "number" || !Number.isFinite(nowMs)) return { ok: false, reason: "invalid-feed-message" };
   const message = raw as Record<string, unknown>;
   if (message.error) return { ok: false, reason: "feed-error" };
-  if (message.msg_type !== "tick" || !message.tick || typeof message.tick !== "object") return { ok: false, reason: "not-a-tick" };
+  if (message.msg_type !== "tick" || !message.tick || typeof message.tick !== "object" || Array.isArray(message.tick)) return { ok: false, reason: "not-a-tick" };
   const data = message.tick as Record<string, unknown>;
   if (data.symbol !== symbol || typeof data.epoch !== "number" || typeof data.quote !== "number" ||
       !Number.isInteger(data.epoch) || !Number.isFinite(data.quote) || data.quote <= 0) return { ok: false, reason: "invalid-symbol-or-quote" };
