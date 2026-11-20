@@ -18,6 +18,13 @@ export function beginPaperSession(nowMs: number): PaperSession {
 
 export function paperNextTickStep(session: PaperSession, config: EntryConfig, nowMs: number, tick: Tick | null, score: number | null, emergencyStop = false): PaperUpdate {
   const stop = (reason: string): PaperUpdate => ({ session: { ...session, gate: { ...session.gate, stopped: true } }, action: "stop", reason });
+  // Fail closed if the mutable ledger and gate disagree about the last accepted tick.
+  const lastObservation = Array.isArray(session.observations) ? session.observations.at(-1) : undefined;
+  const expectedLastTick = lastObservation?.settlement ?? lastObservation?.entry ?? null;
+  if (lastObservation && (!session.gate.lastTick ||
+      session.gate.lastTick.id !== expectedLastTick?.id ||
+      session.gate.lastTick.epochMs !== expectedLastTick?.epochMs ||
+      session.gate.lastTick.quote !== expectedLastTick?.quote)) return stop("invalid-paper-history");
   if (!Array.isArray(session.observations) || session.observations.length !== session.gate.completed ||
       session.observations.length > 10 || session.observations.some((o, i) => !o || !o.entry || !Number.isFinite(o.researchScore) ||
         o.researchScore < config.minimumScore || o.researchScore > 100 ||
