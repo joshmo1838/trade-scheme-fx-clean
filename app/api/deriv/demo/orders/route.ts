@@ -277,10 +277,10 @@ function safeRisk(risk: any, orders: any[]) {
   return {
     dailyLoss: Number(risk?.realized_loss ?? 0),
     reservedLoss: Number(risk?.reserved_loss ?? 0),
-    unlimitedDemoPractice: true,
-    dailyLossLimit: null,
-    remainingLossBudget: null,
-    limitReached: false,
+    unlimitedDemoPractice: false,
+    dailyLossLimit: Number(risk?.daily_loss_limit ?? 20),
+    remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit ?? 20) - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
+    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= Number(risk?.daily_loss_limit ?? 20),
     orders,
   };
 }
@@ -294,7 +294,7 @@ export async function GET() {
     const riskDate = new Date().toISOString().slice(0, 10);
     const [riskResult, orderResult] = await Promise.all([
       context.admin.from("deriv_demo_daily_risk")
-        .select("risk_date,currency,realized_loss,reserved_loss")
+        .select("risk_date,currency,realized_loss,reserved_loss,daily_loss_limit")
         .eq("user_id", context.user.id)
         .eq("account_id", context.account.account_id)
         .eq("risk_date", riskDate)
