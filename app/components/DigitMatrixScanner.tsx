@@ -176,8 +176,11 @@ export default function DigitMatrixScanner(){
     const tick=parsePublicDigitTick(message,Date.now());
     if(!tick||!subscribed.has(tick.symbol))return;
     const previous=buffer.current.get(tick.symbol);
-    const key=tick.tickId||String(tick.epoch)+":"+tick.quoteText;
-    if(previous?.lastKey===key)return;
+    // Deriv tick.id identifies a subscription, not a unique market tick.
+    // Reject older epochs and exact repeats, but allow distinct quotes within
+    // the same second (especially on 1-second volatility markets).
+    const key=String(tick.epoch)+":"+tick.quoteText;
+    if(previous && (tick.epoch<previous.epoch || previous.lastKey===key))return;
     lastObservedAt=Date.now();
     buffer.current.set(tick.symbol,{
      quote:tick.quoteText,updated:Date.now(),epoch:tick.epoch,received:(previous?.received||0)+1,
