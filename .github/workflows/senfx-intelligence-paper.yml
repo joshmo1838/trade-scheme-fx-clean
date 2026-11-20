@@ -8,6 +8,8 @@ on:
       - 'lib/market/smart-entry-paper.ts'
       - 'lib/market/smart-entry-next-tick.ts'
       - 'lib/market/public-tick-adapter.ts'
+      - 'lib/market/market-time-machine.ts'
+      - 'tests/market-time-machine.test.mjs'
       - 'tests/public-tick-adapter.test.mjs'
       - 'tests/smart-entry-next-tick.test.mjs'
       - 'app/intelligence/suite/**'
@@ -36,4 +38,4 @@ jobs:
       - name: Verify TypeScript dashboard and engine
         run: npm run typecheck
       - name: Run isolated deterministic paper-only Smart Entry tests
-        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs tests/smart-entry-next-tick.test.mjs tests/public-tick-adapter.test.mjs
+        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs tests/smart-entry-next-tick.test.mjs tests/public-tick-adapter.test.mjs tests/market-time-machine.test.mjs
