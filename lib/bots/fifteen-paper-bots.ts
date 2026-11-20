@@ -80,11 +80,15 @@ export type PaperObservation={
   sequence:number;digit:number;quote:string;epoch:number;
   hit:boolean;signal:PaperSignal;paperStake:number;
 };
+// Paper-only freshness limits; never used for broker orders.
+export const PAPER_MAX_TICK_AGE_MS=12_000;
+export const PAPER_MAX_STALE_SKIPS=5;
 export type FifteenSession={
   botId:string;symbol:DigitSymbol;count:number;stake:number;cap:number;
   state:"running"|"stopped"|"completed";message:string;
   lastEpoch:number;pending:PaperSignal|null;
   observations:readonly PaperObservation[];
+  skippedStaleTicks:number;
 };
 const SYMBOL_SET=new Set<string>(DIGIT_MARKETS.map(x=>x.symbol));
 export function findFifteenBot(id:string):FifteenBot|undefined{
@@ -198,14 +202,14 @@ export function startFifteenPaperSession(input:{
  const history=input.history.filter(x=>x.symbol===bot.market).slice(-160);
  const latest=history[history.length-1];
  if(!latest||!Number.isFinite(input.nowMs)||
-    input.nowMs-latest.epoch*1000<0||input.nowMs-latest.epoch*1000>15_000)
+    input.nowMs-latest.epoch*1000<0||input.nowMs-latest.epoch*1000>PAPER_MAX_TICK_AGE_MS)
    return{ok:false,reason:"Fresh, verified public-market ticks are required."};
  const decision=predictFifteenBot(bot,history);
  if(!decision)return{ok:false,reason:"Insufficient research samples or no eligible strategy hypothesis."};
  return{ok:true,session:{
   botId:bot.id,symbol:bot.market,stake:input.stake,count:input.count,cap:input.cap,
   state:"running",message:"Waiting for next genuine public tick.",
-  lastEpoch:latest.epoch,pending:decision,observations:[],
+  lastEpoch:latest.epoch,pending:decision,observations:[],skippedStaleTicks:0,
  }};
 }
 export function stopFifteenPaperSession(session:FifteenSession,reason="Emergency Stop requested."):FifteenSession{
@@ -227,9 +231,18 @@ export function observeFifteenPaperTick(
  if(historyBefore.at(-1)?.epoch!==session.lastEpoch)
    return stopFifteenPaperSession(session,"Market history changed while paper batch was armed. Stopped safely; restart with fresh ticks.");
  if(tick.epoch<=session.lastEpoch)return session;
- if(!Number.isFinite(nowMs)||nowMs-tick.epoch*1000<0||
-   nowMs-tick.epoch*1000>12_000)
-   return stopFifteenPaperSession(session,"Selected market tick was stale or invalid. Stopped safely; reconnect and restart.");
+ const ageMs=nowMs-tick.epoch*1000;
+ if(!Number.isFinite(ageMs)||ageMs<0)
+   return stopFifteenPaperSession(session,"Market tick timestamp is invalid or ahead of the device clock. Stopped safely; check automatic date/time.");
+ if(ageMs>PAPER_MAX_TICK_AGE_MS){
+   // An aged packet must NEVER settle the previously committed next-tick
+   // hypothesis. Void it and require a genuinely fresh tick to re-arm.
+   const skippedStaleTicks=session.skippedStaleTicks+1;
+   if(skippedStaleTicks>PAPER_MAX_STALE_SKIPS)
+     return stopFifteenPaperSession(session,"Repeated delayed market ticks. Paper batch stopped; reconnect and verify phone time/feed.");
+   return {...session,lastEpoch:tick.epoch,pending:null,skippedStaleTicks,
+     message:"Delayed market tick skipped (not scored); previous hypothesis discarded. Waiting for fresh data to re-arm."};
+ }
  const bot=findFifteenBot(session.botId);
  if(!bot)return stopFifteenPaperSession(session,"Unknown bot. Stopped.");
  const observations=[...session.observations];

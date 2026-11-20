@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import {
  FIFTEEN_BOTS,BOT_COUNT,findFifteenBot,predictFifteenBot,
  startFifteenPaperSession,observeFifteenPaperTick,stopFifteenPaperSession,
+ PAPER_MAX_TICK_AGE_MS,
  type FifteenSession,
 } from "@/lib/bots/fifteen-paper-bots";
 import {
@@ -178,23 +179,31 @@ export default function FifteenPaperBotLibrary(){
      return;
     }
     if(msg.msg_type!=="tick")return;
-    const tick=parsePublicDigitTick(raw,Date.now());
+    const receivedAt=Date.now();
+    const tick=parsePublicDigitTick(raw,receivedAt);
     if(!tick||!subscribed.has(tick.symbol))return;
+    const ageMs=receivedAt-tick.epoch*1000;
+    const tickFresh=ageMs>=0&&ageMs<=PAPER_MAX_TICK_AGE_MS;
     const prev=history.current.get(tick.symbol)||[];
     if(prev.length&&tick.epoch<=prev[prev.length-1].epoch)return;
     const current=sessionRef.current;
     if(current?.state==="running"&&current.symbol===tick.symbol){
-     const next=observeFifteenPaperTick(current,tick,prev,Date.now());
+     const next=observeFifteenPaperTick(current,tick,prev,receivedAt);
      if(next!==current){
       sessionRef.current=next;setSession(next);
       if(next.state==="completed")setNotice("Paper batch complete. No broker trades or payouts.");
-      else if(next.state==="stopped")setNotice(next.message);
+      else if(next.state==="stopped"||next.message!==current.message)setNotice(next.message);
      }
     }
     history.current.set(tick.symbol,[...prev,tick].slice(-MAX_TICKS));
-    lastReceived.current.set(tick.symbol,Date.now());
-    lastObservedAt=Date.now();
-    setFeedStatus("LIVE: genuine Deriv public quotes received · no broker orders.");
+    // A buffered/delayed packet does not satisfy feed freshness.
+    if(tickFresh){
+     lastReceived.current.set(tick.symbol,receivedAt);
+     lastObservedAt=receivedAt;
+     setFeedStatus("LIVE: genuine Deriv public quotes received · no broker orders.");
+    }else{
+     setFeedStatus("Delayed Deriv tick detected. Paper results paused until fresh ticks arrive.");
+    }
    };
    socket.onerror=()=>{if(mounted)setFeedStatus("Public feed error. Waiting for reconnect.");};
    socket.onclose=()=>{
@@ -339,6 +348,7 @@ export default function FifteenPaperBotLibrary(){
       <div><small>CONDITION HITS</small><b>{sessionHits}</b></div>
       <div><small>MISSES</small><b>{(session?.observations.length||0)-sessionHits}</b></div>
       <div><small>STAKE TESTED</small><b>{usd((session?.observations.length||0)*(session?.stake||0))}</b></div>
+      <div><small>DELAYED TICKS SKIPPED</small><b>{session?.skippedStaleTicks||0}</b></div>
      </div>
      {!!session?.observations.length&&<div className={styles.scrollTable}>
       <table><thead><tr><th>#</th><th>Quote</th><th>Hypothesis</th><th>Condition</th></tr></thead>

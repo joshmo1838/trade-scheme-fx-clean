@@ -76,10 +76,11 @@ test("one future public quote settles exactly one observation, with no replay or
   assert.equal(recorded.observations[0].hit,testPaperSignal(current.pending,future));
   assert.equal(observeFifteenPaperTick(recorded,future,[...hist,future],(EPOCH+60)*1000),recorded);
   const late=mk(bot.market,EPOCH+61,61);
-  const stale=observeFifteenPaperTick(recorded,late,[...hist,future],(EPOCH+90)*1000);
-  assert.equal(stale.state,"stopped","stale quote must fail closed");
+  const stale=observeFifteenPaperTick(recorded,late,[...hist,future],(EPOCH+74)*1000);
+  assert.equal(stale.state,"running","one delayed tick must be discarded without a false outcome");
   assert.equal(stale.observations.length,1,"stale quote cannot produce paper outcome");
-  assert.equal(stale.pending,null);
+  assert.equal(stale.pending,null,"late tick must void prior hypothesis");
+  assert.equal(stale.skippedStaleTicks,1);
  }
 });
 test("fixed stake, three outcomes, risk cap and emergency Stop",()=>{
@@ -141,4 +142,71 @@ test("history divergence fails closed without fabricating a paper outcome",()=>{
  assert.equal(divergent.pending,null);
  assert.equal(divergent.observations.length,0);
  assert.match(divergent.message,/history changed/i);
+});
+
+
+test("ten outcomes require genuine future ticks after delayed-tick rearming",()=>{
+ const bot=FIFTEEN_BOTS.find(x=>x.id==="digit-differs");
+ assert.ok(bot);
+ const hist=history(bot);
+ const result=start(bot,{stake:1,count:10,cap:10});
+ assert.equal(result.ok,true);
+ if(!result.ok)return;
+ let session=result.session;
+ let before=[...hist];
+ for(let n=60;n<=62;n++){
+  const tick=mk(bot.market,EPOCH+n,n);
+  session=observeFifteenPaperTick(session,tick,before,(EPOCH+n)*1000);
+  before.push(tick);
+ }
+ assert.equal(session.observations.length,3);
+ const delayed=mk(bot.market,EPOCH+63,63);
+ session=observeFifteenPaperTick(session,delayed,before,(EPOCH+76)*1000);
+ before.push(delayed);
+ assert.equal(session.state,"running");
+ assert.equal(session.observations.length,3);
+ assert.equal(session.skippedStaleTicks,1);
+ assert.equal(session.pending,null);
+ const rearm=mk(bot.market,EPOCH+80,80);
+ session=observeFifteenPaperTick(session,rearm,before,(EPOCH+80)*1000);
+ before.push(rearm);
+ assert.equal(session.observations.length,3,"fresh re-arming tick must not score voided prediction");
+ assert.ok(session.pending);
+ for(let n=81;n<=87;n++){
+  const tick=mk(bot.market,EPOCH+n,n);
+  session=observeFifteenPaperTick(session,tick,before,(EPOCH+n)*1000);
+  before.push(tick);
+ }
+ assert.equal(session.state,"completed");
+ assert.equal(session.observations.length,10);
+ assert.equal(session.skippedStaleTicks,1);
+ assert.ok(session.observations.every(o=>o.epoch!==EPOCH+63&&o.epoch!==EPOCH+80),"delayed/rearm ticks must never be scored");
+ assert.deepEqual(session.observations.map(o=>o.sequence),[1,2,3,4,5,6,7,8,9,10]);
+ assert.equal(session.observations.reduce((sum,o)=>sum+o.paperStake,0),10);
+});
+test("repeated delayed packets and future-dated ticks still fail closed",()=>{
+ const bot=FIFTEEN_BOTS[5];
+ const hist=history(bot);
+ const a=start(bot);
+ assert.equal(a.ok,true);
+ if(!a.ok)return;
+ const future=mk(bot.market,EPOCH+60,60);
+ const badClock=observeFifteenPaperTick(a.session,future,hist,(EPOCH+59)*1000);
+ assert.equal(badClock.state,"stopped");
+ assert.match(badClock.message,/device clock/i);
+ let session=a.session;
+ let before=[...hist];
+ for(let n=60;n<=65;n++){
+  const tick=mk(bot.market,EPOCH+n,n);
+  session=observeFifteenPaperTick(session,tick,before,(EPOCH+n+13)*1000);
+  before.push(tick);
+ }
+ assert.equal(session.state,"stopped");
+ assert.equal(session.observations.length,0);
+ assert.equal(session.pending,null);
+ assert.match(session.message,/Repeated delayed/i);
+});
+test("stale recovery retains paper-only broker isolation",()=>{
+ const file=readFileSync(new URL("../lib/bots/fifteen-paper-bots.ts",import.meta.url),"utf8");
+ assert.doesNotMatch(file,/fetch\(|WebSocket|DERIV_DEMO_BROKER_BUY_ENABLED|SUPABASE_SERVICE_ROLE_KEY|buy: [1-9]/i);
 });
