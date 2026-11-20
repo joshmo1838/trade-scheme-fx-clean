@@ -1,0 +1,20 @@
+name: Deriv Demo safety gate
+on:
+  pull_request:
+    paths:
+      - 'lib/deriv/demo-execution-gate.mjs'
+      - 'tests/deriv-demo-execution-gate.test.mjs'
+      - '.github/workflows/deriv-demo-gate.yml'
+  workflow_dispatch:
+jobs:
+  fail-closed-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run broker safety gate tests (offline, no credentials)
+        run: node --test tests/deriv-demo-execution-gate.test.mjs
