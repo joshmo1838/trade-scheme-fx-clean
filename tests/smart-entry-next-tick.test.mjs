@@ -130,3 +130,29 @@ test("invalid, future and stale settlement ticks never resolve a pending paper o
     assert.equal(result.session.gate.completed, 1);
   }
 });
+
+test("replaying identical public ticks reproduces the same paper ledger without broker actions", () => {
+  const events = [
+    { now: 1000, tick: tick(1, 100), score: 75 },
+    { now: 1001, tick: tick(1, 100), score: 99 },
+    { now: 2000, tick: tick(2, 101), score: null },
+    { now: 3000, tick: tick(3, 101), score: 74 },
+    { now: 4000, tick: tick(4, 101), score: 80 },
+    { now: 5000, tick: tick(5, 100), score: null },
+  ];
+  const replay = () => {
+    let session = beginPaperSession(1000);
+    const actions = [];
+    for (const event of events) {
+      const update = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, event.now, event.tick, event.score);
+      actions.push([update.action, update.reason]);
+      session = update.session;
+    }
+    return { session, actions };
+  };
+  const first = replay();
+  assert.deepEqual(replay(), first);
+  assert.deepEqual(first.session.observations.map(o => o.outcome), ["up", "down"]);
+  assert.equal(first.session.observations.length, 2);
+  assert.equal(first.session.gate.completed, 2);
+});
