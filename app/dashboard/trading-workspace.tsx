@@ -75,6 +75,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
   const [opened, setOpened] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
@@ -129,6 +130,26 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
     }
   }
 
+  async function disconnect() {
+    if (disconnecting || saving) return;
+    if (!window.confirm("Disconnect this Deriv account from Trade Scheme FX? Your saved authorization will be removed. This does not revoke access in Deriv itself.")) return;
+    setDisconnecting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/deriv/disconnect", {
+        method: "POST", credentials: "same-origin",
+      });
+      const result = await response.json();
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.error || "Could not disconnect Deriv.");
+      }
+      window.location.assign("/dashboard?deriv=disconnected");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not disconnect Deriv.");
+      setDisconnecting(false);
+    }
+  }
+
   const selected = accounts.find(account => account.account_id === selectedId);
   const currency = selected ? String(selected.currency || "").toUpperCase() : "";
   const flag = currencyFlags[currency] || "💱";
@@ -178,6 +199,12 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
           <Link className="senfxAccountConnect" href="/api/deriv/connect">
             {connectionStatus === "Connected" ? "Reconnect Deriv ↗" : "Connect Deriv ↗"}
           </Link>
+          {connectionStatus === "Connected" && (
+            <button type="button" className="senfxAccountConnect" disabled={saving || disconnecting}
+              onClick={() => void disconnect()}>
+              {disconnecting ? "Disconnecting…" : "Disconnect Deriv"}
+            </button>
+          )}
         </div>
       )}
     </div>
