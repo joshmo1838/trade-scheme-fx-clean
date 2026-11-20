@@ -17,3 +17,25 @@ test("rejects errors, malformed data and non-ticks without execution", () => {
   assert.equal(parsePublicDerivTick({ msg_type: "ping" }, "R_100", 100000).ok, false);
   assert.equal(parsePublicDerivTick(null, "R_100", 100000).ok, false);
 });
+
+test("rejects malformed clocks, symbol selectors and nonfinite prices fail closed", () => {
+  for (const now of [NaN, Infinity, -Infinity]) {
+    assert.equal(parsePublicDerivTick(message(), "R_100", now).ok, false);
+  }
+  for (const symbol of ["", null, undefined]) {
+    assert.equal(parsePublicDerivTick(message(), symbol, 100000).ok, false);
+  }
+  for (const quote of [NaN, Infinity, -Infinity, 0, "123.5", null]) {
+    assert.equal(parsePublicDerivTick(message("R_100", 100, quote), "R_100", 100000).ok, false);
+  }
+  for (const epoch of [NaN, Infinity, -Infinity, "100", null, 100.5]) {
+    assert.equal(parsePublicDerivTick(message("R_100", epoch, 123.5), "R_100", 100000).ok, false);
+  }
+});
+
+test("accepts exact freshness boundaries but rejects one millisecond beyond", () => {
+  assert.equal(parsePublicDerivTick(message(), "R_100", 105000).ok, true);
+  assert.equal(parsePublicDerivTick(message(), "R_100", 105001).ok, false);
+  assert.equal(parsePublicDerivTick(message(), "R_100", 99000).ok, true);
+  assert.equal(parsePublicDerivTick(message(), "R_100", 98999).ok, false);
+});
