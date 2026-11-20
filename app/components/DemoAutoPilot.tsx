@@ -23,6 +23,7 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
  const history=useRef<DemoAiTick[]>([]);
  const startAt=useRef(0);
  const lastReceived=useRef(0);
+ const socketOpenedAt=useRef(0);
  const stopped=useRef(true);
  const buyStarted=useRef(false);
  const scanTimer=useRef<ReturnType<typeof setInterval>|null>(null);
@@ -65,7 +66,7 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
   recoveries.current+=1;
   recoveryPending.current=true;
   closeSocket();
-  history.current=[];lastReceived.current=0;
+  history.current=[];lastReceived.current=0;socketOpenedAt.current=0;
   setSampleCount(0);
   setLastDecision("Public feed interrupted; clearing old samples before a fresh 40-tick scan.");
   setFeed("Recovering public feed: "+cause+" · attempt "+recoveries.current+"/4");
@@ -133,7 +134,7 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
   recoveryPending.current=false;
   recoveries.current=0;
   startAt.current=Date.now();
-  lastReceived.current=0;
+  lastReceived.current=0;socketOpenedAt.current=0;
   setSampleCount(0);setOutcome("");setLastDecision("Collecting 40 verified R_100 ticks");
   setPhase("scanning");setFeed("Connecting to Deriv public market…");
   const connectPublicFeed=()=>{
@@ -156,6 +157,7 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
     if(connectionTimer.current){clearTimeout(connectionTimer.current);connectionTimer.current=null;}
     try{ws.send(JSON.stringify({ticks:SYMBOL,subscribe:1}));}
     catch{recoverPublicFeed("Subscription could not be sent");return;}
+    socketOpenedAt.current=Date.now();
     setFeed("Public feed connected · waiting for 40 fresh quotes");
    };
    ws.onerror=()=>{
@@ -212,6 +214,8 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
     stop("No eligible research signal within 15 minutes. No purchase submitted.");
    else if(lastReceived.current&&now-lastReceived.current>15_000)
     recoverPublicFeed("No fresh ticks for 15 seconds");
+   else if(!lastReceived.current&&socketOpenedAt.current&&now-socketOpenedAt.current>15_000)
+    recoverPublicFeed("Subscription connected but no market ticks arrived");
   },1000);
  }
  const running=phase==="scanning"||phase==="quoting"||phase==="buying";
