@@ -36,7 +36,7 @@ export default function Home() {
 
           <nav className="senfxLandingNav" aria-label="Main navigation">
             <a href="#how-it-works">How it works</a>
-            <Link href="/bots">Bots</Link>
+            <Link href="/bot-library">Bulk Bots</Link>
             <Link href="/markets">Markets</Link>
             <a href="#learn">Learn</a>
             <a href="#faq">FAQ</a>
@@ -63,8 +63,8 @@ export default function Home() {
             <Link href="/login" className="senfxHeroPrimary">
               <span aria-hidden="true">↗</span> Log in to workspace <span aria-hidden="true">›</span>
             </Link>
-            <Link href="/signup" className="senfxHeroSecondary">
-              <span aria-hidden="true">✧</span> Create free account
+            <Link href="/bot-library" className="senfxHeroSecondary">
+              <span aria-hidden="true">✧</span> Explore 15 Bulk Bots
             </Link>
             <a className="senfxHeroSubtle" href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a>
           </div>
@@ -122,7 +122,7 @@ export default function Home() {
         </div>
         <div className="senfxLearnActions">
           <Link href="/markets" className="senfxOutlineButton">Explore markets ↗</Link>
-          <Link href="/bots" className="senfxTopButton">Explore bots ↗</Link>
+          <Link href="/bot-library" className="senfxTopButton">Explore Bulk Bots ↗</Link>
         </div>
       </section>
 
