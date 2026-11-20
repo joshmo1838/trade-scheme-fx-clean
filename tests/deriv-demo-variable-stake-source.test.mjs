@@ -6,9 +6,15 @@ const route = readFileSync(new URL("../app/api/deriv/demo/orders/route.ts", impo
 const consoleSource = readFileSync(new URL("../app/components/DemoTradingConsole.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/senfx-deriv-demo-unlimited-pilot-draft.sql", import.meta.url), "utf8");
 
-test("Demo broker buy remains hard-disabled", () => {
-  assert.match(route, /if \(action === "buy"\) \{[\s\S]*?DEMO_BUY_SAFETY_HOLD/);
-  assert.doesNotMatch(route, /session\.request\("buy"/);
+test("Demo broker buy is separately gated and fail-closed on risk verification", () => {
+  assert.match(route, /if \(action === "buy"\) \{[\s\S]*?DERIV_DEMO_BROKER_BUY_ENABLED[\s\S]*?DEMO_BUY_SAFETY_HOLD/);
+  assert.match(route, /confirmVirtualPurchase !== true/);
+  assert.match(route, /senfx_demo_reserve_order/);
+  assert.match(route, /reservation\.unlimitedDemoPractice !== false/);
+  assert.match(route, /reservation\.dailyLossLimit !== 20/);
+  assert.match(route, /\.eq\("status", "reserved"\)\.is\("buy_requested_at", null\)/);
+  assert.match(route, /session\.request\("buy"/);
+  assert.match(route, /reconcileBuyOrder\(context/);
 });
 test("Demo quote uses customer stake and virtual balance guard", () => {
   assert.match(route, /const stake = body\?\.stake/);
