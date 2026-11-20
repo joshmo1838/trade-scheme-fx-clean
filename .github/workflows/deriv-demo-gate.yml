@@ -20,6 +20,7 @@ on:
       - 'lib/deriv/demo-auto-feed-policy.mjs'
       - 'lib/deriv/demo-auto-feed-policy.d.mts'
       - 'supabase/senfx-deriv-demo-auto-phase2.sql'
+      - 'supabase/senfx-deriv-demo-auto-phase2-rollback.sql'
       - 'tests/deriv-demo-legacy-backup-restore-qa.sh'
       - 'supabase/senfx-deriv-demo-one-dollar-stage-only.sql'
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'

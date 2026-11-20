@@ -46,3 +46,29 @@ begin
  end if;
 end;
 $tests$;
+
+-- Restore the pre-phase-2 one-buy risk function after proving grant consumption.
+\ir ../supabase/senfx-deriv-demo-auto-phase2-rollback.sql
+do $rollback_checks$
+declare result jsonb;
+begin
+ if (select count(*) from public.deriv_demo_orders where buy_requested_at is not null) <> 1 then
+  raise exception 'Rollback must preserve previously attempted broker purchases';
+ end if;
+ if (select status from public.senfx_demo_auto_one_shots
+   where user_id='00000000-0000-4000-8000-000000000001') <> 'reserved' then
+  raise exception 'Rollback must preserve consumed one-shot audit';
+ end if;
+ if (select pg_get_functiondef('public.senfx_demo_reserve_order(uuid,uuid)'::regprocedure)
+   like '%v_auto_phase%') then
+  raise exception 'Rollback did not restore original one-purchase RPC';
+ end if;
+ result:=public.senfx_demo_reserve_order(
+  '00000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000004'
+ );
+ if result->>'allowed' is distinct from 'false' then
+  raise exception 'Original strict one-trade gate was not restored: %',result;
+ end if;
+end;
+$rollback_checks$;
