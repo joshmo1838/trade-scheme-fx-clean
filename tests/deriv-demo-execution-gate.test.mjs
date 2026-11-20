@@ -45,3 +45,16 @@ test("pure guard cannot guarantee concurrent idempotency; SQL must enforce atomi
   assert.equal(evaluateDemoOrderGate(base,enabled).allowed,true);
   assert.equal(evaluateDemoOrderGate({...base},enabled).allowed,true);
 });
+
+test("idempotency key must be exact UUID shape, not permissive hyphen padding",()=>{
+  const malformed = [
+    "12345678-1234-1234-1234-123456789012-",
+    "12345678---------------------------",
+    "12345678-1234-1234-1234-12345678901z",
+    "12345678123412341234123456789012",
+    "12345678-1234-1234-1234-123456789012extra",
+    " 12345678-1234-1234-1234-123456789012",
+  ];
+  for (const requestId of malformed) assert.equal(evaluateDemoOrderGate({...base,requestId},enabled).code,"IDEMPOTENCY_KEY_REQUIRED");
+  assert.equal(evaluateDemoOrderGate({...base,requestId:"ABCDEF12-1234-1234-1234-123456789ABC"},enabled).allowed,true);
+});
