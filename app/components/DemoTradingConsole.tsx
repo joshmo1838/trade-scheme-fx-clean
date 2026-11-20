@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import DemoAutoPilot from "./DemoAutoPilot";
 import { useCallback, useEffect, useState } from "react";
 
 type Risk = {
@@ -52,6 +53,8 @@ const MARKETS = [
 export default function DemoTradingConsole() {
   const [enabled, setEnabled] = useState(false);
   const [ready, setReady] = useState(false);
+  const [autoPilotReady, setAutoPilotReady] = useState(false);
+  const [autoPilotReason, setAutoPilotReason] = useState("Checking Demo auto-pilot authorization…");
   const [account, setAccount] = useState<DemoAccount | null>(null);
   const [risk, setRisk] = useState<Risk>({ dailyLoss: 0, reservedLoss: 0 });
   const [market, setMarket] = useState("R_100");
@@ -72,6 +75,7 @@ export default function DemoTradingConsole() {
       if (!response.ok || !data.enabled) {
         setEnabled(false);
         setReady(false);
+        setAutoPilotReady(false);
         setAccount(null);
         setActiveOrder(data.activeOrder || null);
         throw new Error(data.error || "Connect Deriv and select an active Demo account from your dashboard first.");
@@ -79,6 +83,8 @@ export default function DemoTradingConsole() {
 
       setEnabled(true);
       setReady(true);
+      setAutoPilotReady(data.autoPilotReady === true);
+      setAutoPilotReason(String(data.autoPilotReason || "AUTO_PILOT_NOT_READY"));
       setAccount(data.account);
       setRisk({
         dailyLoss: Number(data.dailyLoss || 0),
@@ -360,6 +366,11 @@ export default function DemoTradingConsole() {
             <p className="muted" style={{ marginTop: 10 }}>{account ? "Selected account: DEMO · " + account.currency : "Select an active Demo account from the dashboard first."}</p>
           </article>
         </section>
+
+        <DemoAutoPilot ready={ready && autoPilotReady && !Boolean(activeOrder) && (account?.currency === "USD")}
+          reason={autoPilotReason}
+          virtualBalance={account ? Number(account.balance) : 0}
+          onRefresh={refresh} />
 
         <section className="workspacePanel" style={{ marginTop: 18 }}>
           <p className="workspaceEyebrow">MANUAL DEMO CONTRACT TEST</p>

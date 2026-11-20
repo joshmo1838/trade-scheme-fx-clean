@@ -292,7 +292,7 @@ export async function GET() {
     }
     const context = await getDerivDemoContext();
     const riskDate = new Date().toISOString().slice(0, 10);
-    const [riskResult, orderResult] = await Promise.all([
+    const [riskResult, orderResult, autoGrantResult, priorAttempts] = await Promise.all([
       context.admin.from("deriv_demo_daily_risk")
         .select("risk_date,currency,realized_loss,reserved_loss,daily_loss_limit")
         .eq("user_id", context.user.id)
@@ -305,12 +305,42 @@ export async function GET() {
         .eq("account_id", context.account.account_id)
         .order("created_at", { ascending: false })
         .limit(20),
+      context.admin.from("senfx_demo_auto_one_shots")
+        .select("account_id,status,expires_at")
+        .eq("user_id", context.user.id)
+        .maybeSingle(),
+      context.admin.from("deriv_demo_orders")
+        .select("id", { count:"exact", head:true })
+        .eq("user_id", context.user.id)
+        .not("buy_requested_at","is",null),
     ]);
     if (riskResult.error || orderResult.error) {
       console.error("SENFX Demo dashboard lookup failed:", { riskCode: riskResult.error?.code, ordersCode: orderResult.error?.code });
       return jsonError("Could not load Demo risk and order history. Apply the SENFX Demo execution migration.", 503, "DEMO_SCHEMA_MISSING");
     }
     const orders = orderResult.data || [];
+    const autoGrant = autoGrantResult.data;
+    const activeDemoOrder = orders.find((order: any) => ["reserved", "open", "buy_unknown"].includes(order.status)) || null;
+    const brokerBuyEnabled = process.env.DERIV_DEMO_BROKER_BUY_ENABLED === "true";
+    const grantValid = !autoGrantResult.error && autoGrant?.status === "armed" &&
+      autoGrant.account_id === context.account.account_id &&
+      new Date(autoGrant.expires_at).getTime() > Date.now();
+    const priorAttemptCount = priorAttempts.count;
+    const autoPilotReady = brokerBuyEnabled && grantValid && !priorAttempts.error &&
+      priorAttemptCount === 1 && !activeDemoOrder &&
+      Number(context.account.balance) >= 1 && context.account.currency === "USD" &&
+      Number(riskResult.data?.realized_loss ?? 0) === 0 &&
+      Number(riskResult.data?.reserved_loss ?? 0) === 0;
+    const autoPilotReason = !brokerBuyEnabled ? "DEMO_BROKER_BUY_SAFETY_HOLD"
+      : autoGrantResult.error ? "AUTO_PILOT_SCHEMA_NOT_READY"
+      : !grantValid ? "NEW_ONE_SHOT_DEMO_AUTHORIZATION_REQUIRED"
+      : priorAttempts.error ? "PRIOR_BUY_CHECK_FAILED"
+      : priorAttemptCount !== 1 ? "PILOT_HISTORY_NOT_ELIGIBLE"
+      : activeDemoOrder ? "DEMO_ORDER_MUST_BE_RESOLVED"
+      : Number(context.account.balance) < 1 ? "INSUFFICIENT_VIRTUAL_BALANCE"
+      : Number(riskResult.data?.realized_loss ?? 0) !== 0 ||
+        Number(riskResult.data?.reserved_loss ?? 0) !== 0 ? "VIRTUAL_LOSS_BUDGET_NOT_AVAILABLE"
+      : "READY_FOR_SINGLE_DEMO_AUTOMATED_TRADE";
     return NextResponse.json({
       enabled: true,
       account: {
@@ -321,7 +351,9 @@ export async function GET() {
       },
       riskDate,
       ...safeRisk(riskResult.data, orders),
-      activeOrder: orders.find((order: any) => ["reserved", "open", "buy_unknown"].includes(order.status)) || null,
+      activeOrder: activeDemoOrder,
+      autoPilotReady,
+      autoPilotReason,
     }, { headers: noStore });
   } catch (error) {
     const safe = safeDemoError(error);
