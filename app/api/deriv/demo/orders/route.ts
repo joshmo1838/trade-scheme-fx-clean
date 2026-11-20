@@ -39,7 +39,7 @@ function assertSameOrigin(request: NextRequest) {
 async function readOrder(admin: any, userId: string, orderId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) throw new Error("Invalid Demo order ID.");
   const { data, error } = await admin.from("deriv_demo_orders")
-    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,buy_requested_at,contract_id,buy_transaction_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at")
+    .select("id,request_id,user_id,account_id,currency,market_symbol,contract_type,duration,duration_unit,stake_amount,proposal_id,ask_price,payout,longcode,status,risk_date,buy_requested_at,contract_id,buy_transaction_id,buy_price,sell_price,profit,contract_status,quote_expires_at,opened_at,settled_at,updated_at")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error || !data) throw new Error("Demo order was not found.");
   return data;
@@ -481,6 +481,69 @@ export async function POST(request: NextRequest) {
           new Date(order.quote_expires_at).getTime() <= Date.now()) {
         return jsonError("The saved Demo quote is invalid, expired, or belongs to another account.", 409, "DEMO_QUOTE_INVALID");
       }
+      // New Deriv API buys only a streaming proposal. The earlier quote socket
+      // has already closed: never reuse its proposal ID for broker purchase.
+      // Keep the fresh quote and buy on this SAME authenticated Demo session.
+      session = await openDerivDemoSession(context);
+      let liveProposal: any;
+      try {
+        const response: any = await session.request("proposal", {
+          proposal: 1,
+          amount: 1,
+          basis: "stake",
+          contract_type: order.contract_type,
+          currency: "USD",
+          duration: 5,
+          duration_unit: "m",
+          subscribe: 1,
+          underlying_symbol: order.market_symbol,
+        });
+        liveProposal = response?.proposal;
+      } catch {
+        return jsonError("A fresh Demo proposal could not be verified. No purchase was attempted.", 503, "DEMO_REQUOTE_FAILED");
+      }
+      const currentId = String(liveProposal?.id || "");
+      const currentAskPrice = Number(liveProposal?.ask_price);
+      const currentPayout = Number(liveProposal?.payout);
+      const start = Number(liveProposal?.date_start);
+      const expiry = Number(liveProposal?.date_expiry);
+      const currentLongcode = liveProposal?.longcode;
+      if (!/^[A-Za-z0-9_-]{32,128}$/.test(currentId) ||
+          !Number.isFinite(currentAskPrice) || currentAskPrice <= 0 || currentAskPrice > 1 ||
+          !Number.isFinite(currentPayout) || currentPayout <= 0 ||
+          !Number.isFinite(start) || !Number.isFinite(expiry) ||
+          Math.abs(expiry - start - 300) > 2 ||
+          typeof currentLongcode !== "string" || currentLongcode.length > 500) {
+        return jsonError("Deriv's fresh 1 USD Demo proposal is invalid. No purchase was attempted.", 409, "DEMO_REQUOTE_INVALID");
+      }
+      // Do not silently accept a worse price/payout than the user's consent.
+      if (currentAskPrice > Number(order.ask_price) || currentPayout < Number(order.payout)) {
+        return jsonError("The Demo price or payout changed unfavorably. Request a new quote and confirm it again.", 409, "DEMO_REQUOTE_CHANGED");
+      }
+      // Optimistic row revision guards against two concurrent confirmations.
+      const { data: updatedQuote, error: updateQuoteError } = await context.admin
+        .from("deriv_demo_orders")
+        .update({
+          proposal_id: currentId,
+          ask_price: currentAskPrice,
+          payout: currentPayout,
+          longcode: currentLongcode,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id).eq("user_id", context.user.id)
+        .eq("status", "quoted")
+        .eq("updated_at", order.updated_at)
+        .select("id").maybeSingle();
+      if (updateQuoteError || !updatedQuote) {
+        return jsonError("The Demo quote changed during confirmation. No broker purchase was attempted.", 409, "DEMO_QUOTE_CONCURRENT_CHANGE");
+      }
+      const freshOrder = {
+        ...order,
+        proposal_id: currentId,
+        ask_price: currentAskPrice,
+        payout: currentPayout,
+        longcode: currentLongcode,
+      };
       const { data: reservation, error: reservationError } = await context.admin.rpc("senfx_demo_reserve_order", {
         p_user_id: context.user.id,
         p_order_id: order.id,
@@ -509,17 +572,16 @@ export async function POST(request: NextRequest) {
         return jsonError("Could not safely record the purchase attempt. No broker buy was sent.", 503, "DEMO_BUY_MARK_FAILED");
       }
       try {
-        session = await openDerivDemoSession(context);
         await session.request("buy", {
-          buy: order.proposal_id,
-          price: Number(order.ask_price),
+          buy: freshOrder.proposal_id,
+          price: Number(freshOrder.ask_price),
         }, 12_000);
       } catch {
         return jsonError("Deriv purchase outcome is uncertain. Do not retry; reconcile the statement first.", 503, "DEMO_BUY_RECONCILIATION_REQUIRED");
       }
       // Even a successful buy response must be verified against the Deriv
       // statement and contract details before SENFX marks an order open.
-      const result = await reconcileBuyOrder(context, { ...order, status: "buy_unknown", buy_requested_at: marked.buy_requested_at || new Date().toISOString() });
+      const result = await reconcileBuyOrder(context, { ...freshOrder, status: "buy_unknown", buy_requested_at: marked.buy_requested_at || new Date().toISOString() });
       if (result.state !== "open") {
         return jsonError("Deriv buy submitted; contract verification is pending. Do not buy again.", 202, "DEMO_BUY_RECONCILIATION_REQUIRED");
       }
