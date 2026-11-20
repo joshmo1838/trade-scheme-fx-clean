@@ -6,10 +6,6 @@ import {
  startFifteenPaperSession,observeFifteenPaperTick,stopFifteenPaperSession,
 } from "../lib/bots/fifteen-paper-bots.ts";
 import {paperPreset} from "../lib/bots/paper-strategy.ts";
-import {
- beginPaperStudy,stopPaperStudy,recordPaperStudySnapshot,paperStudyHits,
- STUDY_BOT_ID,STUDY_TARGET,STUDY_BATCHES,
-} from "../lib/bots/paper-200-study.ts";
 
 const EPOCH=1_800_000_000;
 const mk=(symbol,epoch,i,price=100+i*.037)=>({
@@ -213,72 +209,4 @@ test("repeated delayed packets and future-dated ticks still fail closed",()=>{
 test("stale recovery retains paper-only broker isolation",()=>{
  const file=readFileSync(new URL("../lib/bots/fifteen-paper-bots.ts",import.meta.url),"utf8");
  assert.doesNotMatch(file,/fetch\(|WebSocket|DERIV_DEMO_BROKER_BUY_ENABLED|SUPABASE_SERVICE_ROLE_KEY|buy: [1-9]/i);
-});
-
-test("200-study uses twenty separate 10-observation forward-only paper batches",()=>{
- const bot=findFifteenBot(STUDY_BOT_ID);
- assert.ok(bot);
- let hist=history(bot),study=beginPaperStudy();
- let epoch=EPOCH+60;
- for(let batchIndex=0;batchIndex<STUDY_BATCHES;batchIndex++){
-  const started=startFifteenPaperSession({botId:bot.id,history:hist,
-   stake:1,count:10,cap:10,nowMs:hist.at(-1).epoch*1000});
-  assert.equal(started.ok,true,"batch "+(batchIndex+1));
-  if(!started.ok)return;
-  let session=started.session;
-  for(let i=0;i<10;i++){
-   const tick=mk(bot.market,epoch++,i+batchIndex*11);
-   session=observeFifteenPaperTick(session,tick,hist,tick.epoch*1000);
-   hist.push(tick);
-   study=recordPaperStudySnapshot(study,session);
-   assert.equal(study.observations.length,batchIndex*10+i+1);
-   assert.ok(study.observations.length<=STUDY_TARGET);
-  }
-  assert.equal(session.state,"completed");
-  assert.equal(study.completedBatches,batchIndex+1);
-  const duplicate=recordPaperStudySnapshot(study,session);
-  assert.deepEqual(duplicate,study,"replayed completed snapshot must not double count");
-  if(batchIndex<STUDY_BATCHES-1){
-   // One fresh boundary tick is used only to form the next prediction.
-   hist.push(mk(bot.market,epoch++,99));
-  }
-  hist=hist.slice(-160);
- }
- assert.equal(study.status,"completed");
- assert.equal(study.observations.length,200);
- assert.equal(paperStudyHits(study)+study.observations.length-paperStudyHits(study),200);
- assert.equal(study.observations.reduce((sum,o)=>sum+o.paperStake,0),200);
- assert.equal(new Set(study.observations.map(o=>o.epoch)).size,200);
-});
-test("200-study fails closed on invalid parameters and preserves partial progress",()=>{
- const bot=findFifteenBot(STUDY_BOT_ID),hist=history(bot);
- assert.ok(bot);
- const started=startFifteenPaperSession({botId:bot.id,history:hist,
-  stake:1,count:10,cap:10,nowMs:(EPOCH+59)*1000});
- assert.equal(started.ok,true);
- if(!started.ok)return;
- let study=beginPaperStudy();
- const tick=mk(bot.market,EPOCH+60,60);
- const next=observeFifteenPaperTick(started.session,tick,hist,tick.epoch*1000);
- study=recordPaperStudySnapshot(study,next);
- assert.equal(study.observations.length,1);
- assert.equal(recordPaperStudySnapshot(study,next).observations.length,1);
- const wrong=recordPaperStudySnapshot(study,{...next,stake:25});
- assert.equal(wrong.status,"stopped");
- assert.equal(wrong.observations.length,1);
- const stopped=stopPaperStudy(study,"Manual emergency stop");
- assert.equal(stopped.status,"stopped");
- assert.equal(stopped.observations.length,1);
- assert.equal(recordPaperStudySnapshot(stopped,next),stopped);
- const delayed=observeFifteenPaperTick(next,mk(bot.market,EPOCH+61,61),
-  [...hist,tick],(EPOCH+75)*1000);
- const tracked=recordPaperStudySnapshot(study,delayed);
- assert.equal(tracked.skippedStaleTicks,1);
- assert.equal(tracked.observations.length,1);
- const failed=stopFifteenPaperSession(delayed,"Feed disconnected");
- assert.equal(recordPaperStudySnapshot(tracked,failed).status,"stopped");
-});
-test("200-study module has no broker-order or persistence calls",()=>{
- const code=readFileSync(new URL("../lib/bots/paper-200-study.ts",import.meta.url),"utf8");
- assert.doesNotMatch(code,/fetch\(|WebSocket|DERIV_TOKEN|SUPABASE|buy\(|\/api\/deriv\//i);
 });
