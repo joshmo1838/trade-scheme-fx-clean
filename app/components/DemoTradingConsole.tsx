@@ -192,7 +192,7 @@ export default function DemoTradingConsole() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "buy", orderId: quote.orderId }),
+        body: JSON.stringify({ action: "buy", orderId: quote.orderId, confirmVirtualPurchase: true }),
       });
       const result = await response.json();
 
