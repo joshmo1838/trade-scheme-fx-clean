@@ -8,6 +8,7 @@ on:
       - 'tests/deriv-demo-variable-stake-source.test.mjs'
       - 'tests/deriv-demo-reservation-source.test.mjs'
       - 'tests/deriv-demo-one-dollar-postgres.sql'
+      - 'tests/deriv-demo-legacy-backup-restore-qa.sh'
       - 'supabase/senfx-deriv-demo-one-dollar-stage-only.sql'
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'
       - 'app/api/deriv/demo/orders/route.ts'
@@ -94,3 +95,7 @@ jobs:
             end
             \$verify\$;
           "
+
+      - name: Test disposable legacy backup, restore, $1 schema migration and rollback
+        shell: bash
+        run: bash tests/deriv-demo-legacy-backup-restore-qa.sh
