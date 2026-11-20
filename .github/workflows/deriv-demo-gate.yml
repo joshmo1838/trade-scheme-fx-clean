@@ -4,6 +4,8 @@ on:
     paths:
       - 'lib/deriv/demo-execution-gate.mjs'
       - 'tests/deriv-demo-execution-gate.test.mjs'
+      - 'tests/deriv-demo-account-allowlist.test.mjs'
+      - 'lib/deriv/demo-account-allowlist.mjs'
       - '.github/workflows/deriv-demo-gate.yml'
   workflow_dispatch:
 jobs:
@@ -17,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/deriv-demo-execution-gate.test.mjs
+        run: node --test tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs
