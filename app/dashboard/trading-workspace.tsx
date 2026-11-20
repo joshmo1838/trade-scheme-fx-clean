@@ -21,7 +21,8 @@ type Props = {
 const videoNav = [
   { label: "Dashboard", href: "/dashboard", icon: "⌂" },
   { label: "Bot Builder", href: "/builder", icon: "▧" },
-  { label: "Free Bots", href: "/bot-center", icon: "◈" },
+  { label: "Bulk Bots", href: "/bot-library", icon: "◈" },
+  { label: "Free Bots", href: "/bot-center", icon: "◇" },
   { label: "Markets", href: "/markets", icon: "⌁" },
   { label: "Charts", href: "/charts", icon: "▤" },
   { label: "Risk Center", href: "/risk-center", icon: "⚖" },
@@ -282,11 +283,11 @@ export default function TradingWorkspace({
                   <strong>Load Bot</strong><small>Open a saved strategy or choose a bot</small>
                   <em>Choose a bot <b>↗</b></em>
                 </button>
-                <button className="videoLaunchCard accentGold" type="button" onClick={() => { void browseBots(); }}>
+                <Link className="videoLaunchCard accentGold" href="/bot-library">
                   <span className="videoNumber">02</span><span className="videoCardIcon">◇</span>
-                  <strong>Premium Bots</strong><small>Discover available strategies · free access</small>
-                  <em>Browse available bots <b>↗</b></em>
-                </button>
+                  <strong>Bulk Bots · 15 Strategies</strong><small>Explore free paper-only research bots</small>
+                  <em>Open Bulk Bots <b>↗</b></em>
+                </Link>
                 <Link className="videoLaunchCard accentCyan" href="/bot-center">
                   <span className="videoNumber">03</span><span className="videoCardIcon">ϟ</span>
                   <strong>Speed Bot</strong><small>Open quick-start paper bot controls</small>
