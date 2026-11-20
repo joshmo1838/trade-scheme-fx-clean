@@ -13,6 +13,9 @@ on:
       - 'app/api/deriv/demo/readiness/route.ts'
       - 'tests/deriv-demo-one-dollar-postgres.sql'
       - 'tests/deriv-demo-auto-phase2-postgres.sql'
+      - 'app/components/DemoAutoPilot.tsx'
+      - 'lib/deriv/demo-ai-signal.d.mts'
+      - 'tests/demo-auto-ui.test.mjs'
       - 'supabase/senfx-deriv-demo-auto-phase2.sql'
       - 'tests/deriv-demo-legacy-backup-restore-qa.sh'
       - 'supabase/senfx-deriv-demo-one-dollar-stage-only.sql'
@@ -34,7 +37,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
+        run: node --test tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
