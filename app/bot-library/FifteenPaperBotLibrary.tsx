@@ -188,6 +188,7 @@ export default function FifteenPaperBotLibrary(){
      if(next!==current){
       sessionRef.current=next;setSession(next);
       if(next.state==="completed")setNotice("Paper batch complete. No broker trades or payouts.");
+      else if(next.state==="stopped")setNotice(next.message);
      }
     }
     history.current.set(tick.symbol,[...prev,tick].slice(-MAX_TICKS));
@@ -332,6 +333,7 @@ export default function FifteenPaperBotLibrary(){
     <section className={styles.panel}>
      <p className={styles.kicker}>OBSERVED RESULTS · THIS BROWSER SESSION</p>
      <h2>{session?"Paper "+session.state:"Not started"}</h2>
+     {session?.state==="stopped"&&<p className={styles.notice} role="status" aria-live="polite"><strong>Safety stop:</strong> {session.message}</p>}
      <div className={styles.resultGrid}>
       <div><small>OBSERVED</small><b>{session?.observations.length||0} / {session?.count||count}</b></div>
       <div><small>CONDITION HITS</small><b>{sessionHits}</b></div>
