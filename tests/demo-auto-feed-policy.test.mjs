@@ -41,3 +41,9 @@ test("autonomous entry scanner resets history on reconnect and only buys once",(
  assert.match(client,/buyStarted\.current=true/);
  assert.doesNotMatch(client,/\bautoRetryBuy\b|\bbuyAgain\b/);
 });
+
+test("a connected but silent subscription reconnects instead of stalling at zero ticks",()=>{
+ const client=readFileSync(new URL("../app/components/DemoAutoPilot.tsx",import.meta.url),"utf8");
+ assert.ok(client.includes('socketOpenedAt.current=Date.now()'));
+ assert.ok(client.includes('recoverPublicFeed("Subscription connected but no market ticks arrived")'));
+});
