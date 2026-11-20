@@ -16,6 +16,7 @@ on:
       - 'tests/smart-entry-paper.test.mjs'
       - '.github/workflows/senfx-intelligence-paper.yml'
       - 'app/intelligence/smart-entry/**'
+      - 'app/intelligence/time-machine/**'
       - 'app/components/WorkspaceAIOrb.tsx'
       - 'app/components/workspace-ai-orb.css'
       - 'app/layout.tsx'
