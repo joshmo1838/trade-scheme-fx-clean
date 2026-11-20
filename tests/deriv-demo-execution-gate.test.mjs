@@ -21,3 +21,23 @@ for (const [label, change, expected] of [
   ["missing idempotency key", { requestId: "" }, "IDEMPOTENCY_KEY_REQUIRED"],
   ["invalid loss", { dailyLoss: NaN }, "INVALID_RISK_STATE"],
 ]) test(label, () => assert.equal(evaluateDemoOrderGate({ ...base, ...change }, enabled).code, expected));
+
+test("exact maximum stake and loss budget is allowed", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 10, dailyLoss: 10 }, enabled).allowed, true);
+});
+test("one cent over loss budget is rejected", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, stake: 10, dailyLoss: 10.01 }, enabled).code, "DAILY_LOSS_LIMIT");
+});
+test("fractional open order count is rejected", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, openOrders: 0.5 }, enabled).code, "OPEN_ORDER_LIMIT");
+});
+test("negative exposure is rejected", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, aggregateExposure: -1 }, enabled).code, "INVALID_RISK_STATE");
+});
+test("missing emergency stop state fails closed", () => {
+  const { emergencyStopped, ...unknownStop } = base;
+  assert.equal(evaluateDemoOrderGate(unknownStop, enabled).code, "EMERGENCY_STOP_ACTIVE");
+});
+test("real broker account is rejected even with consent", () => {
+  assert.equal(evaluateDemoOrderGate({ ...base, accountType: "real" }, enabled).allowed, false);
+});
