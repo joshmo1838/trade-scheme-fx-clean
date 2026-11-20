@@ -1,5 +1,5 @@
 -- STAGING ONLY. Apply only after reviewing the base schema and a restore-tested backup.
--- Replaces the unsafe unlimited-loss reservation routine; no broker calls.
+-- Staging-only: single $1 USD virtual-money buy pilot, one attempt per user; no broker calls.
 -- Requires the legacy base tables/functions to exist; never apply the unlimited-learning override.
 create or replace function public.senfx_demo_reserve_order(
   p_user_id uuid, p_order_id uuid
@@ -37,6 +37,7 @@ begin
       and c.active_account_id = v_order.account_id
       and c.active_account_type = 'demo'
       and (c.expires_at is null or c.expires_at > now())
+    for update
   ) then
     return jsonb_build_object('allowed', false, 'reason', 'Select an active Deriv Demo account before trading.');
   end if;
@@ -48,8 +49,17 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'A previous-day Demo order is unresolved. Reconcile it before opening another contract.');
   end if;
 
+  -- An attempted buy is permanent evidence for this one-trade pilot, even if
+  -- Deriv later reports a win, loss, rejection or uncertain outcome.
+  if exists (
+    select 1 from public.deriv_demo_orders o
+    where o.user_id = p_user_id and o.buy_requested_at is not null
+  ) then
+    return jsonb_build_object('allowed', false, 'reason', 'This user already attempted the one-time Demo purchase.');
+  end if;
+
   insert into public.deriv_demo_daily_risk(user_id,account_id,risk_date,currency,daily_loss_limit)
-  values (p_user_id,v_order.account_id,v_day,v_order.currency,20)
+  values (p_user_id,v_order.account_id,v_day,v_order.currency,1)
   on conflict (user_id,account_id,risk_date) do nothing;
 
   select * into v_risk from public.deriv_demo_daily_risk
@@ -58,10 +68,10 @@ begin
   if v_risk.currency <> v_order.currency then
     return jsonb_build_object('allowed', false, 'reason', 'The account currency changed. Refresh the account before trading.');
   end if;
-  if v_order.stake_amount <= 0 or v_order.stake_amount > 10 then
-    return jsonb_build_object('allowed', false, 'reason', 'Demo stake exceeds the permitted 10-unit limit.');
+  if v_order.stake_amount <> 1 or v_order.currency <> 'USD' then
+    return jsonb_build_object('allowed', false, 'reason', 'Only one 1-USD virtual Demo stake is permitted for this pilot.');
   end if;
-  if v_risk.daily_loss_limit <> 20 or
+  if v_risk.daily_loss_limit <> 1 or
      v_risk.realized_loss + v_risk.reserved_loss + v_order.stake_amount > v_risk.daily_loss_limit then
     return jsonb_build_object('allowed', false, 'reason', 'Daily Demo loss budget exhausted or invalid.');
   end if;
@@ -85,8 +95,8 @@ begin
 
   return jsonb_build_object(
     'allowed',true,'orderId',p_order_id,'dailyLoss',v_risk.realized_loss,
-    'reservedLoss',v_risk.reserved_loss,'dailyLossLimit',20,
-    'remainingLossBudget',greatest(0,20-v_risk.realized_loss-v_risk.reserved_loss),'unlimitedDemoPractice',false
+    'reservedLoss',v_risk.reserved_loss,'dailyLossLimit',1,
+    'remainingLossBudget',greatest(0,1-v_risk.realized_loss-v_risk.reserved_loss),'unlimitedDemoPractice',false
   );
 end;
 $$;
