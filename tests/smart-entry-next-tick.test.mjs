@@ -74,3 +74,24 @@ test("duplicate and out-of-order settlement ticks cannot settle pending observat
   assert.equal(older.reason, "out-of-order-tick");
   assert.equal(older.session.observations[0].settlement, null);
 });
+
+test("corrupted settled paper history fails closed without accepting new ticks", () => {
+  let session = beginPaperSession(1000);
+  session = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 1000, tick(1), 75).session;
+  session = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 2000, tick(2), 75).session;
+  const original = session.observations[0];
+  const corruptions = [
+    { ...original, outcome: "down" },
+    { ...original, settlement: null, outcome: "up" },
+    { ...original, settlement: { ...original.settlement, epochMs: 1000 } },
+    { ...original, settlement: { ...original.settlement, id: original.entry.id } },
+    { ...original, entry: { ...original.entry, quote: Number.NaN } }
+  ];
+  for (const corrupted of corruptions) {
+    const result = paperNextTickStep({ ...session, observations: [corrupted] }, SMART_ENTRY_DEFAULTS, 3000, tick(3), 90);
+    assert.equal(result.action, "stop");
+    assert.equal(result.reason, "invalid-paper-history");
+    assert.equal(result.session.gate.stopped, true);
+    assert.equal(result.session.observations.length, 1);
+  }
+});
