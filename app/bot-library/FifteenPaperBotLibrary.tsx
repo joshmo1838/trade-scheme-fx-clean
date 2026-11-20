@@ -124,7 +124,8 @@ export default function FifteenPaperBotLibrary(){
    }
    setSnapshots(next);
   };
-  const snapshotInterval=setInterval(snapshot,1100);
+  // Faster display updates; actual observations still use genuine feed ticks.
+  const snapshotInterval=setInterval(snapshot,400);
   const connect=()=>{
    if(!mounted)return;
    subscribed=new Set();receivedDirectory=false;openAt=0;lastObservedAt=0;
