@@ -20,6 +20,8 @@ alter table public.deriv_demo_orders
 alter table public.deriv_demo_orders
   add constraint deriv_demo_orders_stake_amount_check
   check (stake_amount = 1);
+alter table public.deriv_demo_orders
+  alter column stake_amount set default 1;
 
 alter table public.deriv_demo_orders
   drop constraint if exists deriv_demo_orders_ask_price_check;
@@ -32,6 +34,8 @@ alter table public.deriv_demo_daily_risk
 alter table public.deriv_demo_daily_risk
   add constraint deriv_demo_daily_risk_daily_loss_limit_check
   check (daily_loss_limit = 1);
+alter table public.deriv_demo_daily_risk
+  alter column daily_loss_limit set default 1;
 commit;
 
 -- A matching, separately tested replacement senfx_demo_reserve_order RPC
