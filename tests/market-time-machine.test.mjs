@@ -57,3 +57,17 @@ test("invalid emergency stop indices are rejected before replay", () => {
   }
   assert.equal(replayPaperTicks(rows, 1000, 0).session.gate.stopped, true);
 });
+
+test("60-second research deadline stops replay without entering or settling", () => {
+  const rows = [input(1, 74), { ...input(2, 99), receivedAtMs: 61000 }];
+  const result = replayPaperTicks(rows, 1000);
+  assert.equal(result.session.gate.stopped, true);
+  assert.equal(result.session.observations.length, 0);
+  assert.equal(result.events.at(-1)?.reason, "signal-timeout-no-entry");
+});
+test("emergency stop at first tick prevents every paper observation", () => {
+  const result = replayPaperTicks([input(1, 99), input(2, 99)], 1000, 0);
+  assert.equal(result.session.gate.stopped, true);
+  assert.equal(result.session.observations.length, 0);
+  assert.equal(result.events.length, 1);
+});
