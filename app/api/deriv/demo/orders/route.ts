@@ -347,8 +347,8 @@ export async function POST(request: NextRequest) {
       const stake = body?.stake;
       const virtualBalance = Number(context.account.balance);
       if (typeof stake !== "number" || !Number.isFinite(stake) || stake <= 0 ||
-          !Number.isFinite(virtualBalance) || virtualBalance <= 0 || stake > virtualBalance) {
-        return jsonError("Enter a positive Demo stake within your available virtual balance.", 400, "INVALID_DEMO_STAKE");
+          !Number.isFinite(virtualBalance) || virtualBalance <= 0 || stake > virtualBalance || stake !== 10) {
+        return jsonError("The pilot requires exactly 10 units of virtual currency, within your available Demo balance.", 400, "INVALID_DEMO_STAKE");
       }
       if (typeof marketSymbol !== "string" || !DEMO_MARKETS.has(marketSymbol)) return jsonError("This market is not enabled for SENFX Demo execution.");
       if (direction !== "CALL" && direction !== "PUT") return jsonError("Choose Rise (CALL) or Fall (PUT).");
