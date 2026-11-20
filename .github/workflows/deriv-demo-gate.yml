@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'lib/deriv/demo-execution-gate.mjs'
+      - 'lib/deriv/demo-ai-signal.mjs'
+      - 'tests/demo-ai-signal.test.mjs'
       - 'tests/deriv-demo-execution-gate.test.mjs'
       - 'tests/deriv-demo-account-allowlist.test.mjs'
       - 'tests/deriv-demo-variable-stake-source.test.mjs'
@@ -30,7 +32,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
+        run: node --test tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
