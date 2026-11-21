@@ -57,7 +57,8 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
   }catch{setNote("Could not confirm the command. Check broker history before retrying.");}
   finally{setPending(false);}
  };
- const progress=selectedActive?status?.run?.progress:null;
+ const showResults=status?.run?.selectedBotId===botId;
+ const progress=showResults?status?.run?.progress:null;
  const alreadyActiveOther=running&&!selectedActive;
  return <section className={styles.panel} style={{margin:"16px 0"}}>
   <p className={styles.kicker}>INDIVIDUAL BOT · ACTUAL DERIV BROKER · VIRTUAL DEMO ONLY</p>
@@ -89,7 +90,7 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
    </button>
    <button disabled={pending} onClick={()=>void refresh()}>Refresh broker results</button>
   </div>
-  {selectedActive&&<div className={styles.resultGrid} style={{marginTop:12}}>
+  {showResults&&<div className={styles.resultGrid} style={{marginTop:12}}>
    <div><small>WORKER</small><b>{status?.run?.workerConnected?"CONNECTED":"CONNECTING"}</b></div>
    <div><small>BROKER TRADES</small><b>{progress?.completed??0}/{status?.run?.targetTrades??0}</b></div>
    <div><small>WINS / LOSSES</small><b>{progress?.wins??0} / {progress?.losses??0}</b></div>
