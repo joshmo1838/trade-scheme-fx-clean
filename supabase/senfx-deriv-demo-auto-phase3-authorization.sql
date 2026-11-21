@@ -25,11 +25,11 @@ begin
         where o.user_id=g.user_id and o.status in ('reserved','buy_unknown','open'))
    and not exists (select 1 from public.senfx_demo_auto_phase3_one_shots v3
         where v3.user_id=g.user_id)
-   and exists (select 1 from public.deriv_demo_daily_risk r
+   and not exists (select 1 from public.deriv_demo_daily_risk r
         where r.user_id=g.user_id and r.account_id=g.account_id
         and r.risk_date=(now() at time zone 'UTC')::date
-        and r.currency='USD' and r.daily_loss_limit=1
-        and r.realized_loss=0 and r.reserved_loss=0);
+        and (r.currency <> 'USD' or r.daily_loss_limit <> 1
+             or r.realized_loss <> 0 or r.reserved_loss <> 0));
  if v_matches <> 1 then
    raise exception 'Phase-3 authorization requires exactly one individually verified pilot admin and zero unresolved exposure';
  end if;
@@ -49,11 +49,11 @@ begin
         where o.user_id=g.user_id and o.status in ('reserved','buy_unknown','open'))
    and not exists (select 1 from public.senfx_demo_auto_phase3_one_shots v3
         where v3.user_id=g.user_id)
-   and exists (select 1 from public.deriv_demo_daily_risk r
+   and not exists (select 1 from public.deriv_demo_daily_risk r
         where r.user_id=g.user_id and r.account_id=g.account_id
         and r.risk_date=(now() at time zone 'UTC')::date
-        and r.currency='USD' and r.daily_loss_limit=1
-        and r.realized_loss=0 and r.reserved_loss=0);
+        and (r.currency <> 'USD' or r.daily_loss_limit <> 1
+             or r.realized_loss <> 0 or r.reserved_loss <> 0));
  insert into public.senfx_demo_auto_phase3_one_shots(user_id,account_id,status,expires_at)
  values(v_user,v_account,'armed',now()+interval '2 hours');
 end;
