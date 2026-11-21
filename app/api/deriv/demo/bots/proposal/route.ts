@@ -44,7 +44,7 @@ export async function POST(request:NextRequest){
   if(!Number.isFinite(virtualBalance)||virtualBalance<body.stake)
    return NextResponse.json({success:false,code:"INSUFFICIENT_VIRTUAL_BALANCE"},{status:409,headers:noStore});
   session=await openDerivDemoSession(context); // server verifies wss ... /ws/demo via OTP.
-  const availability=await session.request<any>("contracts_for",{contracts_for:bot.symbol,currency:"USD"},8000);
+  const availability=await session.request<any>("contracts_for",{contracts_for:bot.symbol},8000);
   if(!brokerSupportsTemplate(bot,availability?.contracts_for?.available))
    return NextResponse.json({success:false,code:"BROKER_CONTRACT_NOT_AVAILABLE"},{status:409,headers:noStore});
   const price=await session.request<any>("proposal",proposal,8000);
