@@ -26,7 +26,10 @@ test("reservation is demo-only, exact 1 USD, 15-bot idempotent, and financially 
  assert.match(sql,/status in \('reserved','buy_unknown','open'\)/);
  assert.match(sql,/senfx_demo_bot_one_unresolved_per_user/);
  assert.match(sql,/select coalesce\(sum\(realized_loss\+reserved_loss\),0\) into v_prior_manual/);
- assert.match(sql,/v_risk\.realized_loss\+v_risk\.reserved_loss\+v_prior_manual\+v_order\.stake>10/);
+ assert.match(sql,/v_prior_bot_other/);
+ assert.match(sql,/account_id<>v_order.account_id/);
+ assert.match(sql,/v_risk\.realized_loss\+v_risk\.reserved_loss\+v_prior_bot_other\+/);
+ assert.match(sql,/v_prior_manual\+v_order.stake>10/);
  assert.match(sql,/RATE_LIMIT_OR_DAILY_TRADE_CAP/);
  assert.match(sql,/where user_id=p_user_id for update/);
 });
