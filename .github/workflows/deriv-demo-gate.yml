@@ -21,6 +21,9 @@ on:
       - 'lib/deriv/demo-auto-feed-policy.d.mts'
       - 'supabase/senfx-deriv-demo-auto-phase2.sql'
       - 'supabase/senfx-deriv-demo-auto-phase2-rollback.sql'
+      - 'supabase/senfx-deriv-demo-auto-phase3.sql'
+      - 'supabase/senfx-deriv-demo-auto-phase3-rollback.sql'
+      - 'tests/deriv-demo-auto-phase3-postgres.sql'
       - 'tests/deriv-demo-legacy-backup-restore-qa.sh'
       - 'supabase/senfx-deriv-demo-one-dollar-stage-only.sql'
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'
@@ -79,6 +82,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-one-dollar-postgres.sql
       - name: Verify separately authorized second one-shot phase without rewriting trade history
         run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-auto-phase2-postgres.sql
+      - name: Verify separately authorized third $1 virtual Demo purchase with no fourth buy
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-auto-phase3-postgres.sql
       - name: Two concurrent same-user orders cannot both reserve virtual risk
         shell: bash
         run: |
