@@ -178,11 +178,20 @@ async function verifyLease(version){
  return heartbeat?.owned===true;
 }
 async function getUnresolvedOrderCount(){
- const {count,error}=await db.from("senfx_demo_bot_orders")
-  .select("id",{count:"exact",head:true}).eq("user_id",ADMIN)
-  .in("status",["reserved","buy_unknown","open"]);
- if(error||!Number.isInteger(count))throw Error("Unresolved broker ledger lookup failed.");
- return count;
+ // Both the legacy pilot and the 15-bot engine use the SAME Demo balance.
+ // Stop on a forgotten, unknown, open, or reserved purchase from either.
+ const [current,legacy]=await Promise.all([
+  db.from("senfx_demo_bot_orders")
+   .select("id",{count:"exact",head:true}).eq("user_id",ADMIN)
+   .in("status",["reserved","buy_unknown","open"]),
+  db.from("deriv_demo_orders")
+   .select("id",{count:"exact",head:true}).eq("user_id",ADMIN)
+   .in("status",["reserved","buy_unknown","open"])
+ ]);
+ if(current.error||legacy.error||!Number.isInteger(current.count)||
+    !Number.isInteger(legacy.count))
+  throw Error("Shared Demo broker order ledger lookup failed.");
+ return current.count+legacy.count;
 }
 async function verifyControl(version){
  const {data,error}=await db.from("senfx_demo_bot_control")
@@ -404,6 +413,16 @@ async function poll(){
   controlRow=data;activeVersion=data.control_version;
   if(!await verifyLease(activeVersion)){
    await stopOwnedRun("A different worker holds the Demo lease, or Stop was requested.");return;
+  }
+  // After a process restart, an earlier buy may have succeeded at Deriv even
+  // if the worker died before recording its contract. Never make a new buy
+  // in that state; manual Demo broker reconciliation is required.
+  if(!busy){
+   const unresolved=await getUnresolvedOrderCount();
+   if(unresolved!==0){
+    await stopOwnedRun("Unresolved or unknown Demo purchase after restart. Reconcile broker statement; never auto-retry.");
+    return;
+   }
   }
   if(!feed)startPublicFeed();
   if(feedReady&&!busy&&lastTickReceived>0&&Date.now()-lastTickReceived>MAX_WAIT_FOR_MARKET_MS)
