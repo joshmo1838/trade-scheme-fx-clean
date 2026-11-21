@@ -198,6 +198,32 @@ async function getUnresolvedOrderCount(){
   throw Error("Shared Demo broker order ledger lookup failed.");
  return current.count+legacy.count;
 }
+async function getAttemptedCount(version){
+ const {count,error}=await db.from("senfx_demo_bot_orders")
+  .select("id",{count:"exact",head:true}).eq("user_id",ADMIN)
+  .eq("control_version",version).not("buy_requested_at","is",null);
+ if(error||!Number.isInteger(count))throw Error("Selected-bot trade limit ledger unavailable.");
+ return count;
+}
+function clearIdleSession(reason){
+ stopFeed();
+ activeVersion=null;controlRow=null;
+ lastTickReceived=0;lastBuyAt=0;lastCandidateAt=0;
+ feedStartedAt=0;feedEstablishedAt=0;feedReconnectAttempts=0;feedReconnectAt=0;
+ safeLog("Owner-controlled Demo worker idle",reason);
+}
+async function finishSelectedRun(reason){
+ const prior=controlRow;
+ if(!prior||prior.mode!=="running"||!Number.isSafeInteger(activeVersion))return;
+ const current=await getUnresolvedOrderCount();
+ if(current!==0)throw Error("Cannot finish with unresolved broker orders.");
+ const {data,error}=await db.rpc("senfx_demo_bots_control",{
+  p_user_id:ADMIN,p_account_id:prior.account_id,
+  p_command:"stop",p_expected_version:null,p_stake:null
+ });
+ if(error||data?.ok!==true)throw Error("Selected Demo stop could not be confirmed.");
+ clearIdleSession(reason);
+}
 async function verifyControl(version){
  const {data,error}=await db.from("senfx_demo_bot_control")
   .select("mode,observed_state,worker_id,lease_expires_at,control_version")
@@ -243,6 +269,10 @@ async function executeSignal(bot,signal){
  busy=true;
  let session=null,orderId=null,marked=false,firstAttempt=false;
  try{
+  if(controlRow?.selected_bot_id){
+   if(bot.id!==controlRow.selected_bot_id)return;
+   if(await getAttemptedCount(version)>=Number(controlRow.target_trades))return;
+  }
   if(!await verifyLease(version))throw Error("Lease lost before broker quote.");
   // The owner-chosen finite stake is frozen in the durable run control,
   // never calculated from a bot's signal or a paper result.
@@ -324,6 +354,10 @@ async function executeSignal(bot,signal){
   if(openError||!opened)throw Error("Broker buy confirmed but order ledger update failed; reconcile, no retry.");
   safeLog("One genuine Deriv virtual Demo contract opened",bot.id);
   await reconcilePurchased(session,orderId,purchase,selected,stake,version);
+  if(controlRow?.selected_bot_id&&
+     await getAttemptedCount(version)>=Number(controlRow.target_trades)){
+   await finishSelectedRun("Selected bot reached its settled-trade target.");
+  }
  }catch(error){
   const why=error instanceof Error?error.message:"unknown failure";
   if(marked||firstAttempt){
@@ -413,6 +447,7 @@ function startPublicFeed(){
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
   for(let i=0;i<FIFTEEN_BOTS.length;i++){
    const index=(roundRobin+i)%FIFTEEN_BOTS.length,bot=FIFTEEN_BOTS[index];
+   if(controlRow?.selected_bot_id&&bot.id!==controlRow.selected_bot_id)continue;
    if(bot.market!==tick.symbol||hist.length<bot.minTicks)continue;
    const signal=predictFifteenBot(bot,hist);
    if(!signal)continue;
@@ -434,11 +469,14 @@ async function poll(){
  pollBusy=true;
  try{
   const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("user_id,account_id,stake_amount,mode,control_version,worker_id,lease_expires_at")
+   .select("user_id,account_id,stake_amount,mode,control_version,worker_id,lease_expires_at,selected_bot_id,target_trades")
    .eq("user_id",ADMIN).maybeSingle();
   if(error)throw Error("Cannot verify durable Demo auto control.");
   if(!data||data.mode!=="running"){
-   if(activeVersion!==null)await stopOwnedRun("Operator stopped Demo automation.");
+   if(activeVersion!==null){
+    if(busy)await stopOwnedRun("Operator stopped Demo automation during broker reconciliation.");
+    else clearIdleSession("Operator stopped Demo automation.");
+   }
    return;
   }
   if(activeVersion!==null&&activeVersion!==data.control_version){
@@ -456,6 +494,10 @@ async function poll(){
    const unresolved=await getUnresolvedOrderCount();
    if(unresolved!==0){
     await stopOwnedRun("Unresolved or unknown Demo purchase after restart. Reconcile broker statement; never auto-retry.");
+    return;
+   }
+   if(data.selected_bot_id&&await getAttemptedCount(activeVersion)>=Number(data.target_trades)){
+    await finishSelectedRun("Selected bot completed its requested broker trade count.");
     return;
    }
   }
