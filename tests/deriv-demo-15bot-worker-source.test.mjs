@@ -21,6 +21,7 @@ test("worker uses only selected verified Demo account and OTP demo socket",()=>{
  assert.match(worker,/url\.pathname!=="\/trading\/v1\/options\/ws\/demo"/);
  assert.doesNotMatch(worker,/url\.pathname\s*===?\s*["']\/trading\/v1\/options\/ws\/real/);
  assert.match(worker,/DERIV_TOKEN_ENCRYPTION_KEY/);
+ assert.match(worker,/DERIV_TOKEN_ENCRYPTION_KEY\|\|""\)\.trim\(\)/);
 });
 test("all 15 strategies run on genuine future public tick data",()=>{
  assert.match(worker,/FIFTEEN_BOTS/);
@@ -73,6 +74,7 @@ test("stop, worker lease loss and stale data end the run without more purchases"
 const readOnlyProbe=readFileSync(new URL("../worker/senfx-deriv-demo-15bot-readiness.mjs",import.meta.url),"utf8");
 test("read-only readiness probe verifies all 15 contract types and quote forms without broker orders",()=>{
  assert.match(readOnlyProbe,/SENFX_DEMO_15BOT_READONLY_PROBE/);
+ assert.match(readOnlyProbe,/DERIV_TOKEN_ENCRYPTION_KEY\|\|""\)\.trim\(\)/);
  assert.match(readOnlyProbe,/SENFX_DEMO_BOT_TEMPLATES/);
  assert.match(readOnlyProbe,/contracts_for/);
  assert.match(readOnlyProbe,/deriveDemoProposal/);
