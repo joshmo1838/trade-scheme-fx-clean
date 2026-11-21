@@ -22,7 +22,7 @@ if(process.env.SENFX_DEMO_15BOT_READONLY_PROBE!=="true"){
 const admin=process.env.DERIV_DEMO_PILOT_USER_ID||"";
 const url=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||"";
 const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY||"";
-const encryptionKey=process.env.DERIV_TOKEN_ENCRYPTION_KEY||"";
+const encryptionKey=(process.env.DERIV_TOKEN_ENCRYPTION_KEY||"").trim();
 const probeStake=Number(process.env.SENFX_DEMO_DIAGNOSTIC_STAKE||"2.00");
 if(!/^[0-9a-f-]{36}$/i.test(admin)||!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url)||
  !serviceKey||!/^[0-9a-f]{64}$/i.test(encryptionKey)||!validVirtualStake(probeStake)){
