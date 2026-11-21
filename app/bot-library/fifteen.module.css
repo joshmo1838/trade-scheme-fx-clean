@@ -72,3 +72,42 @@
 @media(max-width:900px){.columns{grid-template-columns:1fr}.botGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.hero{padding:19px}.botGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.topMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.botCard{padding:13px}.botCard h3{font-size:14px}.topbar nav{gap:12px}.feedActions span{width:100%}}
 @media(max-width:380px){.botGrid{grid-template-columns:1fr}.controls{grid-template-columns:1fr}}
+
+/* Genuine broker Demo workspace: controls and results before the strategy library. */
+.demoWorkspace{display:grid;grid-template-columns:minmax(260px,.85fr) minmax(380px,1.15fr);gap:18px;align-items:start}
+.demoIntro{min-width:0;padding:10px 4px}
+.demoIntro h3{font-size:19px;line-height:1.3;margin:18px 0 9px;color:#ecfff9}
+.demoIntro>p{font-size:12px;line-height:1.65;color:#b6cfdd}
+.demoSelectLabel{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:800;color:#cef8f1}
+.demoSelectLabel select{width:100%;padding:12px 13px;background:#091f32;border:1px solid #3d8293;border-radius:10px;color:#f3fff9;font:inherit;max-width:100%}
+.demoSelectLabel select:focus-visible{outline:3px solid #6cf9d5}
+.libraryWide{width:100%;margin-top:20px}
+.libraryWide .botGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.demoWorkspace #senfx-demo-broker-controls>.panel{margin-top:0!important;background:#0c273c;border-color:#388577}
+#senfx-individual-demo{scroll-margin-top:20px}
+@media(max-width:1150px){.libraryWide .botGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.demoWorkspace{grid-template-columns:1fr}.libraryWide .botGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.libraryWide .botGrid{grid-template-columns:repeat(1,minmax(0,1fr))}.demoWorkspace{gap:10px}}
+
+/* Genuine Deriv Demo account and settled hit/loss overview (read only). */
+.balanceBar{background:linear-gradient(125deg,#102e47,#0b2437);border:1px solid #39798d;border-radius:17px;padding:20px 22px;margin:0 0 18px}
+.balanceBarTop{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:13px;margin-bottom:15px}
+.balanceBarTop>div:first-child{display:flex;flex-direction:column;gap:4px}
+.balanceBarTop>div:first-child strong{font-size:16px;color:#f2fff9}
+.balanceRefreshStatus{font-size:11px;color:#9cbccc}
+.balanceStatusActions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.balanceLive,.balanceIdle{border:1px solid #3c7c77;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;color:#8df2d6}
+.balanceIdle{color:#b5c6d6;border-color:#557084}
+.balanceStatusActions button{background:#17445a;color:#f1fff9;border:1px solid #4c8493;padding:8px 12px;font-size:11px;font-weight:800;border-radius:9px;cursor:pointer}
+.balanceMetricGrid{display:grid;grid-template-columns:minmax(0,1.55fr) repeat(3,minmax(0,1fr));gap:11px}
+.balanceMetricGrid>div{background:#081e32;border:1px solid #31536a;border-radius:12px;padding:14px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.balanceMetricGrid span{font-size:10px;letter-spacing:.07em;font-weight:800;color:#add2e2}
+.balanceMetricGrid strong{display:block;font-size:clamp(20px,2.3vw,30px);line-height:1.2;overflow-wrap:anywhere;color:#f3fff9}
+.balanceMetricGrid small{font-size:10px;color:#a7c4cf;line-height:1.5}
+.balanceMetricPrimary{border-color:#3e9688!important}
+.balanceMetricHit strong,.balancePositive{color:#77f2c7!important}
+.balanceMetricLoss strong,.balanceNegative{color:#ff9b9e!important}
+.balanceNeutral{color:#b1c6d0!important}
+.balanceDisclaimer{font-size:10px;line-height:1.6;color:#9bbccc;margin:14px 0 0}
+@media(max-width:1000px){.balanceMetricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.balanceBar{padding:16px}.balanceMetricGrid{gap:8px}.balanceMetricGrid>div{padding:12px}.balanceMetricGrid strong{font-size:22px}}

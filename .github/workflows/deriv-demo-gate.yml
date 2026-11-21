@@ -31,6 +31,8 @@ on:
       - 'supabase/senfx-deriv-demo-individual-controls-20261121.sql'
       - 'tests/senfx-demo-individual-broker-ui.test.mjs'
       - 'tests/senfx-demo-start-ui-recovery.test.mjs'
+      - 'tests/senfx-demo-dashboard-status-ux.test.mjs'
+      - 'app/bot-library/fifteen.module.css'
       - 'app/components/DemoTradingConsole.tsx'
       - 'supabase/senfx-deriv-demo-unlimited-pilot-draft.sql'
       - 'lib/deriv/demo-account-allowlist.mjs'
@@ -47,7 +49,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/senfx-demo-individual-broker-ui.test.mjs tests/senfx-demo-start-ui-recovery.test.mjs
+        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/senfx-demo-individual-broker-ui.test.mjs tests/senfx-demo-start-ui-recovery.test.mjs tests/senfx-demo-dashboard-status-ux.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest

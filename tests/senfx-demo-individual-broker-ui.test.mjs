@@ -11,7 +11,7 @@ test("selected strategy card exposes genuine broker Demo controls with no paper 
  assert.match(page,/id="senfx-demo-broker-controls"/);
  assert.match(panel,/useState\("1000"\)/);
  assert.match(panel,/Start Selected Demo Bot/);
- assert.match(panel,/Stop Selected Demo Bot/);
+ assert.match(panel,/Stop Active Demo Bot/);
  assert.match(panel,/targetTrades:total/);
  assert.match(panel,/confirmVirtualDemoAutomation:action==="start_one"&&approved/);
  assert.match(panel,/broker results/);
