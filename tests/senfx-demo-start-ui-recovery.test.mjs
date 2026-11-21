@@ -23,7 +23,7 @@ test("disabled Start has an actionable status, auth links and no direct broker p
  assert.match(control,/status\.code==="ADMIN_DEMO_LOGIN_REQUIRED"/);
  assert.match(control,/Check the virtual-money Demo authorization box/);
  assert.match(control,/Start Selected Demo Bot/);
- assert.match(control,/role="status" className=\{canStart\?styles\.ok:styles\.notice\}/);
+ assert.match(control,/role="status" className=\{selectedActive&&status\?\.run\?\.workerConnected\?styles\.ok:canStart\?styles\.ok:styles\.notice\}/);
  assert.match(control,/href="\/login"/);
  assert.match(control,/disabled=\{!canStart\}/);
  assert.match(control,/confirmVirtualDemoAutomation:action==="start_one"&&approved/);
