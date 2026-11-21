@@ -52,6 +52,8 @@ test("Emergency Stop invalidates old generations, expiring worker and broker fla
  assert.match(control,/SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED!=="true"/);
  assert.match(control,/DERIV_DEMO_BROKER_BUY_ENABLED!=="true"/);
  assert.match(control,/confirmVirtualDemoAutomation!==true/);
+ assert.match(control,/p_stake:chosenStake/);
+ assert.match(control,/p_stake:null/);
 });
 test("mutual exclusion blocks old manual pilot while 15 Demo bot control is armed",()=>{
  assert.match(sql,/senfx_demo_bot_no_manual_overlap/);
