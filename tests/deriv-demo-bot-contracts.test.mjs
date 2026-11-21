@@ -86,3 +86,20 @@ test("Bulk Bots page offers authenticated Deriv Demo capability checks without p
  assert.match(library,/<FifteenDemoBrokerReadiness\/>/);
  assert.doesNotMatch(ui,/action:\s*["']buy["']|confirmVirtualPurchase|\/ws\/real/);
 });
+
+test("actual Deriv Demo bot price proposal requires authenticated Demo, same-origin and never purchases",()=>{
+ const price=readFileSync(new URL("../app/api/deriv/demo/bots/proposal/route.ts",import.meta.url),"utf8");
+ assert.match(price,/getDerivDemoContext\(\)/);
+ assert.match(price,/context\.account\.account_type!=="demo"/);
+ assert.match(price,/origin!==request\.nextUrl\.origin/);
+ assert.match(price,/deriveDemoProposal\(/);
+ assert.match(price,/brokerSupportsTemplate\(/);
+ assert.match(price,/openDerivDemoSession\(context\)/);
+ assert.match(price,/session\.request<any>\("contracts_for"/);
+ assert.match(price,/session\.request<any>\("proposal"/);
+ assert.match(price,/askPrice>1/);
+ assert.match(price,/brokerOrderPlaced:false/);
+ assert.match(price,/purchaseEnabled:false/);
+ assert.match(price,/session\?\.close\(\)/);
+ assert.doesNotMatch(price,/session\.request<any>\("buy"|auto_start|\/ws\/real\?otp/);
+});
