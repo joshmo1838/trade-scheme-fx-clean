@@ -198,6 +198,21 @@ jobs:
           docker run --rm -e SENFX_PAPER_WORKER_ENABLED=false senfx-paper-worker:ci 2>&1 | tee worker-startup.log
           grep -q "paper worker is disabled" worker-startup.log
 
+  demo15-worker-image:
+    name: Minimal real-Deriv-Demo worker container, execution OFF by default
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build isolated Deriv Demo 15-bot image
+        run: docker build --file worker/Dockerfile.demo15 --tag senfx-demo15-worker:ci .
+      - name: Prove worker is inert without release gates and secrets
+        run: |
+          set -euo pipefail
+          docker run --rm senfx-demo15-worker:ci 2>&1 | tee demo15-worker-startup.log
+          grep -q "Disabled. No Deriv account connection or broker orders." demo15-worker-startup.log
+
   paper-worker-runtime:
     name: Paper worker hermetic Start Pause Resume Stop integration
     runs-on: ubuntu-latest
