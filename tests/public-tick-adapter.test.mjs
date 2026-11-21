@@ -59,3 +59,14 @@ test("rejects nonpositive epochs and negative clocks before paper observation", 
   }
   assert.equal(parsePublicDerivTick(message(), "R_100", -1).ok, false);
 });
+
+
+test("rejects unsafe integer epochs and clocks to preserve deterministic paper tick IDs", () => {
+  for (const epoch of [Number.MAX_SAFE_INTEGER + 1, -(Number.MAX_SAFE_INTEGER + 1), 100.25]) {
+    assert.equal(parsePublicDerivTick(message("R_100", epoch), "R_100", 100000).ok, false);
+  }
+  for (const now of [Number.MAX_SAFE_INTEGER + 1, 100000.5]) {
+    assert.equal(parsePublicDerivTick(message(), "R_100", now).ok, false);
+  }
+  assert.equal(parsePublicDerivTick(message(), "R_100", 100000).ok, true);
+});
