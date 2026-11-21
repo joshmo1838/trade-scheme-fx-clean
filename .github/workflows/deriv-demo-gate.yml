@@ -22,6 +22,8 @@ on:
       - 'supabase/senfx-deriv-demo-auto-phase2.sql'
       - 'supabase/senfx-deriv-demo-auto-phase2-rollback.sql'
       - 'supabase/senfx-deriv-demo-auto-phase3.sql'
+      - 'supabase/senfx-deriv-demo-auto-phase3-authorization.sql'
+      - 'tests/demo-phase3-source.test.mjs'
       - 'supabase/senfx-deriv-demo-auto-phase3-rollback.sql'
       - 'tests/deriv-demo-auto-phase3-postgres.sql'
       - 'tests/deriv-demo-legacy-backup-restore-qa.sh'
@@ -44,7 +46,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
+        run: node --test tests/demo-phase3-source.test.mjs tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
