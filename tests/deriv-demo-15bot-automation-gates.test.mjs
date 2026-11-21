@@ -16,21 +16,20 @@ test("new 15-bot tables are separate, service-only, and do not rewrite previous 
  assert.match(sql,/to service_role;/);
  assert.doesNotMatch(sql,/drop table public\.deriv_demo_orders|truncate.*deriv_demo_orders|delete from public\.deriv_demo_orders/i);
 });
-test("reservation is demo-only, exact 1 USD, 15-bot idempotent, and financially bounded",()=>{
+test("reservation is Demo-only, owner-stake-controlled, and has no SENFX daily financial cap",()=>{
  assert.match(sql,/active_account_type<>'demo'/);
  assert.match(sql,/currency='USD'/);
- assert.match(sql,/stake=1/);
- assert.match(sql,/daily_loss_limit=10/);
- assert.match(sql,/max_daily_attempts between 1 and 30/);
+ assert.match(sql,/stake_amount numeric check \(stake_amount>0\)/);
+ assert.match(sql,/v_order\.stake<>v_control\.stake_amount/);
+ assert.match(sql,/ask_price>0 and ask_price<=stake/);
+ assert.match(sql,/scale\(p_stake\)>2/);
  assert.match(sql,/cooldown_seconds>=30/);
  assert.match(sql,/status in \('reserved','buy_unknown','open'\)/);
  assert.match(sql,/senfx_demo_bot_one_unresolved_per_user/);
- assert.match(sql,/select coalesce\(sum\(realized_loss\+reserved_loss\),0\) into v_prior_manual/);
- assert.match(sql,/v_prior_bot_other/);
- assert.match(sql,/account_id<>v_order.account_id/);
- assert.match(sql,/v_risk\.realized_loss\+v_risk\.reserved_loss\+v_prior_bot_other\+/);
- assert.match(sql,/v_prior_manual\+v_order.stake>10/);
- assert.match(sql,/RATE_LIMIT_OR_DAILY_TRADE_CAP/);
+ assert.match(sql,/ANTI_DUPLICATE_COOLDOWN/);
+ assert.match(sql,/'appDailyLossCap',null/);
+ assert.match(sql,/'appDailyTradeCountCap',null/);
+ assert.doesNotMatch(sql,/RATE_LIMIT_OR_DAILY_TRADE_CAP|SHARED_VIRTUAL_LOSS_CAP_REACHED/);
  assert.match(sql,/where user_id=p_user_id for update/);
 });
 test("purchase attempt must be persisted once, and a lost response never permits retry",()=>{
@@ -67,7 +66,9 @@ test("user controls report only worker-backed state and require explicit risk ac
  assert.match(control,/realMoneySupported:false/);
  assert.match(ui,/Start All 15 Demo Bots/);
  assert.match(ui,/Emergency Stop All Demo Bots/);
- assert.match(ui,/dailyVirtualLossLimit:10,maxStake:1/);
+ assert.match(ui,/stakeAmount:stakeText/);
+ assert.match(ui,/APP DAILY LOSS \/ TRADE CAPS/);
+ assert.match(control,/EXPLICIT_DEMO_STAKE_AND_CONSENT_REQUIRED/);
  assert.match(ui,/workerConnected/);
  assert.match(ui,/Stop All blocks new attempts but does not reverse contracts/);
  assert.doesNotMatch(control,/session\.request\("buy"|\/ws\/real/);
