@@ -125,3 +125,17 @@ test("one-click Verify All 15 uses one authenticated Deriv Demo session, no buy"
  assert.match(ui,/\/api\/deriv\/demo\/bots\/capabilities\/all/);
  assert.match(ui,/QUOTE NOT YET VERIFIED/);
 });
+
+test("Deriv contracts_for uses only documented symbol field (USD verified on account)",()=>{
+ const paths=[
+  "../app/api/deriv/demo/bots/capabilities/route.ts",
+  "../app/api/deriv/demo/bots/capabilities/all/route.ts",
+  "../app/api/deriv/demo/bots/proposal/route.ts",
+  "../worker/senfx-deriv-demo-15bot-worker.mjs"
+ ];
+ for(const path of paths){
+  const source=readFileSync(new URL(path,import.meta.url),"utf8");
+  assert.match(source,/"contracts_for"/,path);
+  assert.doesNotMatch(source,/contracts_for\s*:\s*[^,}\n]+,\s*currency\s*:/,path);
+ }
+});
