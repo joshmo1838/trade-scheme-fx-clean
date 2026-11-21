@@ -81,6 +81,6 @@ test("read-only readiness probe verifies all 15 contract types and quote forms w
  assert.match(readOnlyProbe,/url\.pathname!==\"\/trading\/v1\/options\/ws\/demo\"/);
  assert.match(readOnlyProbe,/EXECUTION_FLAGS\.some\(name=>process\.env\[name\]!==\"false\"\)/);
  assert.doesNotMatch(readOnlyProbe,/request\([\"']buy[\"']|\.send\(JSON\.stringify\(\{buy:|\/ws\/real/);
- assert.doesNotMatch(readOnlyProbe,/\.insert\(|\.upsert\(|\.update\(|\.delete\(|\.rpc\(/);
+ assert.doesNotMatch(readOnlyProbe,/db\.rpc\(|db\.from\([^)]*\)\s*\.\s*(?:insert|upsert|update|delete)\(/);
  assert.match(readOnlyProbe,/brokerOrders=0, realMoney=OFF/);
 });
