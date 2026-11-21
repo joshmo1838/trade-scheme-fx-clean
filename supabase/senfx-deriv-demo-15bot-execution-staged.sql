@@ -116,6 +116,21 @@ begin
  if p_command not in ('start','stop') or p_account_id is null or length(p_account_id)<3 then
   return jsonb_build_object('ok',false,'code','INVALID_CONTROL_COMMAND');
  end if;
+ -- Emergency Stop must work even after OAuth expiry or account switching.
+ -- The authenticated, allowlisted application server supplies the user ID.
+ if p_command='stop' then
+  select * into v_control from public.senfx_demo_bot_control
+   where user_id=p_user_id for update;
+  if not found then
+   return jsonb_build_object('ok',true,'mode','stopped','version',0,
+                            'brokerOrderPlaced',false);
+  end if;
+  update public.senfx_demo_bot_control
+   set mode='stopped',control_version=control_version+1,stopped_at=now(),updated_at=now()
+   where user_id=p_user_id returning * into v_control;
+  return jsonb_build_object('ok',true,'mode','stopped',
+   'version',v_control.control_version,'brokerOrderPlaced',false);
+ end if;
  select * into v_connection from public.deriv_connections
   where user_id=p_user_id for update;
  if not found or v_connection.active_account_type <> 'demo'
@@ -128,13 +143,6 @@ begin
  values(p_user_id,p_account_id) on conflict(user_id) do nothing;
  select * into v_control from public.senfx_demo_bot_control
   where user_id=p_user_id for update;
- if p_command='stop' then
-  update public.senfx_demo_bot_control
-   set mode='stopped',control_version=control_version+1,stopped_at=now(),updated_at=now()
-   where user_id=p_user_id returning * into v_control;
-  return jsonb_build_object('ok',true,'mode','stopped',
-   'version',v_control.control_version,'brokerOrderPlaced',false);
- end if;
  if v_control.mode='running' then
   return jsonb_build_object('ok',false,'code','ALREADY_RUNNING','version',v_control.control_version);
  end if;
