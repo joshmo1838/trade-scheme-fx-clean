@@ -74,3 +74,15 @@ test("read-only broker capabilities route requires verified session and never bu
  assert.doesNotMatch(route,/session\.request\("buy"|auto_start|new WebSocket\(.*\/ws\/real|DERIV_DEMO_BROKER_BUY_ENABLED\s*=\s*"true"/);
  assert.match(route,/session\.close\(\)/);
 });
+
+test("Bulk Bots page offers authenticated Deriv Demo capability checks without purchase buttons",()=>{
+ const ui=readFileSync(new URL("../app/bot-library/FifteenDemoBrokerReadiness.tsx",import.meta.url),"utf8");
+ const library=readFileSync(new URL("../app/bot-library/FifteenPaperBotLibrary.tsx",import.meta.url),"utf8");
+ assert.match(ui,/Verify selected Demo bot/);
+ assert.match(ui,/\/api\/deriv\/demo\/bots\/capabilities\?botId=/);
+ assert.match(ui,/AUTO-PURCHASE/);
+ assert.match(ui,/NOT ENABLED/);
+ assert.match(library,/import FifteenDemoBrokerReadiness/);
+ assert.match(library,/<FifteenDemoBrokerReadiness\/>/);
+ assert.doesNotMatch(ui,/action:\s*["']buy["']|confirmVirtualPurchase|\/ws\/real/);
+});
