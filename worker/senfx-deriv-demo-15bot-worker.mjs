@@ -69,16 +69,23 @@ function stopFeed(){
  histories.clear();previousEpoch.clear();
 }
 async function stopOwnedRun(reason){
+ if(finishing)return;
  finishing=true;stopFeed();
- if(controlRow?.mode==="running"&&controlRow?.control_version===activeVersion){
-  const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("worker_id,control_version,mode").eq("user_id",ADMIN).maybeSingle();
-  if(!error&&data?.worker_id===WORKER&&data.control_version===activeVersion&&data.mode==="running"){
-   await db.rpc("senfx_demo_bots_control",{
-    p_user_id:ADMIN,p_account_id:controlRow.account_id,
-    p_command:"stop",p_expected_version:null
-   });
+ if(interval){clearInterval(interval);interval=null;}
+ try{
+  if(controlRow?.mode==="running"&&controlRow?.control_version===activeVersion){
+   const {data,error}=await db.from("senfx_demo_bot_control")
+    .select("worker_id,control_version,mode").eq("user_id",ADMIN).maybeSingle();
+   if(!error&&data?.worker_id===WORKER&&data.control_version===activeVersion&&data.mode==="running"){
+    const {error:stopError}=await db.rpc("senfx_demo_bots_control",{
+     p_user_id:ADMIN,p_account_id:controlRow.account_id,
+     p_command:"stop",p_expected_version:null
+    });
+    if(stopError)safeLog("Server Stop confirmation unavailable; worker exiting fail-closed");
+   }
   }
+ }catch{
+  safeLog("Server Stop confirmation failed; stale lease will expire");
  }
  safeLog("Safety stop",reason);
 }
