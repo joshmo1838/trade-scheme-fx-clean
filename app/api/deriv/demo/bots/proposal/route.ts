@@ -27,12 +27,13 @@ export async function POST(request:NextRequest){
    return NextResponse.json({success:false,code:"INVALID_JSON"},{status:400,headers:noStore});
   }
   if(!body||typeof body!=="object"||Array.isArray(body)||
-     typeof body.botId!=="string"||typeof body.prediction!=="string")
+     typeof body.botId!=="string"||typeof body.prediction!=="string"||
+   typeof body.stake!=="number")
    return NextResponse.json({success:false,code:"INVALID_CONTRACT_SELECTION"},{status:400,headers:noStore});
   const proposal=deriveDemoProposal(
    body.botId,body.prediction,
    typeof body.barrier==="string"||typeof body.barrier==="number"?body.barrier:undefined,
-   typeof body.stake==="number"?body.stake:1);
+   body.stake);
   const bot=getDemoBotTemplate(body.botId);
   if(!bot||!proposal)
    return NextResponse.json({success:false,code:"UNSUPPORTED_DEMO_BOT_CONTRACT"},{status:400,headers:noStore});
@@ -40,7 +41,7 @@ export async function POST(request:NextRequest){
   if(context.account.account_type!=="demo"||context.account.currency!=="USD")
    return NextResponse.json({success:false,code:"DEMO_ACCOUNT_REQUIRED"},{status:403,headers:noStore});
   const virtualBalance=Number(context.account.balance);
-  if(!Number.isFinite(virtualBalance)||virtualBalance<1)
+  if(!Number.isFinite(virtualBalance)||virtualBalance<body.stake)
    return NextResponse.json({success:false,code:"INSUFFICIENT_VIRTUAL_BALANCE"},{status:409,headers:noStore});
   session=await openDerivDemoSession(context); // server verifies wss ... /ws/demo via OTP.
   const availability=await session.request<any>("contracts_for",{contracts_for:bot.symbol,currency:"USD"},8000);
@@ -51,7 +52,7 @@ export async function POST(request:NextRequest){
   const askPrice=Number(quote?.ask_price),payout=Number(quote?.payout);
   const quoteId=typeof quote?.id==="string"?quote.id:"";
   if(!/^[A-Za-z0-9_-]{32,128}$/.test(quoteId)||
-     !Number.isFinite(askPrice)||askPrice<=0||askPrice>1||
+     !Number.isFinite(askPrice)||askPrice<=0||askPrice>body.stake||
      !Number.isFinite(payout)||payout<=0||
      typeof quote?.longcode!=="string"||quote.longcode.length>500)
    return NextResponse.json({success:false,code:"INVALID_DERIV_DEMO_PROPOSAL"},{status:502,headers:noStore});
@@ -61,7 +62,7 @@ export async function POST(request:NextRequest){
    contractType:proposal.contract_type,
    duration:proposal.duration,durationUnit:proposal.duration_unit,
    barrier:"barrier" in proposal?proposal.barrier:null,
-   virtualStake:1,currency:"USD",askPrice,payout,
+   virtualStake:body.stake,currency:"USD",askPrice,payout,
    longcode:quote.longcode,
    expiresWithSession:true,
    brokerOrderPlaced:false,
