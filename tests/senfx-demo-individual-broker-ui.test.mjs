@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const read=(p)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 
-test("existing selected strategy card exposes real Deriv virtual Demo controls, paper simulator preserved",()=>{
+test("selected strategy card exposes genuine broker Demo controls with no paper simulator on Bulk Bots",()=>{
  const page=read("app/bot-library/FifteenPaperBotLibrary.tsx");
  const panel=read("app/bot-library/FifteenDemoIndividualControl.tsx");
  assert.match(page,/FifteenDemoIndividualControl botId=\{selected\.id\} botName=\{selected\.name\}/);
- assert.match(page,/REAL NEXT-TICK PAPER SIMULATOR/);
+ assert.doesNotMatch(page,/REAL NEXT-TICK PAPER SIMULATOR|Start paper bot/);
+ assert.match(page,/id="senfx-demo-broker-controls"/);
+ assert.match(panel,/useState\("1000"\)/);
  assert.match(panel,/Start Selected Demo Bot/);
  assert.match(panel,/Stop Selected Demo Bot/);
  assert.match(panel,/targetTrades:total/);

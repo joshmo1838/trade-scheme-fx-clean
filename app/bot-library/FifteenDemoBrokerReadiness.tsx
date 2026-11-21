@@ -40,7 +40,7 @@ export default function FifteenDemoBrokerReadiness() {
     return;
    }
    setAllResults(data);
-   setMessage(`Deriv Demo checked ${data.verifiedMarkets}/10 markets and found ${data.compatibleBotTypes}/15 bot contract types compatible. Duration and stake still require broker proposal checks; automatic buying remains disabled.`);
+   setMessage(`Deriv Demo checked ${data.verifiedMarkets}/10 markets and found ${data.compatibleBotTypes}/15 bot contract types compatible. Duration and stake still require separate real broker proposal checks. Start and Stop are controlled by the individual Demo broker panel.`);
   }catch{
    setMessage("Deriv Demo market verification was unavailable. No broker trade was attempted.");
   }finally{
@@ -60,7 +60,7 @@ export default function FifteenDemoBrokerReadiness() {
    if(!response.ok||!data.supported){
     setMessage(data.error||data.code||"This broker contract is not confirmed. No purchases enabled.");
    }else{
-    setMessage("Deriv Demo confirms the contract types for this bot. Broker auto-purchase remains OFF until the separate risk and settlement engine is approved.");
+    setMessage("Deriv Demo confirms the contract types for this bot. This verification does not start a purchase; use Start Selected Demo Bot separately when authorized.");
    }
   }catch{
    setMessage("Could not verify Deriv Demo contract support. No order was attempted.");
@@ -108,8 +108,8 @@ export default function FifteenDemoBrokerReadiness() {
    <div><small>MARKET</small><b>{result.market||selected.market}</b></div>
    <div><small>CONTRACT TYPES</small><b>{result.supportedTypes?.join(", ")||"NONE VERIFIED"}</b></div>
    <div><small>DEMO BROKER CAPABILITY</small><b>{result.supported?"SUPPORTED":"NOT VERIFIED"}</b></div>
-   <div><small>AUTO-PURCHASE</small><b>NOT ENABLED</b></div>
+   <div><small>THIS VERIFICATION</small><b>READ ONLY</b></div>
   </div>}
-  <p className={styles.finePrint}>Real Deriv broker compatibility is a prerequisite—not proof that automated order execution, position reconciliation, or risk limits are ready. All buyer actions remain disabled in this diagnostic. <Link href="/demo-trading">Open Deriv Demo workspace</Link>.</p>
+  <p className={styles.finePrint}>Real Deriv broker compatibility is a prerequisite—not proof that automated order execution, position reconciliation, or risk limits are ready. This verification sends no broker purchase; the separately authorized Demo broker Start control is independent. <Link href="/demo-trading">Open Deriv Demo workspace</Link>.</p>
  </section>;
 }

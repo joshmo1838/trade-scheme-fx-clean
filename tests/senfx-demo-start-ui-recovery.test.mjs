@@ -3,16 +3,17 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
-test("selected Deriv Demo broker controls appear before paper research without changing 15 strategy definitions",()=>{
+test("individual Deriv Demo broker controls replace all paper-trade buttons in Bulk Bots",()=>{
  const source=read("app/bot-library/FifteenPaperBotLibrary.tsx");
  const visible=source.indexOf('id="senfx-individual-demo"');
- const paper=source.indexOf('REAL NEXT-TICK PAPER SIMULATOR');
+ const broker=source.indexOf('id="senfx-demo-broker-controls"');
  const all=source.indexOf('<FifteenDemoBotControlPanel/>');
- assert.ok(visible>=0&&paper>visible&&all>visible);
+ assert.ok(visible>=0&&broker>visible&&all>visible);
+ assert.doesNotMatch(source,/REAL NEXT-TICK PAPER SIMULATOR|Start paper bot|PAPER SESSION|PAPER READY/);
  assert.match(source,/value=\{selectedId\}/);
  assert.match(source,/FIFTEEN_BOTS\.map\(bot=><option key=\{bot\.id\}/);
  assert.match(source,/FifteenDemoIndividualControl botId=\{selected\.id\} botName=\{selected\.name\}/);
- assert.match(source,/actual Deriv virtual Demo account/);
+ assert.match(source,/Actual Deriv broker execution with virtual Demo funds/);
  assert.doesNotMatch(source,/No bots on this page place Deriv Demo or Real contracts/);
 });
 
