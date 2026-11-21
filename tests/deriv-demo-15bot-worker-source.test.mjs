@@ -56,6 +56,7 @@ test("settlement is based on the purchased broker contract, never inferred from 
 });
 test("stop, worker lease loss and stale data end the run without more purchases",()=>{
  assert.match(worker,/stopOwnedRun\(/);
+ assert.match(worker,/p_stake:null/);
  assert.match(worker,/clearInterval\(interval\)/);
  assert.match(worker,/senfx_demo_bots_worker_heartbeat/);
  assert.match(worker,/p_expected_version:version/);
