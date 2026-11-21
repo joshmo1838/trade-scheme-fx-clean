@@ -60,6 +60,19 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
  const showResults=status?.run?.selectedBotId===botId;
  const progress=showResults?status?.run?.progress:null;
  const alreadyActiveOther=running&&!selectedActive;
+ const blockReason=pending?"Sending your broker control request…":
+  !status?"Checking admin Demo access…":
+  !status.ok?
+   status.code==="ADMIN_DEMO_LOGIN_REQUIRED"?
+    "Sign into your verified SENFX admin account. This browser session is not authorized for broker control.":
+    "The broker control API is unavailable: "+(status.code||"SERVER_UNAVAILABLE"):
+  !status.controlsEnabled?"Broker Demo execution is not enabled in this site's server configuration.":
+  running?selectedActive?"This bot has an active Demo session. Check its broker results below.":
+   "Another Demo run is active. Use Stop All before starting this bot.":
+  !stakeOk?"Enter a positive Demo stake in USD, e.g. 5.":
+  !countOk?"Enter a whole number of Demo contracts from 1 to 200.":
+  !approved?"Check the virtual-money Demo authorization box to enable Start.":
+  "Ready: click Start Selected Demo Bot to activate real Deriv virtual-money Demo orders.";
  return <section className={styles.panel} style={{margin:"16px 0"}}>
   <p className={styles.kicker}>INDIVIDUAL BOT · ACTUAL DERIV BROKER · VIRTUAL DEMO ONLY</p>
   <h2>{botName} — Broker Demo</h2>
@@ -81,6 +94,12 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
    <span>I authorize this selected bot to purchase <strong>Deriv virtual Demo contracts only</strong>
     at my chosen stake, for no more than my selected trade count. Real-money trading is disabled.</span>
   </label>
+  <p role="status" className={canStart?styles.ok:styles.notice} style={{margin:"12px 0"}}>
+   <strong>{canStart?"READY TO START":"START CHECK"}</strong> — {blockReason}
+   {status?.code==="ADMIN_DEMO_LOGIN_REQUIRED"&&<>
+    {" "}<a href="/login">Sign in to the admin account</a>.
+   </>}
+  </p>
   <div className={styles.controls}>
    <button className={styles.startButton} disabled={!canStart} onClick={()=>void command("start_one")}>
     Start Selected Demo Bot
