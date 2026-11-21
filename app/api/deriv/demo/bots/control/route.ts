@@ -38,7 +38,7 @@ export async function GET(){
   const {userId,db}=await authorizedAdmin();
   if(!userId||!db)return denied("ADMIN_DEMO_LOGIN_REQUIRED",401);
   const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("account_id,mode,observed_state,control_version,heartbeat_at,lease_expires_at,max_stake,daily_loss_limit,max_daily_attempts,updated_at")
+   .select("account_id,mode,observed_state,control_version,heartbeat_at,lease_expires_at,stake_amount,updated_at")
    .eq("user_id",userId).maybeSingle();
   if(error)return denied("STAGED_15BOT_SCHEMA_NOT_RELEASED",503);
   const now=Date.now();
@@ -54,8 +54,8 @@ export async function GET(){
    run:data?{
     desiredState:data.mode,observedState:attached?"running":"stopped-or-disconnected",
     version:data.control_version,accountId:data.account_id,
-    maxStake:Number(data.max_stake),dailyVirtualLossLimit:Number(data.daily_loss_limit),
-    maxDailyAttempts:data.max_daily_attempts,workerConnected:attached,
+    stakeAmount:data.stake_amount===null?null:Number(data.stake_amount),
+    appDailyLossCap:null,appDailyTradeCountCap:null,workerConnected:attached,
     updatedAt:data.updated_at,
    }:null,
    controlsEnabled:operatorOn&&workerEnabled&&buyOn,
@@ -92,7 +92,7 @@ export async function POST(request:NextRequest){
    },{headers:noStore});
    const {data,error}=await db.rpc("senfx_demo_bots_control",{
     p_user_id:userId,p_account_id:current.data.account_id,
-    p_command:"stop",p_expected_version:null
+    p_command:"stop",p_expected_version:null,p_stake:null
    });
    if(error||data?.ok!==true)return denied("STOP_NOT_CONFIRMED",503);
    return NextResponse.json({
@@ -107,17 +107,25 @@ export async function POST(request:NextRequest){
      process.env.SENFX_DEMO_15BOT_CONTROL_ENABLED!=="true"||
      process.env.SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED!=="true")
    return denied("AUTO_BROKER_EXECUTION_NOT_AUTHORIZED_OR_RELEASED",503);
-  if(body.confirmVirtualDemoAutomation!==true||body.dailyVirtualLossLimit!==10||
-     body.maxStake!==1||!Number.isSafeInteger(body.expectedVersion)||
-     body.expectedVersion<0)
-   return denied("EXPLICIT_BOUNDED_DEMO_CONFIRMATION_REQUIRED",400);
+  // The owner explicitly chooses a positive finite USD virtual stake.
+  // There is NO SENFX-imposed maximum, daily virtual-loss cap, or daily trade-count cap.
+  // Broker constraints and virtual Demo balance still decide what can execute.
+  const rawStake=body.stakeAmount;
+  if(body.confirmVirtualDemoAutomation!==true||
+     typeof rawStake!=="string"||!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$/.test(rawStake)||
+     rawStake.length>50||!Number.isFinite(Number(rawStake))||Number(rawStake)<=0||
+     !Number.isSafeInteger(Math.round(Number(rawStake)*100))||
+     !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0)
+   return denied("EXPLICIT_DEMO_STAKE_AND_CONSENT_REQUIRED",400);
+  const chosenStake=Number(rawStake);
   const context=await getDerivDemoContext();
   if(context.user.id!==userId||context.account.account_type!=="demo"||
-     context.account.currency!=="USD"||Number(context.account.balance)<1)
+     context.account.currency!=="USD"||!Number.isFinite(Number(context.account.balance))||
+     Number(context.account.balance)<chosenStake)
    return denied("VALID_DERIV_DEMO_USD_REQUIRED",403);
   const {data,error}=await db.rpc("senfx_demo_bots_control",{
    p_user_id:userId,p_account_id:context.account.account_id,
-   p_command:"start",p_expected_version:body.expectedVersion
+   p_command:"start",p_expected_version:body.expectedVersion,p_stake:chosenStake
   });
   if(error||data?.ok!==true)return denied(String(data?.code||"DEMO_CONTROL_START_REJECTED"),409);
   return NextResponse.json({
