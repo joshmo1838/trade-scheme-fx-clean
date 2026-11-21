@@ -18,7 +18,7 @@ export async function POST(request:NextRequest){
   const origin=request.headers.get("origin");
   if(!origin||origin!==request.nextUrl.origin)
    return NextResponse.json({success:false,code:"SAME_ORIGIN_REQUIRED"},{status:403,headers:noStore});
-  if(process.env.DERIV_DEMO_TRADING_ENABLED!=="true")
+  if(process.env.SENFX_DEMO_READONLY_DIAGNOSTICS_ENABLED!=="true")
    return NextResponse.json({success:false,code:"DEMO_DISABLED"},{status:503,headers:noStore});
   const raw=await request.text();
   if(raw.length>2048)return NextResponse.json({success:false,code:"REQUEST_TOO_LARGE"},{status:400,headers:noStore});
