@@ -39,7 +39,7 @@ export async function GET(){
   const {userId,db}=await authorizedAdmin();
   if(!userId||!db)return denied("ADMIN_DEMO_LOGIN_REQUIRED",401);
   const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("account_id,mode,observed_state,control_version,heartbeat_at,lease_expires_at,stake_amount,selected_bot_id,target_trades,updated_at")
+   .select("account_id,mode,observed_state,control_version,heartbeat_at,lease_expires_at,stake_amount,selected_bot_id,target_trades,stopped_at,updated_at")
    .eq("user_id",userId).maybeSingle();
   if(error)return denied("STAGED_15BOT_SCHEMA_NOT_RELEASED",503);
   const now=Date.now();
@@ -55,8 +55,12 @@ export async function GET(){
      .eq("bot_id",data.selected_bot_id).limit(200)
    :null;
   const completed=(history?.data||[]).filter(x=>["won","lost","sold"].includes(x.status));
+  const restartCooldownSeconds=data?.mode==="stopped"&&data.stopped_at
+   ?Math.max(0,Math.ceil((new Date(data.stopped_at).getTime()+60_000-now)/1000))
+   :0;
   const progress=history&&!history.error?{
    tradesAttempted:(history.data||[]).filter(x=>x.buy_requested_at!==null).length,
+   pending:(history.data||[]).filter(x=>["reserved","buy_unknown","open"].includes(x.status)).length,
    completed:completed.length,
    wins:completed.filter(x=>x.status==="won").length,
    losses:completed.filter(x=>x.status==="lost").length,
@@ -73,6 +77,7 @@ export async function GET(){
     stakeAmount:data.stake_amount===null?null:Number(data.stake_amount),
     appDailyLossCap:null,appDailyTradeCountCap:null,workerConnected:attached,
     selectedBotId:data.selected_bot_id,targetTrades:data.target_trades,progress,
+    restartCooldownSeconds,
     updatedAt:data.updated_at,
    }:null,
    controlsEnabled:operatorOn&&workerEnabled&&buyOn,
