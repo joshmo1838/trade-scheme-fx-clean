@@ -65,6 +65,13 @@ begin
  if res->>'ok'<>'true' then raise exception 'Re-arm rejected after safe cooldown'; end if;
  res:=public.senfx_demo_bots_worker_heartbeat(u,'qa_worker_demo_15_02',3);
  if res->>'owned'<>'true' then raise exception 'New generation worker denied'; end if;
+ -- An old worker's delayed Stop (generation 1) must not cancel generation 3.
+ res:=public.senfx_demo_bots_control(u,'D_QA_291','stop',1,null);
+ if res->>'ok'<>'false' or res->>'code'<>'STALE_WORKER_STOP_IGNORED' then
+  raise exception 'Stale worker Stop was not rejected: %',res; end if;
+ if (select mode from public.senfx_demo_bot_control where user_id=u)<>'running'
+   or (select control_version from public.senfx_demo_bot_control where user_id=u)<>3 then
+  raise exception 'Stale worker Stop changed the active owner run'; end if;
  update public.senfx_demo_bot_orders set control_version=3 where id=b;
  res:=public.senfx_demo_bots_reserve(u,b,3);
  if res->>'allowed'<>'true' then raise exception 'Sequential bot reserve failed'; end if;
