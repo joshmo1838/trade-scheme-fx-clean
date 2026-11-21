@@ -47,7 +47,7 @@ test("contract adapters correctly map digits and 5-minute direction without real
 });
 test("invalid stake, mismatched prediction, missing dynamic barrier and wrong barriers fail closed",()=>{
  for(const stake of [0,0.5,2,10,100,NaN,Infinity,-1]){
-  assert.equal(deriveDemoProposal("digit-differs","DIFFERS",undefined,stake),null);
+  assert.equal(deriveDemoProposal("digit-differs","DIFFERS",7,stake),null);
  }
  for(const [id,prediction,barrier] of [
   ["unknown","OVER",4],["parity-even","FALL"],["digit-over-4","OVER",5],
