@@ -237,6 +237,8 @@ export default function DemoAutoPilot({ready,reason,virtualBalance,onRefresh}:Pr
    The server will not buy until its Demo-only one-shot authorization and broker safety checks pass.</p>}
   <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:16}}>
    <button type="button" className="workspacePrimaryButton" disabled={!canStart}
+    title={!ready ? "A separate $1 Demo-only one-shot authorization is required." : undefined}
+    style={{opacity:canStart?1:0.48,cursor:canStart?"pointer":"not-allowed"}}
     onClick={begin}>Start $1 Demo auto bot</button>
    <button type="button" className="button secondary" disabled={!running}
     onClick={()=>stop()}>Emergency Stop</button>
