@@ -13,6 +13,7 @@ import {
 import styles from "./fifteen.module.css";
 import FifteenDemoBrokerReadiness from "./FifteenDemoBrokerReadiness";
 import FifteenDemoBotControlPanel from "./FifteenDemoBotControlPanel";
+import FifteenDemoIndividualControl from "./FifteenDemoIndividualControl";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
 const TRACKED_MARKETS=new Set<string>(FIFTEEN_BOTS.map(x=>x.market));
@@ -309,6 +310,7 @@ export default function FifteenPaperBotLibrary(){
       <span>Last real quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
      </div>
     </section>
+    <FifteenDemoIndividualControl botId={selected.id} botName={selected.name}/>
     <section className={styles.panel}>
      <p className={styles.kicker}>REAL NEXT-TICK PAPER SIMULATOR</p>
      <h2>Run a controlled batch</h2>
