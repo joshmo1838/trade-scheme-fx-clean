@@ -47,10 +47,11 @@ export async function GET(){
   const heartbeat=new Date(data?.heartbeat_at||0).getTime();
   const attached=!!data&&data.mode==="running"&&data.observed_state==="running"&&
    lease>now&&heartbeat>now-15000&&heartbeat<=now+5000;
+  const historyVersion=data?.mode==="stopped"?data.control_version-1:data?.control_version;
   const history=data?.selected_bot_id
    ?await db.from("senfx_demo_bot_orders")
      .select("status,profit,buy_requested_at")
-     .eq("user_id",userId).eq("control_version",data.control_version)
+     .eq("user_id",userId).eq("control_version",historyVersion)
      .eq("bot_id",data.selected_bot_id).limit(200)
    :null;
   const completed=(history?.data||[]).filter(x=>["won","lost","sold"].includes(x.status));
