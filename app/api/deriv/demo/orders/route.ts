@@ -278,9 +278,9 @@ function safeRisk(risk: any, orders: any[]) {
     dailyLoss: Number(risk?.realized_loss ?? 0),
     reservedLoss: Number(risk?.reserved_loss ?? 0),
     unlimitedDemoPractice: false,
-    dailyLossLimit: Number(risk?.daily_loss_limit ?? 1),
-    remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit ?? 1) - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
-    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= Number(risk?.daily_loss_limit ?? 1),
+    dailyLossLimit: Number(risk?.daily_loss_limit ?? 10),
+    remainingLossBudget: Math.max(0, Number(risk?.daily_loss_limit ?? 10) - Number(risk?.realized_loss ?? 0) - Number(risk?.reserved_loss ?? 0)),
+    limitReached: Number(risk?.realized_loss ?? 0) + Number(risk?.reserved_loss ?? 0) >= Number(risk?.daily_loss_limit ?? 10),
     orders,
   };
 }
@@ -586,7 +586,7 @@ export async function POST(request: NextRequest) {
       // Fail closed against the older production RPC which allows unlimited losses.
       // Never send a buy unless the replacement RPC confirms its enforced budget.
       if (reservation.unlimitedDemoPractice !== false ||
-          reservation.dailyLossLimit !== 1 ||
+          reservation.dailyLossLimit !== 10 ||
           !Number.isFinite(Number(reservation.remainingLossBudget)) ||
           Number(reservation.remainingLossBudget) < 0 ||
           !Number.isFinite(Number(reservation.reservedLoss)) ||
