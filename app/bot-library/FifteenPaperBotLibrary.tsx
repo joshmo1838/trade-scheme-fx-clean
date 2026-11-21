@@ -10,6 +10,7 @@ import FifteenDemoBrokerReadiness from "./FifteenDemoBrokerReadiness";
 import FifteenDemoBotControlPanel from "./FifteenDemoBotControlPanel";
 import FifteenDemoIndividualControl from "./FifteenDemoIndividualControl";
 import FifteenDemoLiveAccountBar from "./FifteenDemoLiveAccountBar";
+import FifteenDemoPayoutComparison from "./FifteenDemoPayoutComparison";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
 const TRACKED_MARKETS=new Set<string>(FIFTEEN_BOTS.map(x=>x.market));
@@ -37,6 +38,15 @@ export default function FifteenPaperBotLibrary(){
  const marketFresh=enabled&&marketStatus.includes(selected.market)&&
   Date.now()-lastAt<15_000;
  const previewSignal=useMemo(()=>predictFifteenBot(selected,sample),[selected,sample]);
+ // Quote only existing strategy signals, markets, thresholds and directions.
+ // No signal prediction from the client authorizes an actual purchase.
+ const payoutCandidates=useMemo(()=>FIFTEEN_BOTS.flatMap(bot=>{
+  const current=snapshots[bot.market];
+  if(!enabled||!current||Date.now()-current.lastAt>15_000)return[];
+  const signal=predictFifteenBot(bot,current.quotes);
+  return signal?[{botId:bot.id,prediction:signal.prediction,
+   ...(signal.barrier===undefined?{}:{barrier:signal.barrier})}]:[];
+ }),[snapshots,enabled]);
  const selectionTouched=useRef(false);
  const changeBot=(id:string)=>{
   selectionTouched.current=true;
@@ -246,6 +256,12 @@ export default function FifteenPaperBotLibrary(){
     </div>
    </div>
   </section>
+  <details className={styles.panel} style={{margin:"16px 0"}}>
+   <summary style={{cursor:"pointer",fontWeight:800}}>
+    Compare current broker payouts for the existing 15 bots (read only)
+   </summary>
+   <FifteenDemoPayoutComparison candidates={payoutCandidates}/>
+  </details>
   <div className={styles.topMetrics}>
    <div><small>SELECTABLE DEMO BOTS</small><b>{BOT_COUNT}</b></div>
    <div><small>PUBLIC MARKETS</small><b>{marketStatus.length} / 10</b></div>
