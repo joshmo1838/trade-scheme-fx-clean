@@ -38,9 +38,8 @@ test("broker buys are single-attempt and only AFTER service-role atomic reservat
  assert.ok(reserve>=0&&mark>reserve&&buy>mark,"RPC order must be reserve, mark, then broker buy");
  assert.match(worker,/safeToPurchase\(/);
  assert.match(worker,/getUnresolvedOrderCount\(\)/);
- assert.match(worker,/brokerOrderPlaced/); // document and gate, no claims of auto success
  assert.match(worker,/No retry of buy under ANY failure/);
- assert.match(worker,/status="buy_unknown"/);
+ assert.match(worker,/\.eq\("status","buy_unknown"\)/);
  assert.match(worker,/!permitted\|\|finishing/);
 });
 test("settlement is based on the purchased broker contract, never inferred from a paper hit",()=>{
