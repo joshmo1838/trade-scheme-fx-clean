@@ -156,3 +156,21 @@ test("replaying identical public ticks reproduces the same paper ledger without 
   assert.equal(first.session.observations.length, 2);
   assert.equal(first.session.gate.completed, 2);
 });
+
+
+test("malformed paper ledger prices and settlement identities must fail closed", () => {
+  let session = paperNextTickStep(beginPaperSession(1000), SMART_ENTRY_DEFAULTS, 1000, tick(1, 100), 75).session;
+  session = paperNextTickStep(session, SMART_ENTRY_DEFAULTS, 2000, tick(2, 101), null).session;
+  const original = session.observations[0];
+  for (const corruption of [
+    { ...original, entry: { ...original.entry, quote: 0 } },
+    { ...original, entry: { ...original.entry, quote: -1 } },
+    { ...original, settlement: { ...original.settlement, quote: 0 } },
+    { ...original, settlement: { ...original.settlement, id: null } },
+    { ...original, settlement: { ...original.settlement, id: "" } }
+  ]) {
+    const result = paperNextTickStep({ ...session, observations: [corruption] }, SMART_ENTRY_DEFAULTS, 3000, tick(3), 80);
+    assert.equal(result.action, "stop");
+    assert.equal(result.reason, "invalid-paper-history");
+  }
+});
