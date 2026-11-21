@@ -4,6 +4,15 @@ import Link from "next/link";
 import {FIFTEEN_BOTS} from "@/lib/bots/fifteen-paper-bots";
 import styles from "./fifteen.module.css";
 
+type BatchBotCheck={
+ id:string;market:string;typeCheckCompleted:boolean;
+ contractTypeSupported:boolean;requiredTypes:string[];supportedTypes:string[];
+ durationAndStakeVerified:boolean;proxyMapping:boolean;
+};
+type BatchCapabilities={
+ ok:boolean;checkedMarkets?:number;verifiedMarkets?:number;checkedBots?:number;
+ compatibleBotTypes?:number;bots?:BatchBotCheck[];code?:string;error?:string;
+};
 type Capability={
  broker?:string;accountType?:string;botId?:string;market?:string;
  supported?:boolean;supportedTypes?:string[];requiredTypes?:string[];
@@ -13,10 +22,33 @@ export default function FifteenDemoBrokerReadiness() {
  const [botId,setBotId]=useState(FIFTEEN_BOTS[0].id);
  const [checking,setChecking]=useState(false);
  const [result,setResult]=useState<Capability|null>(null);
+ const [allChecking,setAllChecking]=useState(false);
+ const [allResults,setAllResults]=useState<BatchCapabilities|null>(null);
  const [message,setMessage]=useState("Sign into your SENFX admin account to verify each bot's real Deriv Demo contract availability.");
  const selected=FIFTEEN_BOTS.find(x=>x.id===botId)??FIFTEEN_BOTS[0];
+ const checkAll=async()=>{
+  if(checking||allChecking)return;
+  setAllChecking(true);setAllResults(null);
+  setMessage("Checking ten real Deriv Demo markets for all fifteen bot contract types. No purchases will be sent.");
+  try{
+   const response=await fetch("/api/deriv/demo/bots/capabilities/all",{
+    credentials:"same-origin",cache:"no-store"
+   });
+   const data:BatchCapabilities=await response.json().catch(()=>({ok:false,code:"INVALID_SERVER_RESPONSE"}));
+   if(!response.ok||!data.ok||!Array.isArray(data.bots)){
+    setMessage(data.error||data.code||"Could not validate the live Deriv Demo contract types.");
+    return;
+   }
+   setAllResults(data);
+   setMessage(`Deriv Demo checked ${data.verifiedMarkets}/10 markets and found ${data.compatibleBotTypes}/15 bot contract types compatible. Duration and stake still require broker proposal checks; automatic buying remains disabled.`);
+  }catch{
+   setMessage("Deriv Demo market verification was unavailable. No broker trade was attempted.");
+  }finally{
+   setAllChecking(false);
+  }
+ };
  const check=async()=>{
-  if(checking)return;
+  if(checking||allChecking)return;
   setChecking(true);setResult(null);
   setMessage("Checking the selected bot against your authenticated Deriv Demo broker account…");
   try{
@@ -45,12 +77,31 @@ export default function FifteenDemoBrokerReadiness() {
     </select>
    </label>
    <div>
-    <button className={styles.startButton} disabled={checking} onClick={()=>void check()}>
+    <button className={styles.startButton} disabled={checking||allChecking} onClick={()=>void check()}>
      {checking?"Checking Deriv Demo…":"Verify selected Demo bot"}
     </button>
    </div>
   </div>
+  <div className={styles.controls}>
+   <button className={styles.startButton} disabled={checking||allChecking}
+    onClick={()=>void checkAll()}>
+    {allChecking?"Checking all 15 Demo bots…":"Verify All 15 Against Deriv Demo"}
+   </button>
+  </div>
   <p role="status" className={styles.notice}>{message}</p>
+  {allResults?.bots&&<div className={styles.scrollTable}>
+   <table>
+    <thead><tr><th>Bot</th><th>Market</th><th>Contract types</th><th>Deriv Demo result</th></tr></thead>
+    <tbody>{allResults.bots.map(bot=><tr key={bot.id}>
+     <td>{FIFTEEN_BOTS.find(x=>x.id===bot.id)?.name||bot.id}</td>
+     <td>{bot.market}</td>
+     <td>{bot.requiredTypes.join(", ")}</td>
+     <td>{bot.contractTypeSupported
+      ?bot.proxyMapping?"TYPE SUPPORTED · DIFFERENT STRATEGY PROXY":"TYPE SUPPORTED · QUOTE NOT YET VERIFIED"
+      :bot.typeCheckCompleted?"UNSUPPORTED CONTRACT TYPE":"NO BROKER RESPONSE"}</td>
+    </tr>)}</tbody>
+   </table>
+  </div>}
   {result&&<div className={styles.resultGrid}>
    <div><small>SELECTED</small><b>{selected.name}</b></div>
    <div><small>DERIV ACCOUNT</small><b>{result.accountType==="demo"?"DEMO / VIRTUAL":"NOT VERIFIED"}</b></div>
