@@ -68,7 +68,7 @@ test("stop, worker lease loss and stale data end the run without more purchases"
  assert.match(worker,/const unresolved=await getUnresolvedOrderCount\(\)/);
  assert.match(worker,/p_expected_version:version/);
  assert.match(worker,/if\(busy\|\|finishing/);
- assert.match(worker,/Date\.now\(\)-lastTickReceived>MAX_WAIT_FOR_MARKET_MS/);
+ assert.match(worker,/Date\.now\(\)-Math\.max\(lastTickReceived,feedStartedAt\)>MAX_WAIT_FOR_MARKET_MS/);
 });
 
 const readOnlyProbe=readFileSync(new URL("../worker/senfx-deriv-demo-15bot-readiness.mjs",import.meta.url),"utf8");
