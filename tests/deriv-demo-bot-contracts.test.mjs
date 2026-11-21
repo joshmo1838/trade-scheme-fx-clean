@@ -106,3 +106,22 @@ test("actual Deriv Demo bot price proposal requires authenticated Demo, same-ori
  assert.match(price,/session\?\.close\(\)/);
  assert.doesNotMatch(price,/session\.request<any>\("buy"|auto_start|\/ws\/real\?otp/);
 });
+
+test("one-click Verify All 15 uses one authenticated Deriv Demo session, no buy",()=>{
+ const route=readFileSync(new URL("../app/api/deriv/demo/bots/capabilities/all/route.ts",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../app/bot-library/FifteenDemoBrokerReadiness.tsx",import.meta.url),"utf8");
+ assert.match(route,/getDerivDemoContext\(\)/);
+ assert.match(route,/context\.account\.account_type !== "demo"/);
+ assert.match(route,/openDerivDemoSession\(context\)/);
+ assert.match(route,/session!\.request<any>\("contracts_for"/);
+ assert.match(route,/Promise\.all\(symbols\.map/);
+ assert.match(route,/SENFX_DEMO_BOT_TEMPLATES\.map/);
+ assert.match(route,/allFifteenReadyForBrokerPurchases: false/);
+ assert.match(route,/brokerPurchasesEnabledByCheck: false/);
+ assert.match(route,/durationAndStakeVerified: false/);
+ assert.match(route,/session\?\.close\(\)/);
+ assert.doesNotMatch(route,/\.request<any>\("buy"|\.request\("buy"/);
+ assert.match(ui,/Verify All 15 Against Deriv Demo/);
+ assert.match(ui,/\/api\/deriv\/demo\/bots\/capabilities\/all/);
+ assert.match(ui,/QUOTE NOT YET VERIFIED/);
+});
