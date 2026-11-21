@@ -80,7 +80,7 @@ async function stopOwnedRun(reason){
    if(!error&&data?.worker_id===WORKER&&data.control_version===activeVersion&&data.mode==="running"){
     const {error:stopError}=await db.rpc("senfx_demo_bots_control",{
      p_user_id:ADMIN,p_account_id:controlRow.account_id,
-     p_command:"stop",p_expected_version:null
+     p_command:"stop",p_expected_version:null,p_stake:null
     });
     if(stopError)safeLog("Server Stop confirmation unavailable; worker exiting fail-closed");
    }
