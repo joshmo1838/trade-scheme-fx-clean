@@ -186,33 +186,40 @@ export default function FifteenPaperBotLibrary(){
    </div>
   </section>
 
-  <section className={styles.panel} id="senfx-individual-demo" style={{margin:"18px 0"}}>
-   <p className={styles.kicker}>STEP 1 · SELECT BOT · STEP 2 · AUTHORIZE BROKER DEMO</p>
+  <section className={styles.panel} id="senfx-individual-demo" style={{margin:"16px 0"}}>
+   <p className={styles.kicker}>YOUR DERIV VIRTUAL DEMO BROKER · SELECT AND RUN</p>
    <h2>Actual Deriv broker execution with virtual Demo funds</h2>
-   <label style={{display:"block",margin:"12px 0"}}>Choose your strategy
-    <select aria-label="Choose individual Deriv Demo bot" value={selectedId}
-     style={{display:"block",width:"100%",padding:12,marginTop:6}}
-     onChange={e=>changeBot(e.target.value)}>
-     {FIFTEEN_BOTS.map(bot=><option key={bot.id} value={bot.id}>
-      {bot.name} — {bot.market}</option>)}
-    </select>
-   </label>
-   <p>Selected: <strong>{selected.name}</strong> · {selected.market}</p>
-   <a href="#senfx-demo-broker-controls"
-    style={{display:"inline-block",padding:"12px 16px",borderRadius:10,
-     background:"#087c74",color:"white",fontWeight:800,textDecoration:"none"}}>
-    Open Start Selected Demo Bot
-   </a>
+   <div className={styles.demoWorkspace}>
+    <div className={styles.demoIntro}>
+     <label className={styles.demoSelectLabel}>Choose one of your 15 trading bots
+      <select aria-label="Choose individual Deriv Demo bot" value={selectedId}
+       onChange={e=>changeBot(e.target.value)}>
+       {FIFTEEN_BOTS.map(bot=><option key={bot.id} value={bot.id}>
+        {bot.name} — {bot.market}</option>)}
+      </select>
+     </label>
+     <h3>{selected.name}</h3>
+     <p>{selected.description}</p>
+     <p className={styles.details}><b>Market: {selected.market}</b>
+      <span>Category: {selected.category}</span>
+      <span>{selected.difference}</span></p>
+     <div className={styles.marketState}>
+      <span>Public feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
+      <span>Recent market samples <b>{sample.length}</b></span>
+      <span>Public signal <b>{marketFresh?(previewSignal?
+       previewSignal.prediction+
+       (previewSignal.barrier===undefined?"":" "+previewSignal.barrier):
+       "NO SIGNAL"):"UNAVAILABLE"}</b></span>
+      <span>Last public quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
+     </div>
+     <p className={styles.finePrint}>Market preview data does not place broker orders.
+      Actual trades and settled profit appear in the right-hand panel.</p>
+    </div>
+    <div id="senfx-demo-broker-controls">
+     <FifteenDemoIndividualControl botId={selected.id} botName={selected.name}/>
+    </div>
+   </div>
   </section>
-
-  <details className={styles.panel} style={{margin:"12px 0"}}>
-   <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Start All 15 Demo Bots</summary>
-   <FifteenDemoBotControlPanel/>
-  </details>
-  <details className={styles.panel} style={{margin:"12px 0"}}>
-   <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Verify Deriv Demo contract types</summary>
-   <FifteenDemoBrokerReadiness/>
-  </details>
   <div className={styles.topMetrics}>
    <div><small>SELECTABLE DEMO BOTS</small><b>{BOT_COUNT}</b></div>
    <div><small>PUBLIC MARKETS</small><b>{marketStatus.length} / 10</b></div>
@@ -220,7 +227,7 @@ export default function FifteenPaperBotLibrary(){
     <b>{Object.values(snapshots).reduce((a,x)=>a+(x?.quotes.length||0),0)}</b></div>
    <div><small>BROKER TYPE</small><b>VIRTUAL DEMO USD</b></div>
   </div>
-  <div className={styles.columns}>
+  <div className={styles.libraryWide}>
    <section className={styles.library}>
     <div className={styles.sectionTitle}><div>
      <p className={styles.kicker}>ALL FIFTEEN</p><h2>Strategy library</h2></div>
@@ -232,7 +239,10 @@ export default function FifteenPaperBotLibrary(){
       const ready=!!predictFifteenBot(bot,ticks);
       const fresh=enabled&&marketStatus.includes(bot.market)&&
        Date.now()-(snapshots[bot.market]?.lastAt||0)<15_000;
-      return <button key={bot.id} onClick={()=>changeBot(bot.id)}
+      return <button key={bot.id} onClick={()=>{
+       changeBot(bot.id);
+       document.getElementById("senfx-individual-demo")?.scrollIntoView({behavior:"smooth",block:"start"});
+      }}
        aria-pressed={selectedId===bot.id}
        className={[styles.botCard,selectedId===bot.id?styles.activeCard:""].join(" ")}>
        <div className={styles.botMeta}>
@@ -249,29 +259,15 @@ export default function FifteenPaperBotLibrary(){
      })}
     </div>
    </section>
-   <aside className={styles.sidebar}>
-    <section className={styles.panel}>
-     <p className={styles.kicker}>SELECTED DERIV DEMO BROKER STRATEGY</p>
-     <h2>{selected.name}</h2>
-     <p>{selected.description}</p>
-     <p className={styles.details}><b>Market:</b> {selected.market}
-      <b>Category:</b> {selected.category}
-      <b>Enhancement:</b> {selected.difference}</p>
-     <div className={styles.marketState}>
-      <span>Public feed <b>{marketFresh?"LIVE":"WAITING / STALE"}</b></span>
-      <span>Public samples <b>{sample.length}</b></span>
-      <span>Public signal <b>{marketFresh?(previewSignal?
-       previewSignal.prediction+
-       (previewSignal.barrier===undefined?"":" "+previewSignal.barrier):
-       "NO SIGNAL"):"UNAVAILABLE"}</b></span>
-      <span>Last public quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
-     </div>
-    </section>
-    <div id="senfx-demo-broker-controls">
-     <FifteenDemoIndividualControl botId={selected.id} botName={selected.name}/>
-    </div>
-   </aside>
   </div>
+  <details className={styles.panel} style={{margin:"16px 0"}}>
+   <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Start All 15 Demo Bots</summary>
+   <FifteenDemoBotControlPanel/>
+  </details>
+  <details className={styles.panel} style={{margin:"12px 0"}}>
+   <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Verify Deriv Demo contract types</summary>
+   <FifteenDemoBrokerReadiness/>
+  </details>
   <footer className={styles.footer}>
    SENFX bots send genuine broker orders only on the connected, owner-authorized
    Deriv virtual Demo USD account. Real-money trading stays disabled.
