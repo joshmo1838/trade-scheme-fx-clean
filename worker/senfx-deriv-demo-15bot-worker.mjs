@@ -95,7 +95,7 @@ async function rpc(name,args){
  if(error)throw Error("DB RPC unavailable: "+name+" "+String(error.code||""));
  return data;
 }
-async function checkedAccount(){
+async function checkedAccount(stake){
  const {data:connection,error}=await db.from("deriv_connections")
   .select("encrypted_token,token_iv,token_tag,expires_at,status,active_account_id,active_account_type")
   .eq("user_id",ADMIN).maybeSingle();
@@ -115,8 +115,8 @@ async function checkedAccount(){
  const json=await response.json();
  const record=Array.isArray(json?.data)?
    json.data.find(x=>x?.account_id===connection.active_account_id):null;
- if(!isVerifiedDemoAccount(record,connection.active_account_id))
-  throw Error("Broker did not confirm an active USD virtual Demo account.");
+ if(!isVerifiedDemoAccount(record,connection.active_account_id,stake))
+  throw Error("Broker did not confirm the virtual Demo balance covers the selected stake.");
  return {token,account:record};
 }
 async function openDemoSocket(token,accountId){
@@ -194,7 +194,7 @@ async function verifyControl(version){
   new Date(data.lease_expires_at).getTime()>Date.now();
  return leaseValid;
 }
-async function reconcilePurchased(session,orderId,purchase,proposal,version){
+async function reconcilePurchased(session,orderId,purchase,proposal,stake,version){
  const start=Date.now();
  while(Date.now()-start<SETTLEMENT_TIMEOUT_MS){
   const contractIdNumeric=Number(purchase.contractId);
@@ -206,7 +206,7 @@ async function reconcilePurchased(session,orderId,purchase,proposal,version){
   const contract=response?.proposal_open_contract;
   const final=verifiedFinalContract(contract,{
    contractId:purchase.contractId,market:proposal.underlying_symbol,
-   contractType:proposal.contract_type
+   contractType:proposal.contract_type,stake
   });
   if(final){
    const result=await rpc("senfx_demo_bots_record_settlement",{
@@ -230,9 +230,12 @@ async function executeSignal(bot,signal){
  let session=null,orderId=null,marked=false,firstAttempt=false;
  try{
   if(!await verifyLease(version))throw Error("Lease lost before broker quote.");
-  const {token,account}=await checkedAccount();
+  // The owner-chosen finite stake is frozen in the durable run control,
+  // never calculated from a bot's signal or a paper result.
+  const stake=Number(controlRow.stake_amount);
+  const {token,account}=await checkedAccount(stake);
   if(controlRow.account_id!==account.account_id)throw Error("Deriv account switched during worker run.");
-  const selected=deriveDemoProposal(bot.id,signal.prediction,signal.barrier,1);
+  const selected=deriveDemoProposal(bot.id,signal.prediction,signal.barrier,stake);
   if(!selected)throw Error("Unsupported broker contract mapping.");
   session=await openDemoSocket(token,account.account_id);
   const availability=await session.request("contracts_for",{
@@ -243,7 +246,7 @@ async function executeSignal(bot,signal){
    throw Error("Actual Demo broker does not offer selected contract type.");
   const response=await session.request("proposal",selected,9000);
   const quote=response?.proposal;
-  if(!validBrokerProposal(quote))throw Error("Broker Demo proposal failed price/identity verification.");
+  if(!validBrokerProposal(quote,stake))throw Error("Broker Demo proposal failed price/identity verification.");
   if(finishing||!await verifyLease(version))throw Error("Stop requested before reservation.");
   const {data:created,error:createError}=await db.from("senfx_demo_bot_orders")
    .insert({
@@ -251,7 +254,7 @@ async function executeSignal(bot,signal){
     control_version:version,bot_id:bot.id,market_symbol:bot.market,
     contract_type:selected.contract_type,barrier:selected.barrier??null,
     duration:selected.duration,duration_unit:selected.duration_unit,
-    currency:"USD",stake:1,ask_price:Number(quote.ask_price),
+    currency:"USD",stake,ask_price:Number(quote.ask_price),
     payout:Number(quote.payout),proposal_id:quote.id,status:"quoted",
     quote_expires_at:new Date(Date.now()+15000).toISOString()
    }).select("id").single();
@@ -264,7 +267,7 @@ async function executeSignal(bot,signal){
    await rpc("senfx_demo_bots_release_unused",{p_user_id:ADMIN,p_order_id:orderId});
    orderId=null;
    // A risk/cooldown denial is an expected skip, NOT a broker order.
-   safeLog("No trade: shared Demo risk or concurrency gate denied reservation");
+   safeLog("No trade: duplicate-buy cooldown or unresolved contract prevented reservation");
    return;
   }
   const owned=await verifyControl(version),count=await getUnresolvedOrderCount();
@@ -273,8 +276,8 @@ async function executeSignal(bot,signal){
    globalBuyFlag:process.env.DERIV_DEMO_BROKER_BUY_ENABLED==="true",
    workerAuthorized:process.env.SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED==="true",
    runVersion:version,controlVersion:version,leaseValid:owned,
-   accountVerified:isVerifiedDemoAccount(account,account.account_id),
-   proposalVerified:validBrokerProposal(quote),unresolvedOrders:count
+   accountVerified:isVerifiedDemoAccount(account,account.account_id,stake),
+   proposalVerified:validBrokerProposal(quote,stake),unresolvedOrders:count
   });
   if(!permitted||finishing)throw Error("Final broker Demo buy gate failed; no order sent.");
   // Irrevocable once-only buy marker is persisted BEFORE the broker call.
@@ -301,7 +304,7 @@ async function executeSignal(bot,signal){
    .select("id").maybeSingle();
   if(openError||!opened)throw Error("Broker buy confirmed but order ledger update failed; reconcile, no retry.");
   safeLog("One genuine Deriv virtual Demo contract opened",bot.id);
-  await reconcilePurchased(session,orderId,purchase,selected,version);
+  await reconcilePurchased(session,orderId,purchase,selected,stake,version);
  }catch(error){
   const why=error instanceof Error?error.message:"unknown failure";
   if(marked||firstAttempt){
@@ -387,7 +390,7 @@ async function poll(){
  pollBusy=true;
  try{
   const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("user_id,account_id,mode,control_version,worker_id,lease_expires_at")
+   .select("user_id,account_id,stake_amount,mode,control_version,worker_id,lease_expires_at")
    .eq("user_id",ADMIN).maybeSingle();
   if(error)throw Error("Cannot verify durable Demo auto control.");
   if(!data||data.mode!=="running"){
