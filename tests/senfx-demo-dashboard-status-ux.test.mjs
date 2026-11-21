@@ -15,6 +15,9 @@ test("Bulk Bots presents genuine Deriv virtual Demo control and live results ABO
  assert.match(library,/FifteenDemoIndividualControl botId=\{selected\.id\} botName=\{selected\.name\}/);
  assert.equal((library.match(/<FifteenDemoIndividualControl/g)||[]).length,1);
  assert.match(library,/FIFTEEN_BOTS\.map\(\(bot,index\)/);
+ assert.match(library,/snapshot\?\.run\?\.desiredState==="running"/);
+ assert.match(library,/setSelectedId\(activeBot\)/);
+ assert.match(library,/!selectionTouched\.current/);
  assert.doesNotMatch(library,/Start paper bot|REAL NEXT-TICK PAPER SIMULATOR/);
  assert.doesNotMatch(library,/className=\{styles\.sidebar\}/);
  assert.match(css,/\.demoWorkspace\{display:grid/);
