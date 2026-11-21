@@ -33,6 +33,8 @@ on:
       - 'supabase/senfx-deriv-demo-15bot-execution-staged.sql'
       - 'lib/deriv/demo-15bot-worker-safety.mjs'
       - 'worker/senfx-deriv-demo-15bot-worker.mjs'
+      - 'worker/senfx-deriv-demo-15bot-readiness.mjs'
+      - 'worker/Dockerfile.demo15'
       - 'tests/deriv-demo-15bot-worker-safety.test.mjs'
       - 'tests/deriv-demo-15bot-worker-source.test.mjs'
       - 'package.json'
@@ -62,6 +64,8 @@ jobs:
         run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/deriv-demo-bot-contracts.test.mjs tests/deriv-demo-15bot-automation-gates.test.mjs tests/deriv-demo-15bot-worker-safety.test.mjs tests/deriv-demo-15bot-worker-source.test.mjs
       - name: Parse standalone demo broker worker without executing orders
         run: node --check worker/senfx-deriv-demo-15bot-worker.mjs
+      - name: Parse no-buy Deriv Demo readiness probe
+        run: node --check worker/senfx-deriv-demo-15bot-readiness.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
