@@ -10,9 +10,7 @@ create table if not exists public.senfx_demo_bot_control (
   currency text not null default 'USD' check (currency='USD'),
   mode text not null default 'stopped' check (mode in ('stopped','running')),
   control_version bigint not null default 0 check (control_version>=0),
-  max_stake numeric(10,2) not null default 1 check (max_stake=1),
-  daily_loss_limit numeric(10,2) not null default 10 check (daily_loss_limit=10),
-  max_daily_attempts int not null default 30 check (max_daily_attempts between 1 and 30),
+  stake_amount numeric check (stake_amount>0),
   cooldown_seconds int not null default 30 check (cooldown_seconds>=30),
   stopped_at timestamptz,
   worker_id text,
@@ -28,12 +26,10 @@ create table if not exists public.senfx_demo_bot_daily_risk (
   account_id text not null,
   risk_date date not null,
   currency text not null check (currency='USD'),
-  daily_limit numeric(10,2) not null default 10 check (daily_limit=10),
-  realized_loss numeric(10,2) not null default 0 check (realized_loss>=0),
-  reserved_loss numeric(10,2) not null default 0 check (reserved_loss>=0),
+  realized_loss numeric not null default 0 check (realized_loss>=0),
+  reserved_loss numeric not null default 0 check (reserved_loss>=0),
   updated_at timestamptz not null default now(),
-  primary key(user_id,account_id,risk_date),
-  constraint senfx_demo_bot_total_risk_check check (realized_loss+reserved_loss<=daily_limit)
+  primary key(user_id,account_id,risk_date)
 );
 
 create table if not exists public.senfx_demo_bot_orders (
@@ -61,9 +57,9 @@ create table if not exists public.senfx_demo_bot_orders (
   duration integer not null check (duration in (1,5)),
   duration_unit text not null check (duration_unit in ('t','m')),
   currency text not null check (currency='USD'),
-  stake numeric(10,2) not null check (stake=1),
-  ask_price numeric(10,2) not null check (ask_price>0 and ask_price<=1),
-  payout numeric(12,2) not null check (payout>0),
+  stake numeric not null check (stake>0),
+  ask_price numeric not null check (ask_price>0 and ask_price<=stake),
+  payout numeric not null check (payout>0),
   proposal_id text not null check (length(proposal_id) between 20 and 128),
   quote_expires_at timestamptz not null,
   risk_date date,
@@ -73,9 +69,9 @@ create table if not exists public.senfx_demo_bot_orders (
   buy_requested_at timestamptz,
   contract_id text,
   buy_transaction_id text,
-  buy_price numeric(10,2),
-  sell_price numeric(12,2),
-  profit numeric(12,2),
+  buy_price numeric,
+  sell_price numeric,
+  profit numeric,
   opened_at timestamptz,
   settled_at timestamptz,
   created_at timestamptz not null default now(),
@@ -106,11 +102,37 @@ revoke all on public.senfx_demo_bot_control,public.senfx_demo_bot_daily_risk,
 grant select,insert,update,delete on public.senfx_demo_bot_control,
  public.senfx_demo_bot_daily_risk,public.senfx_demo_bot_orders to service_role;
 
+-- Transition a previously created QA draft without deleting purchase history.
+-- This SQL remains QA-only until the production release gate approves it.
+alter table public.senfx_demo_bot_control
+ drop column if exists max_stake,
+ drop column if exists daily_loss_limit,
+ drop column if exists max_daily_attempts;
+alter table public.senfx_demo_bot_control
+ add column if not exists stake_amount numeric check (stake_amount>0);
+alter table public.senfx_demo_bot_daily_risk
+ drop constraint if exists senfx_demo_bot_total_risk_check,
+ drop column if exists daily_limit;
+alter table public.senfx_demo_bot_orders
+ drop constraint if exists senfx_demo_bot_orders_stake_check,
+ drop constraint if exists senfx_demo_bot_orders_ask_price_check;
+alter table public.senfx_demo_bot_orders
+ alter column stake type numeric,
+ alter column ask_price type numeric,
+ alter column payout type numeric,
+ alter column buy_price type numeric,
+ alter column sell_price type numeric,
+ alter column profit type numeric;
+alter table public.senfx_demo_bot_orders
+ add constraint senfx_demo_bot_orders_stake_check check (stake>0),
+ add constraint senfx_demo_bot_orders_ask_price_check check (ask_price>0 and ask_price<=stake);
+
 -- Only the authenticated user selected by an authorized server may control
 -- one specific USD DEMO account. The server must additionally enforce its
 -- secret allowlist; client roles cannot invoke this RPC.
+drop function if exists public.senfx_demo_bots_control(uuid,text,text,bigint);
 create or replace function public.senfx_demo_bots_control(
- p_user_id uuid,p_account_id text,p_command text,p_expected_version bigint default null
+ p_user_id uuid,p_account_id text,p_command text,p_expected_version bigint,p_stake numeric
 ) returns jsonb
 language plpgsql security definer set search_path=public,pg_temp
 as $$
@@ -154,6 +176,9 @@ begin
    or v_control.control_version<>p_expected_version then
   return jsonb_build_object('ok',false,'code','STALE_OR_CHANGED_ACCOUNT_CONTROL');
  end if;
+ if p_stake is null or p_stake<=0 or scale(p_stake)>2 then
+  return jsonb_build_object('ok',false,'code','INVALID_USER_SELECTED_DEMO_STAKE');
+ end if;
  if v_control.stopped_at is not null
    and now()-v_control.stopped_at<interval '60 seconds' then
   return jsonb_build_object('ok',false,'code','EMERGENCY_STOP_COOLDOWN');
@@ -165,7 +190,7 @@ begin
   return jsonb_build_object('ok',false,'code','UNRESOLVED_DEMO_ORDER');
  end if;
  update public.senfx_demo_bot_control
-   set mode='running',observed_state='starting',worker_id=null,lease_expires_at=null,heartbeat_at=null,control_version=control_version+1,updated_at=now()
+   set mode='running',stake_amount=p_stake,observed_state='starting',worker_id=null,lease_expires_at=null,heartbeat_at=null,control_version=control_version+1,updated_at=now()
   where user_id=p_user_id returning * into v_control;
  return jsonb_build_object('ok',true,'mode','running',
   'version',v_control.control_version,'brokerOrderPlaced',false);
@@ -217,9 +242,6 @@ declare v_connection public.deriv_connections%rowtype;
         v_order public.senfx_demo_bot_orders%rowtype;
         v_risk public.senfx_demo_bot_daily_risk%rowtype;
         v_day date:=(now() at time zone 'UTC')::date;
-        v_prior_manual numeric:=0;
-        v_prior_bot_other numeric:=0;
-        v_total_attempts int;
 begin
  select * into v_connection from public.deriv_connections
   where user_id=p_user_id for update;
@@ -236,8 +258,8 @@ begin
    v_control.lease_expires_at<=now() or
    v_control.control_version<>p_expected_version or
    v_control.account_id<>v_connection.active_account_id or
-   v_control.currency<>'USD' or v_control.max_stake<>1 or
-   v_control.daily_loss_limit<>10 then
+   v_control.currency<>'USD' or v_control.stake_amount is null or
+   v_control.stake_amount<=0 then
   return jsonb_build_object('allowed',false,'code','DEMO_BOT_STOPPED_OR_CHANGED');
  end if;
  select * into v_order from public.senfx_demo_bot_orders
@@ -245,8 +267,8 @@ begin
  if not found or v_order.account_id<>v_control.account_id
    or v_order.control_version<>v_control.control_version
    or v_order.status<>'quoted' or v_order.quote_expires_at<=now()
-   or v_order.stake<>1 or v_order.currency<>'USD' or
-   v_order.ask_price>1 or v_order.ask_price<=0 then
+   or v_order.stake<>v_control.stake_amount or v_order.currency<>'USD' or
+   v_order.ask_price>v_order.stake or v_order.ask_price<=0 then
   return jsonb_build_object('allowed',false,'code','INVALID_FRESH_DEMO_QUOTE');
  end if;
  if exists(select 1 from public.deriv_demo_orders o where o.user_id=p_user_id
@@ -255,38 +277,22 @@ begin
              and o.id<>p_order_id and o.status in ('reserved','buy_unknown','open')) then
   return jsonb_build_object('allowed',false,'code','UNRESOLVED_ORDER_ACROSS_BOTS');
  end if;
- select count(*) into v_total_attempts from (
-   select buy_requested_at from public.senfx_demo_bot_orders
-    where user_id=p_user_id and risk_date=v_day and buy_requested_at is not null
-   union all
-   select buy_requested_at from public.deriv_demo_orders
-    where user_id=p_user_id and risk_date=v_day and buy_requested_at is not null
- ) attempts;
- if v_total_attempts>=v_control.max_daily_attempts or
-    exists(select 1 from public.senfx_demo_bot_orders
-       where user_id=p_user_id and buy_requested_at>now()-interval '30 seconds') then
-   return jsonb_build_object('allowed',false,'code','RATE_LIMIT_OR_DAILY_TRADE_CAP');
+ -- No SENFX daily trade-count or virtual-loss ceiling.
+ -- Retain a brief 30-second anti-duplicate cooldown after each attempted buy.
+ if exists(select 1 from public.senfx_demo_bot_orders
+           where user_id=p_user_id and buy_requested_at>now()-interval '30 seconds') then
+  return jsonb_build_object('allowed',false,'code','ANTI_DUPLICATE_COOLDOWN');
  end if;
  insert into public.senfx_demo_bot_daily_risk(user_id,account_id,risk_date,currency)
  values(p_user_id,v_order.account_id,v_day,'USD')
  on conflict(user_id,account_id,risk_date) do nothing;
  select * into v_risk from public.senfx_demo_bot_daily_risk
  where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_day for update;
- select coalesce(sum(realized_loss+reserved_loss),0) into v_prior_manual
- from public.deriv_demo_daily_risk
- where user_id=p_user_id and risk_date=v_day;
- -- Never let a user reset the shared virtual-loss ceiling by switching
- -- between two connected Deriv Demo account IDs on the same UTC day.
- -- The connection row FOR UPDATE serializes account switching and reserves.
- select coalesce(sum(realized_loss+reserved_loss),0) into v_prior_bot_other
- from public.senfx_demo_bot_daily_risk
- where user_id=p_user_id and risk_date=v_day
-   and account_id<>v_order.account_id;
- if v_risk.currency<>'USD' or v_risk.daily_limit<>10 or
-    v_risk.realized_loss+v_risk.reserved_loss+v_prior_bot_other+
-    v_prior_manual+v_order.stake>10 then
-  return jsonb_build_object('allowed',false,'code','SHARED_VIRTUAL_LOSS_CAP_REACHED');
+ if v_risk.currency<>'USD' then
+  return jsonb_build_object('allowed',false,'code','DEMO_CURRENCY_MISMATCH');
  end if;
+ -- Retain the loss ledger for reporting; never gate further virtual buys
+ -- by a SENFX-imposed daily-loss budget.
  update public.senfx_demo_bot_daily_risk
   set reserved_loss=reserved_loss+v_order.stake,updated_at=now()
   where user_id=p_user_id and account_id=v_order.account_id and risk_date=v_day;
@@ -294,8 +300,8 @@ begin
   set status='reserved',risk_date=v_day,updated_at=now()
   where id=v_order.id;
  return jsonb_build_object('allowed',true,'orderId',v_order.id,
-  'stake',1,'sharedDailyVirtualLossCap',10,
-  'manualExposure',v_prior_manual,'brokerOrderPlaced',false);
+  'stake',v_order.stake,'appDailyLossCap',null,
+  'appDailyTradeCountCap',null,'brokerOrderPlaced',false);
 end;
 $$;
 
@@ -379,8 +385,8 @@ begin
  if p_final_status not in ('won','lost','sold') or
     p_contract_id is null or length(p_contract_id)<3 or
     p_transaction_id is null or length(p_transaction_id)<3 or
-    p_buy_price is null or p_buy_price<=0 or p_buy_price>1 or
-    p_sell_price is null or p_sell_price<0 or p_sell_price>100 then
+    p_buy_price is null or p_buy_price<=0 or
+    p_sell_price is null or p_sell_price<0 then
   return jsonb_build_object('settled',false,'code','INVALID_BROKER_SETTLEMENT');
  end if;
  select * into v_connection from public.deriv_connections
@@ -391,7 +397,7 @@ begin
  select * into v_order from public.senfx_demo_bot_orders
   where id=p_order_id and user_id=p_user_id for update;
  if not found or v_order.account_id<>v_connection.active_account_id or
-    v_order.buy_requested_at is null or
+    p_buy_price>v_order.stake or v_order.buy_requested_at is null or
     v_order.status not in ('buy_unknown','open') then
   return jsonb_build_object('settled',false,'code','ORDER_NOT_ELIGIBLE_FOR_SETTLEMENT');
  end if;
@@ -440,7 +446,7 @@ create trigger senfx_demo_bot_no_manual_overlap
 revoke all on function public.senfx_demo_bots_block_manual_reservation()
  from public,anon,authenticated;
 
-revoke all on function public.senfx_demo_bots_control(uuid,text,text,bigint)
+revoke all on function public.senfx_demo_bots_control(uuid,text,text,bigint,numeric)
  from public,anon,authenticated;
 revoke all on function public.senfx_demo_bots_worker_heartbeat(uuid,text,bigint)
  from public,anon,authenticated;
@@ -453,7 +459,7 @@ revoke all on function public.senfx_demo_bots_release_unused(uuid,uuid)
 revoke all on function public.senfx_demo_bots_record_settlement(uuid,uuid,text,text,text,numeric,numeric)
  from public,anon,authenticated;
 
-grant execute on function public.senfx_demo_bots_control(uuid,text,text,bigint) to service_role;
+grant execute on function public.senfx_demo_bots_control(uuid,text,text,bigint,numeric) to service_role;
 grant execute on function public.senfx_demo_bots_worker_heartbeat(uuid,text,bigint) to service_role;
 grant execute on function public.senfx_demo_bots_reserve(uuid,uuid,bigint) to service_role;
 grant execute on function public.senfx_demo_bots_mark_attempt(uuid,uuid,bigint) to service_role;
