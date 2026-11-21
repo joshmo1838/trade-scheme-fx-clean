@@ -34,7 +34,6 @@ export async function GET(request:NextRequest) {
   try {
    const result=await session.request<any>("contracts_for",{
     contracts_for:bot.symbol,
-    currency:"USD",
    },10000);
    const entries=result?.contracts_for?.available;
    if(!Array.isArray(entries)) {
