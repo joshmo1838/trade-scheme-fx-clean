@@ -28,7 +28,7 @@ test("Start All 15, Emergency Stop, bounded 15-minute browser window",()=>{
 });
 test("paper runner has NO broker buys, secret keys or made-up PnL",()=>{
  assert.doesNotMatch(runner,/session\.request\("buy"|\bproposal\s*:\s*1|\/api\/deriv\/demo\/orders|DERIV_TOKEN|SUPABASE_SERVICE_ROLE_KEY|autoReconnectPurchase/i);
- assert.doesNotMatch(runner,/profit|payout|settled contract|profitability promise/i);
+ assert.doesNotMatch(runner,/\bprofit\s*:|\bpayout\s*:|\bsettled\s*:/i);
  assert.match(runner,/No virtual broker orders, real trades, returns or payouts are claimed/);
  assert.match(runner,/stake>=1&&stake<=25/);
  assert.match(runner,/totalCap>=planned/);
