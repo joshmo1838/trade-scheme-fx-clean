@@ -15,7 +15,8 @@ test("only active USD virtual Demo account with sufficient virtual balance passe
  ]){
   assert.equal(isVerifiedDemoAccount(x,"D_QA"),false);
  }
- assert.equal(isVerifiedDemoAccount(demo,"D_QA",100),false);
+ assert.equal(isVerifiedDemoAccount(demo,"D_QA",100),true);
+ assert.equal(isVerifiedDemoAccount(demo,"D_QA",1001),false);
 });
 test("only genuine fresh public ticks are eligible, never future, replay or stale",()=>{
  const now=1800000000000;
@@ -26,13 +27,16 @@ test("only genuine fresh public ticks are eligible, never future, replay or stal
  assert.equal(isFreshPublicTick({...tick,price:NaN},now),false);
  assert.equal(isFreshPublicTick({...tick,digit:12},now),false);
 });
-test("Deriv proposal must be a fresh and strict $1 virtual broker quote",()=>{
+test("Deriv Demo proposal supports arbitrary finite stake within actual broker and balance limits",()=>{
  const q={id:"a".repeat(40),ask_price:1,payout:1.79,longcode:"R_100 CALL 5min"};
  assert.equal(validBrokerProposal(q),true);
  assert.equal(validBrokerProposal({...q,ask_price:1.01}),false);
  assert.equal(validBrokerProposal({...q,payout:NaN}),false);
  assert.equal(validBrokerProposal({...q,id:"fake"}),false);
- assert.equal(validBrokerProposal(q,10),false);
+ assert.equal(validBrokerProposal(q,10),true);
+ assert.equal(validBrokerProposal({...q,ask_price:250},250),true);
+ assert.equal(validBrokerProposal({...q,ask_price:251},250),false);
+ assert.equal(validBrokerProposal(q,Infinity),false);
 });
 test("one broker buy result must have a Deriv contract and transaction ID and bounded price",()=>{
  const r={buy:{contract_id:"123456",transaction_id:"7891011",buy_price:1}};
@@ -43,7 +47,7 @@ test("one broker buy result must have a Deriv contract and transaction ID and bo
  assert.equal(verifiedBuyResponse({buy:{...r.buy,transaction_id:""}},1),null);
 });
 test("only exact broker contract ID and consistent USD profit may settle risk",()=>{
- const expected={contractId:"123456",market:"R_100",contractType:"CALL"};
+ const expected={contractId:"123456",market:"R_100",contractType:"CALL",stake:1};
  const c={contract_id:"123456",underlying_symbol:"R_100",contract_type:"CALL",
    buy_price:1,sell_price:0.54,profit:-0.46,currency:"USD",is_sold:1};
  assert.deepEqual(verifiedFinalContract(c,expected),{
@@ -54,6 +58,11 @@ test("only exact broker contract ID and consistent USD profit may settle risk",(
  assert.equal(verifiedFinalContract({...c,profit:10},expected),null);
  assert.equal(verifiedFinalContract({...c,currency:"EUR"},expected),null);
  assert.equal(verifiedFinalContract({...c,contract_type:"PUT"},expected),null);
+ const large={...c,buy_price:100,sell_price:154,profit:54};
+ assert.deepEqual(verifiedFinalContract(large,{...expected,stake:100}),{
+  contractId:"123456",buyPrice:100,sellPrice:154,profit:54,finalStatus:"won"
+ });
+ assert.equal(verifiedFinalContract(large,expected),null);
 });
 test("permission to buy fails closed when any stop, lease, quote or broker gate is missing",()=>{
  const valid={operatorAllowed:true,globalBuyFlag:true,workerAuthorized:true,
