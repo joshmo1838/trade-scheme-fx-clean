@@ -45,6 +45,8 @@ test("broker buys are single-attempt and only AFTER service-role atomic reservat
  assert.match(worker,/No retry of buy under ANY failure/);
  assert.match(worker,/\.eq\("status","buy_unknown"\)/);
  assert.match(worker,/!permitted\|\|finishing/);
+ assert.match(worker,/Date\.now\(\)-quoteReceivedAt>12000/);
+ assert.match(worker,/Deriv Demo quote expired before broker buy/);
 });
 test("settlement is based on the purchased broker contract, never inferred from a paper hit",()=>{
  assert.match(worker,/proposal_open_contract/);
