@@ -9,6 +9,7 @@ import styles from "./fifteen.module.css";
 import FifteenDemoBrokerReadiness from "./FifteenDemoBrokerReadiness";
 import FifteenDemoBotControlPanel from "./FifteenDemoBotControlPanel";
 import FifteenDemoIndividualControl from "./FifteenDemoIndividualControl";
+import FifteenDemoLiveAccountBar from "./FifteenDemoLiveAccountBar";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
 const TRACKED_MARKETS=new Set<string>(FIFTEEN_BOTS.map(x=>x.market));
@@ -193,6 +194,7 @@ export default function FifteenPaperBotLibrary(){
     <Link href="/bot-research">Research Lab</Link>
     <Link href="/strategy-lab">Forward Test</Link></nav>
   </header>
+  <FifteenDemoLiveAccountBar/>
   <section className={styles.hero}>
    <p className={styles.kicker}>SENFX · GENUINE DERIV BROKER · VIRTUAL DEMO ONLY</p>
    <h1>{BOT_COUNT} original SENFX <span>Deriv Demo bots</span></h1>
