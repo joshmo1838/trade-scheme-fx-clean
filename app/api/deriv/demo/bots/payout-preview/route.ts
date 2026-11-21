@@ -1,5 +1,4 @@
 import {NextRequest,NextResponse} from "next/server";
-import {createClient as createAdminClient} from "@supabase/supabase-js";
 import {getDerivDemoContext,openDerivDemoSession,safeDemoError} from "@/lib/deriv/demo-server";
 import {deriveDemoProposal} from "@/lib/deriv/demo-bot-contracts.mjs";
 
