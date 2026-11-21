@@ -46,8 +46,11 @@ test("contract adapters correctly map digits and 5-minute direction without real
  }
 });
 test("invalid stake, mismatched prediction, missing dynamic barrier and wrong barriers fail closed",()=>{
- for(const stake of [0,0.5,2,10,100,NaN,Infinity,-1]){
+ for(const stake of [0,NaN,Infinity,-1,0.001]){
   assert.equal(deriveDemoProposal("digit-differs","DIFFERS",7,stake),null);
+ }
+ for(const stake of [0.5,2,10,100,1000]){
+  assert.equal(deriveDemoProposal("digit-differs","DIFFERS",7,stake)?.amount,stake);
  }
  for(const [id,prediction,barrier] of [
   ["unknown","OVER",4],["parity-even","FALL"],["digit-over-4","OVER",5],
@@ -55,7 +58,7 @@ test("invalid stake, mismatched prediction, missing dynamic barrier and wrong ba
   ["pattern-differs","DIFFERS"],["pattern-differs","DIFFERS",12],
   ["entropy-parity","UNDER",4],["trend-rise-fall","RISE",3],
  ]){
-  assert.equal(deriveDemoProposal(id,prediction,barrier),null,id);
+  assert.equal(deriveDemoProposal(id,prediction,barrier,1),null,id);
  }
 });
 test("Deriv real Demo contracts_for verification determines supported symbols and contract types",()=>{
@@ -97,7 +100,7 @@ test("actual Deriv Demo bot price proposal requires authenticated Demo, same-ori
  assert.match(price,/openDerivDemoSession\(context\)/);
  assert.match(price,/session\.request<any>\("contracts_for"/);
  assert.match(price,/session\.request<any>\("proposal"/);
- assert.match(price,/askPrice>1/);
+ assert.match(price,/askPrice>body\.stake/);
  assert.match(price,/brokerOrderPlaced:false/);
  assert.match(price,/purchaseEnabled:false/);
  assert.match(price,/session\?\.close\(\)/);
