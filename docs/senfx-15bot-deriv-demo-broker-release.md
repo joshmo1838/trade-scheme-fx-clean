@@ -28,19 +28,33 @@ requirements below have been met. Real-money accounts and `/ws/real` are exclude
   **before** a single `buy` request, and Deriv contract settlement polling.
   Never retries unknown broker buys.
 
-## Default risk settings
+## Owner-selected unlimited virtual Demo practice
 
-| Control | Required value |
+The user explicitly rejected the former $1 stake, $10 daily-loss ceiling and
+30-purchase/day draft. SENFX's new 15-bot engine **does not impose these financial
+or trade-count ceilings**. The admin chooses a **positive, finite USD virtual
+stake** (two decimal places) when arming the Demo run. This is not an infinite
+amount: the actual Deriv contract min/max and the current USD virtual Demo
+balance govern whether the broker will quote or accept it.
+
+| Control | Required behavior |
 | --- | --- |
-| Account | Authorized admin's active **USD Demo** account only |
-| Stake | Exact **$1 USD virtual** per contract |
-| Shared daily virtual-loss ceiling | **$10 USD** (including tracked manual SENFX Demo losses) |
-| Attempt ceiling | At most **30** per UTC day |
-| Positions | **One** unresolved broker contract per owner across all 15 bots |
-| Minimum time between purchased attempts | **30 seconds** |
-| Stop cooldown before re-arming | **60 seconds** |
-| Worker | One lease owner, heartbeat every four seconds, lease expires after 20 seconds |
-| Uncertain buy | Keep reserved, stop entire run, reconcile broker statement; **never retry** |
+| Account | Authorized admin's active **Deriv USD Demo** account only |
+| Stake | Owner-selected positive finite virtual USD amount; **no SENFX maximum** |
+| SENFX daily virtual-loss cap | **None**; ledger remains for audit and reporting |
+| SENFX daily attempted-purchase cap | **None** |
+| Available funds | Verify chosen stake against latest **virtual Demo balance** before every order |
+| Broker contract limits | Deriv decides valid minimum/maximum and may decline a quote |
+| Positions | One unresolved broker contract per admin across all 15 bots |
+| Anti-duplicate interval | 30 seconds between attempted buys (operational safety, not daily quota) |
+| Stop cooldown | 60 seconds before re-arming after emergency Stop |
+| Worker | One lease owner, heartbeat every 4 seconds, lease expires after 20 seconds |
+| Uncertain buy | Keep risk reserved, stop run, reconcile broker statement; **never retry** |
+
+Removing app financial caps **does not permit real-money trading** or waive
+account verification, idempotency, rate compliance, or emergency-stop guards.
+The virtual Demo account balance can be exhausted; winnings are hypothetical
+and are not guaranteed.
 
 ## Environment flags — explicit independent releases
 
