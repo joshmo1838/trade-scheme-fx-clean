@@ -20,6 +20,14 @@ alter table public.deriv_demo_daily_risk
 alter table public.deriv_demo_daily_risk
  alter column daily_loss_limit set default 10;
 
+-- Upgrade only TODAY's existing $1 virtual risk ledger; retain its realized loss,
+-- reserved loss, and every historical day's original loss-limit audit.
+-- This avoids a same-day mismatch with the new reservation RPC.
+update public.deriv_demo_daily_risk
+ set daily_loss_limit=10, updated_at=now()
+ where risk_date=(now() at time zone 'UTC')::date
+   and daily_loss_limit=1;
+
 create or replace function public.senfx_demo_reserve_order(
   p_user_id uuid, p_order_id uuid
 ) returns jsonb
