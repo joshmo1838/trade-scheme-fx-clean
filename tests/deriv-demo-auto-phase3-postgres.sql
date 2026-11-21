@@ -7,7 +7,9 @@
 -- overwriting its already consumed phase-2 grant or the initial trade.
 update public.deriv_demo_orders set status='sold',buy_requested_at=now(),updated_at=now()
  where id='10000000-0000-4000-8000-000000000004' and status='reserved';
-update public.deriv_demo_daily_risk set reserved_loss=0,realized_loss=0,updated_at=now()
+-- The new UTC trading day may not yet have a risk-ledger row.
+-- The reservation function must create and lock that row after authorization.
+delete from public.deriv_demo_daily_risk
  where user_id='00000000-0000-4000-8000-000000000001' and account_id='D2';
 insert into public.deriv_demo_orders
  (id,request_id,user_id,account_id,currency,stake_amount,status,quote_expires_at)
@@ -35,10 +37,8 @@ begin
 end;
 $prior$;
 
-insert into public.senfx_demo_auto_phase3_one_shots
- (user_id,account_id,status,expires_at)
-values
- ('00000000-0000-4000-8000-000000000001','D2','armed',now()+interval '2 hours');
+-- Exercise the exact owner-authorization procedure, not a forged grant fixture.
+\ir ../supabase/senfx-deriv-demo-auto-phase3-authorization.sql
 
 do $third$
 declare v jsonb;
