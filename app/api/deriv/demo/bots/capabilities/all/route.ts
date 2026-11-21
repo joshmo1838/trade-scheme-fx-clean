@@ -15,7 +15,7 @@ const headers = { "Cache-Control": "no-store, max-age=0" };
 export async function GET() {
  let session: Awaited<ReturnType<typeof openDerivDemoSession>> | null = null;
  try {
-  if (process.env.DERIV_DEMO_TRADING_ENABLED !== "true") {
+  if (process.env.SENFX_DEMO_READONLY_DIAGNOSTICS_ENABLED !== "true") {
    return NextResponse.json({ ok: false, code: "DEMO_DIAGNOSTIC_DISABLED" },
     { status: 503, headers });
   }

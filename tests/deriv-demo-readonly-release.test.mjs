@@ -39,3 +39,18 @@ test("read-only release does not import missing 15-bot production SQL schema",()
  const page=read("app/bot-library/page.tsx");
  assert.match(page,/read-only broker checks place no orders/);
 });
+
+test("independent read-only flag never enables trading or broker purchases",()=>{
+  const files=[
+    "app/api/deriv/demo/bots/capabilities/route.ts",
+    "app/api/deriv/demo/bots/capabilities/all/route.ts",
+    "app/api/deriv/demo/bots/proposal/route.ts",
+  ];
+  for(const path of files){
+    const content=read(path);
+    assert.match(content,/process\.env\.SENFX_DEMO_READONLY_DIAGNOSTICS_ENABLED\s*!==\s*"true"/);
+    assert.doesNotMatch(content,/process\.env\.DERIV_DEMO_TRADING_ENABLED/);
+    assert.match(content,/getDerivDemoContext\(/);
+    assert.doesNotMatch(content,/request(?:<any>)?\("buy"|\.rpc\("senfx_demo_bots_/);
+  }
+});

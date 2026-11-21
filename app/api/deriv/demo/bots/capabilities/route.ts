@@ -16,7 +16,7 @@ const noStore={"Cache-Control":"no-store, max-age=0"};
  */
 export async function GET(request:NextRequest) {
  try {
-  if(process.env.DERIV_DEMO_TRADING_ENABLED!=="true") {
+  if(process.env.SENFX_DEMO_READONLY_DIAGNOSTICS_ENABLED!=="true") {
    return NextResponse.json({ready:false,code:"DEMO_NOT_ENABLED"}, {status:503,headers:noStore});
   }
   const botId=request.nextUrl.searchParams.get("botId");
