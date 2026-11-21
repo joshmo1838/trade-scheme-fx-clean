@@ -19,7 +19,7 @@ test("third authorization is separately versioned, single-use and after exactly 
 test("grant operator must prove only one matching admin and no unresolved order",()=>{
  assert.match(authorization,/v_matches <> 1/);
  assert.match(authorization,/active_account_type='demo'/);
- assert.match(authorization,/realized_loss=0 and r\.reserved_loss=0/);
+ assert.match(authorization,/r\.realized_loss <> 0 or r\.reserved_loss <> 0/);
  assert.match(authorization,/now\(\)\+interval '2 hours'/);
  assert.doesNotMatch(authorization,/update public\.senfx_demo_auto_one_shots/i);
 });
