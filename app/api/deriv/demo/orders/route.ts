@@ -292,7 +292,7 @@ export async function GET() {
     }
     const context = await getDerivDemoContext();
     const riskDate = new Date().toISOString().slice(0, 10);
-    const [riskResult, orderResult, autoGrantResult, priorAttempts] = await Promise.all([
+    const [riskResult, orderResult, autoGrantResult, phase3GrantResult, priorAttempts] = await Promise.all([
       context.admin.from("deriv_demo_daily_risk")
         .select("risk_date,currency,realized_loss,reserved_loss,daily_loss_limit")
         .eq("user_id", context.user.id)
@@ -309,6 +309,10 @@ export async function GET() {
         .select("account_id,status,expires_at")
         .eq("user_id", context.user.id)
         .maybeSingle(),
+      context.admin.from("senfx_demo_auto_phase3_one_shots")
+        .select("account_id,status,expires_at,consumed_order_id")
+        .eq("user_id", context.user.id)
+        .maybeSingle(),
       context.admin.from("deriv_demo_orders")
         .select("id", { count:"exact", head:true })
         .eq("user_id", context.user.id)
@@ -320,22 +324,34 @@ export async function GET() {
     }
     const orders = orderResult.data || [];
     const autoGrant = autoGrantResult.data;
+    const phase3Grant = phase3GrantResult.data;
     const activeDemoOrder = orders.find((order: any) => ["reserved", "open", "buy_unknown"].includes(order.status)) || null;
     const brokerBuyEnabled = process.env.DERIV_DEMO_BROKER_BUY_ENABLED === "true";
-    const grantValid = !autoGrantResult.error && autoGrant?.status === "armed" &&
+    const priorAttemptCount = priorAttempts.count;
+    const validPhase2Grant = !autoGrantResult.error && autoGrant?.status === "armed" &&
       autoGrant.account_id === context.account.account_id &&
       new Date(autoGrant.expires_at).getTime() > Date.now();
-    const priorAttemptCount = priorAttempts.count;
+    const validPhase3Grant = !phase3GrantResult.error && phase3Grant?.status === "armed" &&
+      phase3Grant.account_id === context.account.account_id &&
+      !phase3Grant.consumed_order_id &&
+      new Date(phase3Grant.expires_at).getTime() > Date.now() &&
+      !autoGrantResult.error && autoGrant?.status === "reserved" &&
+      autoGrant.account_id === context.account.account_id;
+    // Version 3 adds exactly ONE new, independently granted virtual-money attempt.
+    // Prior consumed phase-2 authorization is never reset or silently reused.
+    const grantValid = (priorAttemptCount === 1 && validPhase2Grant) ||
+      (priorAttemptCount === 2 && validPhase3Grant);
     const autoPilotReady = brokerBuyEnabled && grantValid && !priorAttempts.error &&
-      priorAttemptCount === 1 && !activeDemoOrder &&
-      Number(context.account.balance) >= 1 && context.account.currency === "USD" &&
+      !activeDemoOrder && Number(context.account.balance) >= 1 &&
+      context.account.currency === "USD" &&
       Number(riskResult.data?.realized_loss ?? 0) === 0 &&
       Number(riskResult.data?.reserved_loss ?? 0) === 0;
     const autoPilotReason = !brokerBuyEnabled ? "DEMO_BROKER_BUY_SAFETY_HOLD"
-      : autoGrantResult.error ? "AUTO_PILOT_SCHEMA_NOT_READY"
-      : !grantValid ? "NEW_ONE_SHOT_DEMO_AUTHORIZATION_REQUIRED"
       : priorAttempts.error ? "PRIOR_BUY_CHECK_FAILED"
-      : priorAttemptCount !== 1 ? "PILOT_HISTORY_NOT_ELIGIBLE"
+      : priorAttemptCount === 2 && phase3GrantResult.error ? "AUTO_PHASE3_SCHEMA_NOT_READY"
+      : autoGrantResult.error ? "AUTO_PILOT_SCHEMA_NOT_READY"
+      : priorAttemptCount !== 1 && priorAttemptCount !== 2 ? "PILOT_HISTORY_NOT_ELIGIBLE"
+      : !grantValid ? "NEW_ONE_SHOT_DEMO_AUTHORIZATION_REQUIRED"
       : activeDemoOrder ? "DEMO_ORDER_MUST_BE_RESOLVED"
       : Number(context.account.balance) < 1 ? "INSUFFICIENT_VIRTUAL_BALANCE"
       : Number(riskResult.data?.realized_loss ?? 0) !== 0 ||
