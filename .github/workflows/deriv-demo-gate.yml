@@ -27,6 +27,10 @@ on:
       - 'app/api/deriv/demo/orders/route.ts'
       - 'app/api/deriv/demo/bots/capabilities/route.ts'
       - 'app/api/deriv/demo/bots/proposal/route.ts'
+      - 'app/api/deriv/demo/bots/control/route.ts'
+      - 'app/bot-library/FifteenDemoBotControlPanel.tsx'
+      - 'supabase/senfx-deriv-demo-15bot-execution-staged.sql'
+      - 'tests/deriv-demo-15bot-automation-gates.test.mjs'
       - 'app/bot-library/FifteenDemoBrokerReadiness.tsx'
       - 'app/bot-library/FifteenPaperBotLibrary.tsx'
       - 'lib/deriv/demo-bot-contracts.mjs'
@@ -48,7 +52,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/deriv-demo-bot-contracts.test.mjs
+        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/deriv-demo-bot-contracts.test.mjs tests/deriv-demo-15bot-automation-gates.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
