@@ -350,10 +350,10 @@ export default function DemoTradingConsole() {
         <section className="workspaceAccountGrid" style={{ marginTop: 18 }}>
           <article className="workspacePanel">
             <div className="workspacePanelTop">
-              <div><p className="workspaceEyebrow">ONE-TRADE DEMO PILOT</p><h2>Maximum 1 USD virtual stake</h2></div>
+              <div><p className="workspaceEyebrow">REPEATABLE VIRTUAL DEMO</p><h2>Maximum 1 USD virtual stake</h2></div>
               <span className={ready ? "workspaceStatusDot online" : "workspaceStatusDot"} />
             </div>
-            <p className="muted">Only one explicitly confirmed 1-USD virtual-money purchase is permitted for this isolated pilot. The risk budget is limited to 1 USD; no repeat orders after a purchase attempt, even after settlement. Real-money accounts are excluded.</p>
+            <p className="muted">Repeatable manual virtual-money Demo purchases are available after a successful release. Each trade requires a fresh confirmation and has a fixed $1 USD stake. Maximum one unresolved contract, $10 daily virtual-loss budget, 50 attempts per UTC day, and a 15-second cooldown. Real-money accounts are excluded. AI Auto Pilot remains a separately authorized one-shot feature.</p>
           </article>
 
           <article className="workspacePanel">
@@ -374,8 +374,8 @@ export default function DemoTradingConsole() {
 
         <section className="workspacePanel" style={{ marginTop: 18 }}>
           <p className="workspaceEyebrow">MANUAL DEMO CONTRACT TEST</p>
-          <h2>Request a price and confirm one Demo trade</h2>
-          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 1 USD, five-minute Rise/Fall, one purchase attempt and a 1-USD Demo loss budget. Trades use only your connected Deriv Demo account's virtual balance.</p>
+          <h2>Request a fresh price for each Demo trade</h2>
+          <p className="muted">Review each server-verified Deriv quote. Confirming starts a fresh authenticated server session, rechecks the price and payout, reserves risk, and buys the fresh proposal on the same session. Fixed stake 1 USD, five-minute Rise/Fall, maximum one unresolved purchase at a time, and a 10-USD daily virtual-loss budget. Trades use only your connected Deriv Demo account's virtual balance.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginTop: 18 }}>
             <label className="muted">Market
               <select value={market} onChange={e => { setMarket(e.target.value); void discardCurrentQuote(); }} disabled={!ready || busy || Boolean(activeOrder)} className="workspaceInput" style={{ display: "block", width: "100%", marginTop: 7 }}>
@@ -463,7 +463,7 @@ export default function DemoTradingConsole() {
           )}
         </section>
 
-        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full quoted stake must be reserved before purchase; a 1-USD per-user virtual-loss budget and single attempted buy are enforced in the QA reservation design. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
+        <p className="muted" style={{ marginTop: 20 }}>Safety: OAuth tokens and authenticated Demo WebSocket sessions stay on the SENFX server. Every buy request is routed through a fresh server session; Real accounts are rejected; the full quoted stake must be reserved before purchase; a 10-USD daily virtual-loss budget, one unresolved order at a time, and server-side rate controls are enforced in the repeatable manual Demo release. Your Demo balance can still be depleted and Deriv may apply account or trading limits. Demo results are not evidence of future live performance.</p>
       </div>
     </main>
   );
