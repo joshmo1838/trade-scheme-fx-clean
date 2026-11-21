@@ -45,6 +45,8 @@ jobs:
         run: node --experimental-strip-types --test tests/strategy-lab.test.mjs
       - name: Verify all 15 independent SENFX next-tick PAPER bot strategies and risk guards
         run: node --experimental-strip-types --test tests/fifteen-paper-bots.test.mjs
+      - name: Check Start All 15 concurrent browser paper runner fail-closed behavior
+        run: node --test tests/fifteen-parallel-paper-runner-source.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
