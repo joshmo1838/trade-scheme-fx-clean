@@ -8,7 +8,7 @@ type Status={
  message?:string;code?:string;
  run?:{
   desiredState:string;observedState:string;workerConnected:boolean;
-  version:number;accountId:string;maxStake:number;dailyVirtualLossLimit:number;maxDailyAttempts:number;
+  version:number;accountId:string;stakeAmount:number|null;appDailyLossCap:null;appDailyTradeCountCap:null;
  };
 };
 const API="/api/deriv/demo/bots/control";
@@ -17,6 +17,10 @@ export default function FifteenDemoBotControlPanel(){
  const [status,setStatus]=useState<Status|null>(null);
  const [busy,setBusy]=useState(false);
  const [consent,setConsent]=useState(false);
+ const [stakeText,setStakeText]=useState("");
+ const validStake=/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$/.test(stakeText)&&
+  stakeText.length<=50&&Number.isFinite(Number(stakeText))&&Number(stakeText)>0&&
+  Number.isSafeInteger(Math.round(Number(stakeText)*100));
  const [notice,setNotice]=useState("Checking verified virtual Demo bot control readiness.");
  const refresh=useCallback(async()=>{
   try{
@@ -44,7 +48,7 @@ export default function FifteenDemoBotControlPanel(){
     body:JSON.stringify({
      action,
      confirmVirtualDemoAutomation:action==="start"&&consent,
-     dailyVirtualLossLimit:10,maxStake:1,
+     stakeAmount:stakeText,
      expectedVersion:status?.run?.version??0
     })
    });
@@ -64,7 +68,7 @@ export default function FifteenDemoBotControlPanel(){
  };
  const running=status?.run?.workerConnected===true;
  const armed=status?.run?.desiredState==="running";
- const canStart=status?.ok&&status.controlsEnabled&&!armed&&consent&&!busy;
+ const canStart=status?.ok&&status.controlsEnabled&&!armed&&consent&&validStake&&!busy;
  const canStop=status?.ok&&!busy&&armed;
  return <section className={styles.panel} style={{margin:"20px 0"}}>
   <p className={styles.kicker}>DERIV DEMO BROKER · ALL 15 · CONTROLLED AUTOMATION</p>
@@ -76,15 +80,26 @@ export default function FifteenDemoBotControlPanel(){
    <div><small>DESIRED STATE</small><b>{status?.run?.desiredState||"STOPPED"}</b></div>
    <div><small>VERIFIED WORKER</small><b>{running?"CONNECTED":"NOT CONNECTED"}</b></div>
    <div><small>ACTIVE BROKER MODE</small><b>{running&&status?.brokerBuyingEnabled?"DEMO":"NOT VERIFIED"}</b></div>
-   <div><small>MAX VIRTUAL STAKE</small><b>$1 USD</b></div>
-   <div><small>DAILY VIRTUAL LOSS LIMIT</small><b>$10 USD</b></div>
+   <div><small>SELECTED VIRTUAL STAKE</small><b>{status?.run?.stakeAmount===null?"Not configured":String(status?.run?.stakeAmount??"Not configured")+" USD"}</b></div>
+   <div><small>APP DAILY LOSS / TRADE CAPS</small><b>NONE</b></div>
   </div>
+  <label style={{display:"block",marginTop:14,marginBottom:12}}>
+   Virtual Demo stake per contract (USD)
+   <input type="number" inputMode="decimal" min="0.01" step="0.01"
+     placeholder="Enter your Demo stake"
+     value={stakeText} disabled={busy||armed}
+     onChange={e=>setStakeText(e.target.value)}/>
+   <small>The stake must be a finite positive amount with up to two decimals.
+    SENFX sets no financial maximum; Deriv's contract limits and your available Demo balance apply.</small>
+  </label>
   <label style={{display:"flex",alignItems:"flex-start",gap:10,marginTop:14,marginBottom:12}}>
    <input type="checkbox" checked={consent} disabled={busy}
     onChange={e=>setConsent(e.target.checked)}/>
-   <span>I authorize automatic purchases using <strong>Deriv virtual Demo USD only</strong>,
-    with a $1 maximum stake, a $10 shared daily virtual-loss budget, 30 attempted purchases per day,
-    one unresolved contract at a time and no real-money trades.</span>
+   <span>I authorize automatic purchases on my <strong>Deriv virtual Demo USD account only</strong>
+    at the stake amount I selected. SENFX will impose no daily virtual-loss ceiling
+    or total daily trade-count cap. Trades may use up the entire Demo balance.
+    Only one unresolved broker contract is allowed at a time; Stop All and duplicate-buy
+    protection remain active. <strong>Real-money trading stays disabled.</strong></span>
   </label>
   <div className={styles.controls}>
    <button className={styles.startButton} disabled={!canStart}
