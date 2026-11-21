@@ -12,6 +12,7 @@ import {
 } from "@/lib/bots/digit-matrix";
 import styles from "./fifteen.module.css";
 import FifteenDemoBrokerReadiness from "./FifteenDemoBrokerReadiness";
+import FifteenDemoBotControlPanel from "./FifteenDemoBotControlPanel";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
 const TRACKED_MARKETS=new Set<string>(FIFTEEN_BOTS.map(x=>x.market));
@@ -254,6 +255,7 @@ export default function FifteenPaperBotLibrary(){
    </div>
   </section>
 
+  <FifteenDemoBotControlPanel/>
   <FifteenDemoBrokerReadiness/>
   <div className={styles.topMetrics}>
    <div><small>RESEARCH BOTS</small><b>{BOT_COUNT}</b></div>
