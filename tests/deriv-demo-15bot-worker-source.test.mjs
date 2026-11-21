@@ -59,6 +59,10 @@ test("stop, worker lease loss and stale data end the run without more purchases"
  assert.match(worker,/p_stake:null/);
  assert.match(worker,/clearInterval\(interval\)/);
  assert.match(worker,/senfx_demo_bots_worker_heartbeat/);
+ assert.match(worker,/db\.from\("deriv_demo_orders"\)/);
+ assert.match(worker,/db\.from\("senfx_demo_bot_orders"\)/);
+ assert.match(worker,/Unresolved or unknown Demo purchase after restart/);
+ assert.match(worker,/const unresolved=await getUnresolvedOrderCount\(\)/);
  assert.match(worker,/p_expected_version:version/);
  assert.match(worker,/if\(busy\|\|finishing/);
  assert.match(worker,/Date\.now\(\)-lastTickReceived>MAX_WAIT_FOR_MARKET_MS/);
