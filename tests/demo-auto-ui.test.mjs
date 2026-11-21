@@ -30,3 +30,12 @@ test("SENFX Demo console shows automation as part of same authenticated workspac
  assert.match(panel,/import DemoAutoPilot/);
  assert.match(panel,/<DemoAutoPilot ready=\{ready && autoPilotReady/);
 });
+
+test("new Demo auto phase is a separate one-shot after two settled buys",()=>{
+ assert.match(server,/senfx_demo_auto_phase3_one_shots/);
+ assert.match(server,/priorAttemptCount === 2 && validPhase3Grant/);
+ assert.match(server,/autoGrant\?\.status === "reserved"/);
+ assert.match(server,/NEW_ONE_SHOT_DEMO_AUTHORIZATION_REQUIRED/);
+ assert.match(client,/style=\{\{opacity:canStart\?1:0\.48/);
+ assert.match(client,/disabled=\{!canStart\}/);
+});
