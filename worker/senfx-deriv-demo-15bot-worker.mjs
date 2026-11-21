@@ -42,6 +42,7 @@ const WORKER="senfxdemo_"+randomUUID().replaceAll("-","");
 const MAX_HISTORY=160;
 const FRESH_MS=10_000;
 const RUN_POLL_MS=4_000;
+const MIN_DEMO_BUY_COOLDOWN_MS=10_000;
 const SETTLEMENT_TIMEOUT_MS=8*60_000;
 const MAX_WAIT_FOR_MARKET_MS=35_000;
 const MARKETS_NEEDED=new Set(FIFTEEN_BOTS.map(x=>x.market));
@@ -442,8 +443,11 @@ function startPublicFeed(){
   lastTickReceived=now;
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
+  // A single outstanding contract is mandatory; cool down for the verified
+  // server-stored duration (never less than ten seconds).
+  const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
-     now-lastBuyAt<30_000||now-lastCandidateAt<30_000)return;
+     now-lastBuyAt<cooldownMs||now-lastCandidateAt<cooldownMs)return;
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
   for(let i=0;i<FIFTEEN_BOTS.length;i++){
    const index=(roundRobin+i)%FIFTEEN_BOTS.length,bot=FIFTEEN_BOTS[index];
@@ -469,7 +473,7 @@ async function poll(){
  pollBusy=true;
  try{
   const {data,error}=await db.from("senfx_demo_bot_control")
-   .select("user_id,account_id,stake_amount,mode,control_version,worker_id,lease_expires_at,selected_bot_id,target_trades")
+   .select("user_id,account_id,stake_amount,cooldown_seconds,mode,control_version,worker_id,lease_expires_at,selected_bot_id,target_trades")
    .eq("user_id",ADMIN).maybeSingle();
   if(error)throw Error("Cannot verify durable Demo auto control.");
   if(!data||data.mode!=="running"){
