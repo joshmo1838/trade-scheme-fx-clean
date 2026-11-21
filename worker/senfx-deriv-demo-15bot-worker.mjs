@@ -56,6 +56,7 @@ let busy=false;
 let pollBusy=false;
 let lastTickReceived=0;
 let lastBuyAt=0;
+let lastCandidateAt=0;
 let roundRobin=0;
 let interval=null;
 
@@ -196,8 +197,11 @@ async function verifyControl(version){
 async function reconcilePurchased(session,orderId,purchase,proposal,version){
  const start=Date.now();
  while(Date.now()-start<SETTLEMENT_TIMEOUT_MS){
+  const contractIdNumeric=Number(purchase.contractId);
+  if(!Number.isSafeInteger(contractIdNumeric)||contractIdNumeric<=0)
+   throw Error("Broker contract ID is not a safe integer. Reconcile manually.");
   const response=await session.request("proposal_open_contract",{
-   proposal_open_contract:1,contract_id:Number(purchase.contractId)
+   proposal_open_contract:1,contract_id:contractIdNumeric
   },10_000);
   const contract=response?.proposal_open_contract;
   const final=verifiedFinalContract(contract,{
@@ -279,6 +283,10 @@ async function executeSignal(bot,signal){
   });
   if(marker?.allowed!==true)throw Error("Attempt ledger not armed; buy not sent.");
   marked=true;lastBuyAt=Date.now();
+  // Once the marker is written, never reset it, even if Stop happens now.
+  // A second control check closes the Stop/Buy window before network send.
+  if(finishing||!await verifyControl(version))
+    throw Error("Stop detected after attempt marker; no buy sent, reconcile unknown risk.");
   // No retry of buy under ANY failure, timeout, reconnect or crash.
   firstAttempt=true;
   const reply=await session.request("buy",{buy:quote.id,price:Number(quote.ask_price)},12_000);
@@ -358,7 +366,7 @@ function startPublicFeed(){
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
-     now-lastBuyAt<30_000)return;
+     now-lastBuyAt<30_000||now-lastCandidateAt<30_000)return;
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
   for(let i=0;i<FIFTEEN_BOTS.length;i++){
    const index=(roundRobin+i)%FIFTEEN_BOTS.length,bot=FIFTEEN_BOTS[index];
@@ -366,6 +374,7 @@ function startPublicFeed(){
    const signal=predictFifteenBot(bot,hist);
    if(!signal)continue;
    roundRobin=(index+1)%FIFTEEN_BOTS.length;
+   lastCandidateAt=now;
    void executeSignal(bot,signal);
    return;
   }
