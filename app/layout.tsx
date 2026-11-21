@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./components/workspace-operations-deck.css";
 import GlobalTicker from "../components/GlobalTicker";
+import WorkspaceAIOrb from "./components/WorkspaceAIOrb";
 
 export const metadata: Metadata = {
   title: "Trade Scheme FX | Trading Workspace & Demo Learning",
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><GlobalTicker />{children}</body></html>;
+  return <html lang="en"><body><GlobalTicker />{children}<WorkspaceAIOrb /></body></html>;
 }
