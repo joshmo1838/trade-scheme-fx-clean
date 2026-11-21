@@ -373,6 +373,25 @@ export async function POST(request: NextRequest) {
     const action = body?.action;
     const context = await getDerivDemoContext();
 
+    // A legacy one-shot manual order must never race 15-bot automatic Demo
+    // execution. Fail closed if the staged control schema is unavailable;
+    // the database trigger independently blocks stale/concurrent reservations.
+    if (action === "quote" || action === "buy") {
+      const { data: autoControl, error: autoControlError } = await context.admin
+        .from("senfx_demo_bot_control")
+        .select("mode")
+        .eq("user_id", context.user.id)
+        .maybeSingle();
+      if (autoControlError) {
+        return jsonError("Demo multi-bot safety controls are not available. Broker purchases remain disabled.",
+          503, "DEMO_AUTO_CONTROL_SCHEMA_MISSING");
+      }
+      if (autoControl?.mode === "running") {
+        return jsonError("Stop and reconcile all 15 automatic Demo bots before attempting a manual broker purchase.",
+          409, "AUTO_DEMO_RUN_ACTIVE");
+      }
+    }
+
     if (action === "quote") {
       const marketSymbol = body?.marketSymbol;
       const direction = body?.direction;
