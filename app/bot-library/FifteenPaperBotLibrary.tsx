@@ -209,7 +209,10 @@ export default function FifteenPaperBotLibrary(){
    <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Start All 15 Demo Bots</summary>
    <FifteenDemoBotControlPanel/>
   </details>
-  <FifteenDemoBrokerReadiness/>
+  <details className={styles.panel} style={{margin:"12px 0"}}>
+   <summary style={{cursor:"pointer",fontWeight:800}}>Advanced · Verify Deriv Demo contract types</summary>
+   <FifteenDemoBrokerReadiness/>
+  </details>
   <div className={styles.topMetrics}>
    <div><small>SELECTABLE DEMO BOTS</small><b>{BOT_COUNT}</b></div>
    <div><small>PUBLIC MARKETS</small><b>{marketStatus.length} / 10</b></div>
