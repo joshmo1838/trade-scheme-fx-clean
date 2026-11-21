@@ -407,6 +407,30 @@ begin
 end;
 $$;
 
+-- Prevent the legacy manual one-shot reservation RPC from overlapping with
+-- a running multi-bot session. This is database-enforced even if an HTTP
+-- request races the Start All action after the API checked control state.
+create or replace function public.senfx_demo_bots_block_manual_reservation()
+returns trigger language plpgsql security definer set search_path=public,pg_temp
+as $$
+begin
+ if new.status in ('reserved','buy_unknown','open')
+  and old.status not in ('reserved','buy_unknown','open')
+  and exists(select 1 from public.senfx_demo_bot_control
+             where user_id=new.user_id and mode='running') then
+  raise exception 'Manual Demo purchase blocked while 15-bot auto control is armed';
+ end if;
+ return new;
+end;
+$$;
+drop trigger if exists senfx_demo_bot_no_manual_overlap on public.deriv_demo_orders;
+create trigger senfx_demo_bot_no_manual_overlap
+ before update of status on public.deriv_demo_orders
+ for each row execute function public.senfx_demo_bots_block_manual_reservation();
+
+revoke all on function public.senfx_demo_bots_block_manual_reservation()
+ from public,anon,authenticated;
+
 revoke all on function public.senfx_demo_bots_control(uuid,text,text,bigint)
  from public,anon,authenticated;
 revoke all on function public.senfx_demo_bots_worker_heartbeat(uuid,text,bigint)
