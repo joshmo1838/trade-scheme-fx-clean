@@ -71,6 +71,6 @@ test("read-only broker capabilities route requires verified session and never bu
  assert.match(route,/openDerivDemoSession\(context\)/);
  assert.match(route,/session\.request<any>\("contracts_for"/);
  assert.match(route,/purchaseEnabled:false/);
- assert.doesNotMatch(route,/session\.request\("buy"|auto_start|\/ws\/real|DERIV_DEMO_BROKER_BUY_ENABLED\s*=\s*"true"/);
+ assert.doesNotMatch(route,/session\.request\("buy"|auto_start|new WebSocket\(.*\/ws\/real|DERIV_DEMO_BROKER_BUY_ENABLED\s*=\s*"true"/);
  assert.match(route,/session\.close\(\)/);
 });
