@@ -25,6 +25,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Verify all-15 broker Demo worker exits harmlessly with execution disabled
+        run: npm run worker:demo15
       - name: Check workspace links
         run: node scripts/check-workspace-routes.mjs
       - name: Verify Quick Switch search and page destinations
