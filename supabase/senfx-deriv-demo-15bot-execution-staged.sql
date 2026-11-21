@@ -151,6 +151,13 @@ begin
    return jsonb_build_object('ok',true,'mode','stopped','version',0,
                             'brokerOrderPlaced',false);
   end if;
+  -- Worker-initiated Stop must never cancel a newer owner-selected run.
+  -- A NULL expected version is reserved for unconditional owner Emergency Stop.
+  if p_expected_version is not null and
+    (v_control.control_version<>p_expected_version or v_control.mode<>'running') then
+   return jsonb_build_object('ok',false,'code','STALE_WORKER_STOP_IGNORED',
+      'version',v_control.control_version,'brokerOrderPlaced',false);
+  end if;
   update public.senfx_demo_bot_control
    set mode='stopped',observed_state='stopped',worker_id=null,lease_expires_at=null,control_version=control_version+1,stopped_at=now(),updated_at=now()
    where user_id=p_user_id returning * into v_control;
