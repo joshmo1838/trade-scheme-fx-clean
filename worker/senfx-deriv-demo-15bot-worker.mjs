@@ -55,6 +55,11 @@ let finishing=false;
 let busy=false;
 let pollBusy=false;
 let lastTickReceived=0;
+let feedStartedAt=0;
+let feedEstablishedAt=0;
+let feedReconnectAt=0;
+let feedReconnectAttempts=0;
+const FEED_RECONNECT_LIMIT=3;
 let lastBuyAt=0;
 let lastCandidateAt=0;
 let roundRobin=0;
@@ -257,7 +262,8 @@ async function executeSignal(bot,signal){
   const quoteReceivedAt=Date.now();
   const quote=response?.proposal;
   if(!validBrokerProposal(quote,stake))throw Error("Broker Demo proposal failed price/identity verification.");
-  if(finishing||!await verifyLease(version))throw Error("Stop requested before reservation.");
+  if(finishing||!feedReady||!feed||!await verifyLease(version))
+   throw Error("Stop, public-feed loss or lease change before reservation.");
   const {data:created,error:createError}=await db.from("senfx_demo_bot_orders")
    .insert({
     request_id:randomUUID(),user_id:ADMIN,account_id:account.account_id,
@@ -289,7 +295,8 @@ async function executeSignal(bot,signal){
    accountVerified:isVerifiedDemoAccount(account,account.account_id,stake),
    proposalVerified:validBrokerProposal(quote,stake),unresolvedOrders:count
   });
-  if(!permitted||finishing)throw Error("Final broker Demo buy gate failed; no order sent.");
+  if(!permitted||finishing||!feedReady||!feed)
+   throw Error("Final broker Demo buy/feed gate failed; no order sent.");
   if(Date.now()-quoteReceivedAt>12000)
    throw Error("Deriv Demo quote expired before broker buy. No purchase sent.");
   // Irrevocable once-only buy marker is persisted BEFORE the broker call.
@@ -300,8 +307,8 @@ async function executeSignal(bot,signal){
   marked=true;lastBuyAt=Date.now();
   // Once the marker is written, never reset it, even if Stop happens now.
   // A second control check closes the Stop/Buy window before network send.
-  if(finishing||!await verifyControl(version))
-    throw Error("Stop detected after attempt marker; no buy sent, reconcile unknown risk.");
+  if(finishing||!feedReady||!feed||!await verifyControl(version))
+    throw Error("Stop or feed loss after attempt marker; no buy sent; reconcile unknown risk.");
   // No retry of buy under ANY failure, timeout, reconnect or crash.
   firstAttempt=true;
   const reply=await session.request("buy",{buy:quote.id,price:Number(quote.ask_price)},12_000);
@@ -334,9 +341,29 @@ async function executeSignal(bot,signal){
   busy=false;
  }
 }
+// Transient public feed failure is never permission to repeat a broker buy.
+// Invalidate every prior tick; recover only through fresh market subscriptions.
+function recoverTransientPublicFeed(reason){
+ if(finishing||!feed)return;
+ const healthyLongEnough=feedEstablishedAt>0&&Date.now()-feedEstablishedAt>60_000;
+ stopFeed();
+ lastTickReceived=0;
+ feedEstablishedAt=0;
+ feedStartedAt=0;
+ if(healthyLongEnough)feedReconnectAttempts=0;
+ feedReconnectAttempts++;
+ if(feedReconnectAttempts>FEED_RECONNECT_LIMIT){
+  void stopOwnedRun("Public feed retry budget exhausted; operator must restart.");
+  return;
+ }
+ feedReconnectAt=Date.now()+Math.min(30_000,2500*2**(feedReconnectAttempts-1));
+ safeLog("Public feed disconnected; no orders until fresh verification",
+  "retry "+feedReconnectAttempts+"/"+FEED_RECONNECT_LIMIT+" · "+reason);
+}
 function startPublicFeed(){
  if(feed||finishing)return;
  feedReady=false;
+ feedStartedAt=Date.now();
  const ws=new WebSocket(PUBLIC_WS);
  feed=ws;
  const subscribed=new Set();
@@ -366,6 +393,7 @@ function startPublicFeed(){
     try{ws.send(JSON.stringify({ticks:market,subscribe:1,req_id:1000+i}));}
     catch{void stopOwnedRun("Public market subscription failed.");return;}
    }
+   feedEstablishedAt=Date.now();
    feedReady=true;safeLog("15 strategies subscribed to verified public Demo markets");
    return;
   }
@@ -394,8 +422,12 @@ function startPublicFeed(){
    return;
   }
  });
- ws.addEventListener("error",()=>{void stopOwnedRun("Deriv public data WebSocket error.");});
- ws.addEventListener("close",()=>{if(!finishing)void stopOwnedRun("Public feed disconnected; no guessing or auto retry.");});
+ ws.addEventListener("error",()=>{
+  if(feed===ws&&!finishing)recoverTransientPublicFeed("socket error");
+ });
+ ws.addEventListener("close",()=>{
+  if(feed===ws&&!finishing)recoverTransientPublicFeed("socket closed");
+ });
 }
 async function poll(){
  if(finishing||pollBusy)return;
@@ -427,9 +459,10 @@ async function poll(){
     return;
    }
   }
-  if(!feed)startPublicFeed();
-  if(feedReady&&!busy&&lastTickReceived>0&&Date.now()-lastTickReceived>MAX_WAIT_FOR_MARKET_MS)
-   await stopOwnedRun("Public feed has no fresh ticks; no purchases permitted.");
+  if(!feed&&Date.now()>=feedReconnectAt)startPublicFeed();
+  if(feed&&!busy&&feedStartedAt>0&&
+     Date.now()-Math.max(lastTickReceived,feedStartedAt)>MAX_WAIT_FOR_MARKET_MS)
+   recoverTransientPublicFeed("no fresh public ticks");
  }catch(error){
   await stopOwnedRun(error instanceof Error?error.message:"Control heartbeat failed.");
  }finally{pollBusy=false;}
