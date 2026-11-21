@@ -69,3 +69,18 @@ test("stop, worker lease loss and stale data end the run without more purchases"
  assert.match(worker,/if\(busy\|\|finishing/);
  assert.match(worker,/Date\.now\(\)-lastTickReceived>MAX_WAIT_FOR_MARKET_MS/);
 });
+
+const readOnlyProbe=readFileSync(new URL("../worker/senfx-deriv-demo-15bot-readiness.mjs",import.meta.url),"utf8");
+test("read-only readiness probe verifies all 15 contract types and quote forms without broker orders",()=>{
+ assert.match(readOnlyProbe,/SENFX_DEMO_15BOT_READONLY_PROBE/);
+ assert.match(readOnlyProbe,/SENFX_DEMO_BOT_TEMPLATES/);
+ assert.match(readOnlyProbe,/contracts_for/);
+ assert.match(readOnlyProbe,/deriveDemoProposal/);
+ assert.match(readOnlyProbe,/validBrokerProposal/);
+ assert.match(readOnlyProbe,/account_type!==\"demo\"/);
+ assert.match(readOnlyProbe,/url\.pathname!==\"\/trading\/v1\/options\/ws\/demo\"/);
+ assert.match(readOnlyProbe,/EXECUTION_FLAGS\.some\(name=>process\.env\[name\]!==\"false\"\)/);
+ assert.doesNotMatch(readOnlyProbe,/request\([\"']buy[\"']|\.send\(JSON\.stringify\(\{buy:|\/ws\/real/);
+ assert.doesNotMatch(readOnlyProbe,/\.insert\(|\.upsert\(|\.update\(|\.delete\(|\.rpc\(/);
+ assert.match(readOnlyProbe,/brokerOrders=0, realMoney=OFF/);
+});
