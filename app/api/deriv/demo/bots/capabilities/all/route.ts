@@ -29,7 +29,7 @@ export async function GET() {
   const checks = await Promise.all(symbols.map(async (symbol) => {
    try {
     const reply = await session!.request<any>("contracts_for", {
-     contracts_for: symbol, currency: "USD"
+     contracts_for: symbol
     }, 9000);
     const available = reply?.contracts_for?.available;
     if (!Array.isArray(available)) return { symbol, types: [] as string[], verified: false };
