@@ -11,7 +11,7 @@ test("separate Demo broker buy switch, explicit consent, no buy without reservat
   assert.match(route, /confirmVirtualPurchase !== true/);
   assert.match(route, /senfx_demo_reserve_order/);
   assert.match(route, /reservation\.unlimitedDemoPractice !== false/);
-  assert.match(route, /reservation\.dailyLossLimit !== 1/);
+  assert.match(route, /reservation\.dailyLossLimit !== 10/);
   assert.match(route, /Number\(reservation\.reservedLoss\) < 1/);
   assert.match(route, /\.eq\("status", "reserved"\)\.is\("buy_requested_at", null\)/);
   assert.match(route, /session\.request\("buy"/);
