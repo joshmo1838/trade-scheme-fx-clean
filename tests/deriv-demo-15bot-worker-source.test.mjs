@@ -16,7 +16,7 @@ test("15-bot Deriv worker never runs without FOUR independent private opt-ins",(
 });
 test("worker uses only selected verified Demo account and OTP demo socket",()=>{
  assert.match(worker,/account_type!=="demo"/);
- assert.match(worker,/isVerifiedDemoAccount\(record,connection\.active_account_id\)/);
+ assert.match(worker,/isVerifiedDemoAccount\(record,connection\.active_account_id,stake\)/);
  assert.match(worker,/session not explicitly Demo|Broker session is not explicitly Demo/);
  assert.match(worker,/url\.pathname!=="\/trading\/v1\/options\/ws\/demo"/);
  assert.doesNotMatch(worker,/url\.pathname\s*===?\s*["']\/trading\/v1\/options\/ws\/real/);
@@ -38,6 +38,10 @@ test("broker buys are single-attempt and only AFTER service-role atomic reservat
  assert.ok(reserve>=0&&mark>reserve&&buy>mark,"RPC order must be reserve, mark, then broker buy");
  assert.match(worker,/safeToPurchase\(/);
  assert.match(worker,/getUnresolvedOrderCount\(\)/);
+ assert.match(worker,/deriveDemoProposal\(bot\.id,signal\.prediction,signal\.barrier,stake\)/);
+ assert.match(worker,/stake_amount/);
+ assert.match(worker,/validBrokerProposal\(quote,stake\)/);
+ assert.match(worker,/isVerifiedDemoAccount\(account,account\.account_id,stake\)/);
  assert.match(worker,/No retry of buy under ANY failure/);
  assert.match(worker,/\.eq\("status","buy_unknown"\)/);
  assert.match(worker,/!permitted\|\|finishing/);
