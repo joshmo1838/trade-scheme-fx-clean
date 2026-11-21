@@ -36,7 +36,31 @@ export default function FifteenPaperBotLibrary(){
  const marketFresh=enabled&&marketStatus.includes(selected.market)&&
   Date.now()-lastAt<15_000;
  const previewSignal=useMemo(()=>predictFifteenBot(selected,sample),[selected,sample]);
- const changeBot=(id:string)=>setSelectedId(id);
+ const selectionTouched=useRef(false);
+ const changeBot=(id:string)=>{
+  selectionTouched.current=true;
+  setSelectedId(id);
+ };
+ // Opening Bulk Bots during a real Demo session must show THAT running bot,
+ // not reset the screen to Bot 01 and hide its live settled results.
+ useEffect(()=>{
+  let mounted=true;
+  void (async()=>{
+   try{
+    const response=await fetch("/api/deriv/demo/bots/control",{
+     credentials:"same-origin",cache:"no-store"
+    });
+    if(!response.ok)return;
+    const snapshot=await response.json();
+    const activeBot=snapshot?.run?.selectedBotId;
+    if(mounted&&!selectionTouched.current&&
+       snapshot?.run?.desiredState==="running"&&
+       typeof activeBot==="string"&&FIFTEEN_BOTS.some(x=>x.id===activeBot))
+      setSelectedId(activeBot);
+   }catch{/* Owner may not be signed in; the broker Start panel explains access. */}
+  })();
+  return()=>{mounted=false;};
+ },[]);
 
  useEffect(()=>{
   if(!enabled){
