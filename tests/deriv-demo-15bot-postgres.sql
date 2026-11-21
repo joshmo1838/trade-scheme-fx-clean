@@ -80,6 +80,25 @@ begin
  if (select realized_loss from public.senfx_demo_bot_daily_risk where user_id=u)<>0.46 then
   raise exception 'Loss not recorded in shared ledger'; end if;
 
+ -- A second Demo account from this same user cannot reset the UTC shared cap.
+ insert into public.senfx_demo_bot_daily_risk
+  (user_id,account_id,risk_date,currency,realized_loss)
+ values(u,'D_OTHER_291',(now() at time zone 'UTC')::date,'USD',9.25);
+ insert into public.senfx_demo_bot_orders(
+   id,request_id,user_id,account_id,control_version,bot_id,market_symbol,contract_type,
+   barrier,duration,duration_unit,currency,stake,ask_price,payout,proposal_id,quote_expires_at)
+ values('12000000-0000-4000-8000-000000000293',
+        '22000000-0000-4000-8000-000000000293',
+        u,'D_QA_291',3,'trend-rise-fall','R_50','CALL',
+        null,5,'m','USD',1,1,1.8,'FAKE_QA_PROPOSAL_000000000293',
+        now()+interval '10 minutes');
+ update public.senfx_demo_bot_orders
+  set buy_requested_at=now()-interval '60 seconds' where id=b;
+ res:=public.senfx_demo_bots_reserve(u,'12000000-0000-4000-8000-000000000293',3);
+ if res->>'allowed'<>'false' then
+   raise exception 'Switching Demo account IDs bypassed shared $10 virtual loss cap: %',res;
+ end if;
+
  -- Emergency Stop remains available when the stored OAuth expires.
  update public.deriv_connections set expires_at=now()-interval '1 hour' where user_id=u;
  res:=public.senfx_demo_bots_control(u,'D_QA_291','stop',null);
