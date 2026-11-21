@@ -235,14 +235,10 @@ export default function FifteenPaperBotLibrary(){
     <Link href="/strategy-lab">Forward Test</Link></nav>
   </header>
   <section className={styles.hero}>
-   <p className={styles.kicker}>SENFX LABS · DERIV PUBLIC MARKET DATA · PAPER ONLY</p>
-   <h1>{BOT_COUNT} original SENFX <span>trading research bots</span></h1>
-   <p>Bulk Bots are paper-only research strategies. Explore Digit Over/Under, Matches/Differs, Even/Odd, direction,
-    volatility, momentum and fixed-stake risk studies. Each candidate has a
-    real next-tick paper evaluator, live data safeguards and an emergency Stop.</p>
-   <p className={styles.warning}>No bots on this page place Deriv Demo or Real contracts.
-    Paper hits are not payouts, verified win rates or financial returns.
-    Recovery-style studies intentionally do NOT increase stakes after a loss.</p>
+   <p className={styles.kicker}>SENFX · DERIV VIRTUAL DEMO BROKER + OPTIONAL PAPER RESEARCH</p>
+   <h1>{BOT_COUNT} original SENFX <span>Deriv Demo bots</span></h1>
+   <p>Choose one of the 15 strategies below for genuine Deriv broker trading with <strong>virtual Demo funds only</strong>. The separate paper research controls are optional; individual broker execution requires your verified admin Demo account, explicit consent and an active worker.</p>
+   <p className={styles.warning}>The Broker Demo controls can place real Deriv <strong>virtual-money Demo</strong> contracts after you press Start and authorize them. The paper research section does not buy contracts. Real-money trading remains disabled; broker results and paper hits must not be confused.</p>
    <div className={styles.feedActions}>
     <span role="status">{feedStatus}</span>
     <button onClick={()=>{
@@ -256,6 +252,18 @@ export default function FifteenPaperBotLibrary(){
    </div>
   </section>
 
+  <section className={styles.panel} id="senfx-individual-demo" style={{margin:"18px 0"}}>
+   <p className={styles.kicker}>STEP 1 · SELECT A STRATEGY · STEP 2 · AUTHORIZE DEMO BROKER</p>
+   <h2>Start one bot on your actual Deriv virtual Demo account</h2>
+   <label style={{display:"block",margin:"12px 0"}}>Which of your 15 bots should trade?
+    <select aria-label="Choose individual Deriv Demo bot" value={selectedId}
+     style={{display:"block",width:"100%",padding:12,marginTop:6}}
+     onChange={e=>changeBot(e.target.value)}>
+     {FIFTEEN_BOTS.map(bot=><option key={bot.id} value={bot.id}>{bot.name} — {bot.market}</option>)}
+    </select>
+   </label>
+   <FifteenDemoIndividualControl botId={selected.id} botName={selected.name}/>
+  </section>
   <FifteenDemoBotControlPanel/>
   <FifteenDemoBrokerReadiness/>
   <div className={styles.topMetrics}>
@@ -310,7 +318,6 @@ export default function FifteenPaperBotLibrary(){
       <span>Last real quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
      </div>
     </section>
-    <FifteenDemoIndividualControl botId={selected.id} botName={selected.name}/>
     <section className={styles.panel}>
      <p className={styles.kicker}>REAL NEXT-TICK PAPER SIMULATOR</p>
      <h2>Run a controlled batch</h2>
