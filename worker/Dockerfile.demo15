@@ -7,6 +7,7 @@ WORKDIR /opt/senfx
 COPY worker/package.json ./worker/package.json
 RUN cd worker && npm install --omit=dev --ignore-scripts --no-audit --no-fund
 COPY worker/senfx-deriv-demo-15bot-worker.mjs ./worker/senfx-deriv-demo-15bot-worker.mjs
+COPY worker/senfx-deriv-demo-15bot-readiness.mjs ./worker/senfx-deriv-demo-15bot-readiness.mjs
 COPY lib/bots/fifteen-paper-bots.ts ./lib/bots/fifteen-paper-bots.ts
 COPY lib/bots/digit-matrix.ts ./lib/bots/digit-matrix.ts
 COPY lib/deriv/demo-bot-contracts.mjs ./lib/deriv/demo-bot-contracts.mjs
