@@ -26,6 +26,7 @@ on:
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'
       - 'app/api/deriv/demo/orders/route.ts'
       - 'app/api/deriv/demo/bots/capabilities/route.ts'
+      - 'app/api/deriv/demo/bots/proposal/route.ts'
       - 'app/bot-library/FifteenDemoBrokerReadiness.tsx'
       - 'app/bot-library/FifteenPaperBotLibrary.tsx'
       - 'lib/deriv/demo-bot-contracts.mjs'
