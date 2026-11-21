@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
 import FifteenPaperBotLibrary from "./FifteenPaperBotLibrary";
 export const metadata:Metadata={
- title:"Bulk Bots | 15 SENFX Paper Strategies | Trade Scheme FX",
- description:"Explore 15 Bulk Bots: original public-market-tick research bots with paper-only risk caps and emergency Stop. No Deriv Demo or Real orders.",
+ title:"Bulk Bots | 15 SENFX Strategies & Deriv Demo Readiness | Trade Scheme FX",
+ description:"Explore 15 SENFX research bots and verify their genuine Deriv Demo contract availability. Paper studies and read-only broker checks place no orders.",
 };
 export default function Page(){return <FifteenPaperBotLibrary/>;}
