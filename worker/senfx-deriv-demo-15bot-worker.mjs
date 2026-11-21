@@ -254,6 +254,7 @@ async function executeSignal(bot,signal){
   if(!Array.isArray(allowed)||!allowed.some(x=>x.contract_type===selected.contract_type))
    throw Error("Actual Demo broker does not offer selected contract type.");
   const response=await session.request("proposal",selected,9000);
+  const quoteReceivedAt=Date.now();
   const quote=response?.proposal;
   if(!validBrokerProposal(quote,stake))throw Error("Broker Demo proposal failed price/identity verification.");
   if(finishing||!await verifyLease(version))throw Error("Stop requested before reservation.");
@@ -289,6 +290,8 @@ async function executeSignal(bot,signal){
    proposalVerified:validBrokerProposal(quote,stake),unresolvedOrders:count
   });
   if(!permitted||finishing)throw Error("Final broker Demo buy gate failed; no order sent.");
+  if(Date.now()-quoteReceivedAt>12000)
+   throw Error("Deriv Demo quote expired before broker buy. No purchase sent.");
   // Irrevocable once-only buy marker is persisted BEFORE the broker call.
   const marker=await rpc("senfx_demo_bots_mark_attempt",{
    p_user_id:ADMIN,p_order_id:orderId,p_expected_version:version
