@@ -37,6 +37,7 @@ on:
       - 'worker/Dockerfile.demo15'
       - 'tests/deriv-demo-15bot-worker-safety.test.mjs'
       - 'tests/deriv-demo-15bot-worker-source.test.mjs'
+      - 'tests/senfx-demo-feed-reconnect.test.mjs'
       - 'package.json'
       - 'tests/deriv-demo-15bot-automation-gates.test.mjs'
       - 'tests/deriv-demo-15bot-postgres.sql'
@@ -61,7 +62,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run broker safety gate tests (offline, no credentials)
-        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/deriv-demo-bot-contracts.test.mjs tests/deriv-demo-15bot-automation-gates.test.mjs tests/deriv-demo-15bot-worker-safety.test.mjs tests/deriv-demo-15bot-worker-source.test.mjs
+        run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/deriv-demo-bot-contracts.test.mjs tests/deriv-demo-15bot-automation-gates.test.mjs tests/deriv-demo-15bot-worker-safety.test.mjs tests/deriv-demo-15bot-worker-source.test.mjs tests/senfx-demo-feed-reconnect.test.mjs
       - name: Parse standalone demo broker worker without executing orders
         run: node --check worker/senfx-deriv-demo-15bot-worker.mjs
       - name: Parse no-buy Deriv Demo readiness probe
