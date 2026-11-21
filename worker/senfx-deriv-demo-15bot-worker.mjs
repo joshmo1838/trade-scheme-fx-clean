@@ -27,7 +27,7 @@ if(!ACTIVE){
 const ADMIN=process.env.DERIV_DEMO_PILOT_USER_ID||"";
 const SUPABASE_URL=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SECRET=process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ENC=process.env.DERIV_TOKEN_ENCRYPTION_KEY||"";
+const ENC=(process.env.DERIV_TOKEN_ENCRYPTION_KEY||"").trim();
 if(!/^[0-9a-f-]{36}$/i.test(ADMIN)||!SUPABASE_URL||!SECRET||
    !/^[0-9a-f]{64}$/i.test(ENC))throw Error("Demo-only worker private configuration unavailable.");
 if(typeof WebSocket!=="function")throw Error("Node 22+ global WebSocket required.");
