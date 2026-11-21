@@ -52,3 +52,31 @@ test("recent emergency stop shows a wait countdown instead of raw error and bloc
  assert.match(component,/Start Selected Demo Bot/);
  assert.doesNotMatch(component,/\/ws\/real|session\.request\("buy"/);
 });
+
+
+test("account summary reads real selected Deriv Demo USD balance and never exposes the token",()=>{
+ const api=read("app/api/deriv/demo/account-balance/route.ts");
+ const bar=read("app/bot-library/FifteenDemoLiveAccountBar.tsx");
+ assert.match(api,/getDerivDemoContext\(\)/);
+ assert.match(api,/profile\?\.role!=="admin"/);
+ assert.match(api,/account\.account_type!=="demo"/);
+ assert.match(api,/account\.currency!=="USD"/);
+ assert.match(api,/account\.status!=="active"/);
+ assert.match(api,/Number\(account\.balance\)/);
+ assert.match(api,/realMoneySupported:false/);
+ assert.match(api,/private, no-store/);
+ assert.doesNotMatch(api,/accessToken[,}]|requestOnDemoWebSocket|session\.request\("buy"/);
+ assert.match(bar,/fetch\("\/api\/deriv\/demo\/account-balance"/);
+ assert.match(bar,/fetch\("\/api\/deriv\/demo\/bots\/control"/);
+ assert.match(bar,/setInterval\(\(\)=>void update\(\),6000\)/);
+ assert.match(bar,/baseline\.current/);
+ assert.match(bar,/ACTUAL DERIV DEMO BALANCE/);
+ assert.match(bar,/HITS \/ WINS/);
+ assert.match(bar,/LOSSES/);
+ assert.match(bar,/SETTLED DEMO PROFIT \/ LOSS/);
+ assert.match(bar,/progress\.wins/);
+ assert.match(bar,/progress\.losses/);
+ assert.match(bar,/progress\.netVirtualProfit/);
+ assert.match(library,/<FifteenDemoLiveAccountBar\/>/);
+ assert.ok(library.indexOf("<FifteenDemoLiveAccountBar/>")<library.indexOf('id="senfx-individual-demo"'));
+});
