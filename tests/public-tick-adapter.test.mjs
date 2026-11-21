@@ -52,3 +52,10 @@ test("rejects array-shaped messages and tick bodies, invalid selectors and clock
     assert.equal(parsePublicDerivTick(message(), "R_100", now).ok, false);
   }
 });
+
+test("rejects nonpositive epochs and negative clocks before paper observation", () => {
+  for (const epoch of [0, -1, -100]) {
+    assert.equal(parsePublicDerivTick(message("R_100", epoch), "R_100", epoch * 1000).ok, false);
+  }
+  assert.equal(parsePublicDerivTick(message(), "R_100", -1).ok, false);
+});
