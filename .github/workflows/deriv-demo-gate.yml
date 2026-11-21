@@ -36,6 +36,7 @@ on:
       - 'tests/deriv-demo-15bot-worker-source.test.mjs'
       - 'package.json'
       - 'tests/deriv-demo-15bot-automation-gates.test.mjs'
+      - 'tests/deriv-demo-15bot-postgres.sql'
       - 'app/bot-library/FifteenDemoBrokerReadiness.tsx'
       - 'app/bot-library/FifteenPaperBotLibrary.tsx'
       - 'lib/deriv/demo-bot-contracts.mjs'
@@ -129,6 +130,8 @@ jobs:
             \$verify\$;
           "
 
+      - name: Validate real-broker 15-bot state machine on isolated Postgres with no credentials
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-15bot-postgres.sql
       - name: Test disposable legacy backup, restore, $1 schema migration and rollback
         shell: bash
         run: bash tests/deriv-demo-legacy-backup-restore-qa.sh
