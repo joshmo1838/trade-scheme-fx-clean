@@ -10,6 +10,10 @@ test("repeatable Deriv broker Demo is not real-money, has bounded virtual exposu
  assert.match(sql, /active_account_type = 'demo'/);
  assert.match(sql, /v_order\.stake_amount <> 1 or v_order\.currency <> 'USD'/);
  assert.match(sql, /daily_loss_limit in \(1,10\)/);
+ assert.match(sql, /set daily_loss_limit=10, updated_at=now\(\)/);
+ assert.match(sql, /where risk_date=\(now\(\) at time zone 'UTC'\)::date/);
+ assert.match(sql, /and daily_loss_limit=1/);
+ assert.doesNotMatch(sql,/delete from public\.deriv_demo_daily_risk/i);
  assert.match(sql, /v_risk\.daily_loss_limit <> 10/);
  assert.match(sql, /v_risk\.realized_loss \+ v_risk\.reserved_loss \+ v_order\.stake_amount > v_risk\.daily_loss_limit/);
  assert.match(sql, /'dailyLossLimit',10/);
