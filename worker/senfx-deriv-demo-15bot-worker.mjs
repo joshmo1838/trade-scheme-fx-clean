@@ -248,7 +248,7 @@ async function executeSignal(bot,signal){
   if(!selected)throw Error("Unsupported broker contract mapping.");
   session=await openDemoSocket(token,account.account_id);
   const availability=await session.request("contracts_for",{
-    contracts_for:bot.market,currency:"USD"
+    contracts_for:bot.market
   },9000);
   const allowed=availability?.contracts_for?.available;
   if(!Array.isArray(allowed)||!allowed.some(x=>x.contract_type===selected.contract_type))
