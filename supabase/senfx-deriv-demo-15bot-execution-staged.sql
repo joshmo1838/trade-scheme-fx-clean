@@ -218,6 +218,7 @@ declare v_connection public.deriv_connections%rowtype;
         v_risk public.senfx_demo_bot_daily_risk%rowtype;
         v_day date:=(now() at time zone 'UTC')::date;
         v_prior_manual numeric:=0;
+        v_prior_bot_other numeric:=0;
         v_total_attempts int;
 begin
  select * into v_connection from public.deriv_connections
@@ -274,8 +275,16 @@ begin
  select coalesce(sum(realized_loss+reserved_loss),0) into v_prior_manual
  from public.deriv_demo_daily_risk
  where user_id=p_user_id and risk_date=v_day;
+ -- Never let a user reset the shared virtual-loss ceiling by switching
+ -- between two connected Deriv Demo account IDs on the same UTC day.
+ -- The connection row FOR UPDATE serializes account switching and reserves.
+ select coalesce(sum(realized_loss+reserved_loss),0) into v_prior_bot_other
+ from public.senfx_demo_bot_daily_risk
+ where user_id=p_user_id and risk_date=v_day
+   and account_id<>v_order.account_id;
  if v_risk.currency<>'USD' or v_risk.daily_limit<>10 or
-    v_risk.realized_loss+v_risk.reserved_loss+v_prior_manual+v_order.stake>10 then
+    v_risk.realized_loss+v_risk.reserved_loss+v_prior_bot_other+
+    v_prior_manual+v_order.stake>10 then
   return jsonb_build_object('allowed',false,'code','SHARED_VIRTUAL_LOSS_CAP_REACHED');
  end if;
  update public.senfx_demo_bot_daily_risk
