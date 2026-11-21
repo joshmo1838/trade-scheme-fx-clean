@@ -12,7 +12,7 @@ type Snapshot={
 const API="/api/deriv/demo/bots/control";
 export default function FifteenDemoIndividualControl({botId,botName}:{botId:string;botName:string}){
  const [status,setStatus]=useState<Snapshot|null>(null);
- const [stake,setStake]=useState("5");
+ const [stake,setStake]=useState("1000");
  const [trades,setTrades]=useState("10");
  const [approved,setApproved]=useState(false);
  const [pending,setPending]=useState(false);
@@ -69,7 +69,7 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
   !status.controlsEnabled?"Broker Demo execution is not enabled in this site's server configuration.":
   running?selectedActive?"This bot has an active Demo session. Check its broker results below.":
    "Another Demo run is active. Use Stop All before starting this bot.":
-  !stakeOk?"Enter a positive Demo stake in USD, e.g. 5.":
+  !stakeOk?"Enter a positive Demo stake in USD, e.g. 1000.":
   !countOk?"Enter a whole number of Demo contracts from 1 to 200.":
   !approved?"Check the virtual-money Demo authorization box to enable Start.":
   "Ready: click Start Selected Demo Bot to activate real Deriv virtual-money Demo orders.";
@@ -86,6 +86,9 @@ export default function FifteenDemoIndividualControl({botId,botName}:{botId:stri
     <input type="number" min="1" max="200" step="1" value={trades} disabled={pending||running}
      onChange={e=>setTrades(e.target.value)}/></label>
   </div>
+  <p><strong>Default virtual Demo stake: $1,000 USD per broker contract.</strong>
+   You can adjust it before authorizing. Deriv's contract limits and your virtual Demo
+   balance determine whether a quote can be purchased.</p>
   <p>Maximum planned virtual stake exposure: <strong>{stakeOk&&countOk?("$"+(Number(stake)*total).toFixed(2)):"—"}</strong>.
    This is a worst-case planned virtual loss if every contract loses, not a prediction.</p>
   <label style={{display:"flex",gap:8,alignItems:"flex-start",margin:"12px 0"}}>
