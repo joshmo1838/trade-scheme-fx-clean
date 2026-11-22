@@ -63,3 +63,15 @@ test("payout research defaults to the recorded $500 stake and reviews compatible
  assert.match(ui,/No original[\s\S]+?bot strategy, contract duration/);
  assert.doesNotMatch(ui,/\.request\("buy"|fetch\("\/api\/deriv\/demo\/orders"/);
 });
+
+test("direct /demo-payouts route exposes all 15 price-only original contract mappings",()=>{
+ const page=read("app/demo-payouts/page.tsx");
+ assert.equal((page.match(/\\{botId:"/g)||[]).length,15);
+ assert.match(page,/FifteenDemoPayoutComparison candidates=\\{\\[\\.\\.\\.contractExamples\\]\\} illustrative/);
+ assert.match(page,/read-only|READ ONLY/i);
+ assert.match(page,/not actual current bot signals|not.*signals|not.+signals/i);
+ assert.doesNotMatch(page,/\.request\("buy"|broker-buy|confirmVirtualDemoAutomation/);
+ assert.match(library,/href="\/demo-payouts"/);
+ assert.match(library,/<details open id="senfx-payout-comparison"/);
+ assert.match(ui,/illustrative=false/);
+});
