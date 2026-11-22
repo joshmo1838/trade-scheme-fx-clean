@@ -14,7 +14,7 @@ import {FIFTEEN_BOTS} from "../lib/bots/fifteen-paper-bots.ts";
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const now=2_000_000_000_000;
 const base={
- observations:1_000_000,wins:650_000,
+ observations:1000,wins:650,
  quote:{askPrice:5,payout:9.1},
  quoteAsOfMs:now-2_000,nowMs:now,
  demoBalance:1000,demoBalanceAsOfMs:now-5_000,
@@ -25,7 +25,7 @@ const tick=(symbol,epoch,digit=4,price=100)=>({
 });
 
 test("Golden Rule defaults fail-closed and never equates a high win count with profit",()=>{
- assert.equal(GOLDEN_RULE_MIN_FORWARD_SAMPLES,1_000_000);
+ assert.equal(GOLDEN_RULE_MIN_FORWARD_SAMPLES,1000);
  assert.ok(GOLDEN_RULE_FAMILYWISE_Z>2.5);
  const none=evaluateGoldenRule();
  assert.equal(none.researchCandidate,false);
@@ -36,7 +36,7 @@ test("Golden Rule defaults fail-closed and never equates a high win count with p
  assert.equal(matches.researchCandidate,false);
  assert.ok(matches.conservativeLower<matches.brokerBreakEven);
  const falsePositive=evaluateGoldenRule({
-  ...base,wins:995_000,quote:{askPrice:5,payout:5.02}
+  ...base,wins:995,quote:{askPrice:5,payout:5.02}
  });
  assert.equal(falsePositive.researchCandidate,false);
  assert.ok(falsePositive.conservativeLower<falsePositive.brokerBreakEven);
@@ -48,11 +48,11 @@ test("adjusted lower confidence bound is smaller than naive win rate",()=>{
  assert.ok(wilsonConservativeLower(500,1000,2.713)<wilsonConservativeLower(500,1000,1.645));
  for(const bad of [[-1,100],[5,-2],[10,9],[1.1,100]])assert.equal(wilsonConservativeLower(...bad),null);
 });
-test("only 1 million valid unseen observations + fresh real quote + 0.5% sizing can produce a PAPER candidate",()=>{
+test("only 1000 valid unseen observations + fresh real quote + 0.5% sizing can produce a PAPER candidate",()=>{
  assert.equal(evaluateGoldenRule(base).researchCandidate,true);
  const blocked=[
-  {observations:999_999,wins:650_000},
-  {wins:550_000},
+  {observations:999,wins:650},
+  {wins:600},
   {quoteAsOfMs:now-16_000},
   {demoBalanceAsOfMs:now-61_000},
   {demoBalance:999},
@@ -149,7 +149,7 @@ test("paper-only screen does not call broker buy, mutate execution, or claim pro
  assert.match(page,/\/api\/deriv\/demo\/account-balance/);
  assert.match(page,/GOLDEN_RULE_MIN_FORWARD_SAMPLES/);
  assert.match(tracker,/if\(next\.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES\)/);
- assert.match(page,/results freeze at 1,000,000 to avoid optional peeking/);
+ assert.match(page,/results freeze at 1,000 to avoid optional peeking/);
  assert.match(page,/researchCandidate/);
  assert.match(page,/brokerAligned:bot\.category!=="Direction"/);
  assert.match(page,/parsePublicDigitTick/);
