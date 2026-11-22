@@ -13,7 +13,7 @@ import {
  type PaperSignal,type FifteenBot
 } from "./fifteen-paper-bots.ts";
 import type {DigitSymbol,ObservedTick} from "./digit-matrix.ts";
-import {GOLDEN_RULE_MIN_FORWARD_SAMPLES} from "./senfx-golden-rule.mjs";
+import {GOLDEN_RULE_MIN_FORWARD_SAMPLES,GOLDEN_RULE_HOLDOUT_SAMPLES} from "./senfx-golden-rule.mjs";
 
 export const GOLDEN_PAPER_MAX_HISTORY=300;
 export const GOLDEN_PAPER_STALE_MS=10_000;
@@ -22,6 +22,8 @@ export const GOLDEN_PAPER_DIRECTIONAL_SECONDS=300;
 
 export type GoldenPaperObservation={
  observations:number;wins:number;losses:number;voids:number;
+ holdoutObservations:number;holdoutWins:number;holdoutLosses:number;
+ holdoutFirstEntryEpoch:number;
  pending:{signal:PaperSignal;startEpoch:number;expiryEpoch:number}|null;
  lastEntryEpoch:number;lastScoredEpoch:number;
 };
@@ -33,6 +35,7 @@ export type GoldenPaperState={
 };
 const blank=():GoldenPaperObservation=>({
  observations:0,wins:0,losses:0,voids:0,
+ holdoutObservations:0,holdoutWins:0,holdoutLosses:0,holdoutFirstEntryEpoch:0,
  pending:null,lastEntryEpoch:0,lastScoredEpoch:0
 });
 export function createGoldenPaperState():GoldenPaperState{
@@ -90,29 +93,44 @@ export function applyGoldenPublicTick(
     if(neutral)next={...next,pending:null,voids:next.voids+1};
     else {
      const hit=testPaperSignal(p.signal,tick);
-     next={...next,pending:null,observations:next.observations+1,
-      wins:next.wins+(hit?1:0),losses:next.losses+(hit?0:1),
-      lastScoredEpoch:tick.epoch};
+     // The first fixed 1,000 outcomes are the discovery cohort. Never
+     // modify them after completion. The next 300 freshly committed
+     // outcomes are a separate, fixed-size holdout cohort.
+     if(next.observations<GOLDEN_RULE_MIN_FORWARD_SAMPLES){
+      next={...next,pending:null,observations:next.observations+1,
+       wins:next.wins+(hit?1:0),losses:next.losses+(hit?0:1),
+       lastScoredEpoch:tick.epoch};
+     }else if(next.holdoutObservations<GOLDEN_RULE_HOLDOUT_SAMPLES){
+      next={...next,pending:null,holdoutObservations:next.holdoutObservations+1,
+       holdoutWins:next.holdoutWins+(hit?1:0),
+       holdoutLosses:next.holdoutLosses+(hit?0:1)};
+     }
     }
    }else if(bot.category!=="Direction"&&tick.epoch>p.expiryEpoch){
     next={...next,pending:null,voids:next.voids+1};
    }
   }
-  // A fixed, predeclared sample size prevents repeated post-hoc peeking.
-  // Once a bot's first 1,000 prospective observations settle, freeze its
-  // trial result rather than retesting an ever-changing winning streak.
-  if(next.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES){
+  // Fixed predeclared, no-peeking: 1,000 discovery observations followed
+  // by 300 strictly later holdout observations. Neither cohort grows after
+  // its cap. A holdout can only begin after the discovery outcome settles.
+  if(next.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES&&
+     next.holdoutObservations>=GOLDEN_RULE_HOLDOUT_SAMPLES){
    bots[bot.id]={...next,pending:null};
    continue;
   }
   if(!next.pending&&history.length>=bot.minTicks&&
-    tick.epoch-next.lastEntryEpoch>=GOLDEN_PAPER_MIN_SPACING_SECONDS){
+    tick.epoch-next.lastEntryEpoch>=GOLDEN_PAPER_MIN_SPACING_SECONDS&&
+    (next.observations<GOLDEN_RULE_MIN_FORWARD_SAMPLES||
+     tick.epoch>next.lastScoredEpoch)){
    const signal=predictFifteenBot(bot,history);
    if(signal){
     const expiryEpoch=tick.epoch+
      (bot.category==="Direction"?
       GOLDEN_PAPER_DIRECTIONAL_SECONDS:goldenExpectedTickSeconds(tick.symbol));
     next={...next,lastEntryEpoch:tick.epoch,
+     holdoutFirstEntryEpoch:
+      next.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES&&
+      next.holdoutFirstEntryEpoch===0?tick.epoch:next.holdoutFirstEntryEpoch,
      pending:{signal,startEpoch:tick.epoch,expiryEpoch}};
    }
   }
