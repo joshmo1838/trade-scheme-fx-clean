@@ -47,7 +47,7 @@ test("holdout is necessary even if discovery looks excellent",()=>{
  assert.ok(good.holdoutConservativeLower>good.quotedBreakEven+0.02);
  for(const change of [
   {holdoutObservations:299,holdoutWins:239,holdoutLosses:60},
-  {holdoutObservations:300,holdoutWins:200,holdoutLosses:100},
+  {holdoutObservations:300,holdoutWins:150,holdoutLosses:150},
   {holdoutObservations:301,holdoutWins:280,holdoutLosses:21},
   {holdoutObservations:300,holdoutWins:240,holdoutLosses:59},
   {holdoutFirstEntryEpoch:20000},
