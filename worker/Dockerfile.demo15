@@ -12,6 +12,7 @@ COPY lib/bots/fifteen-paper-bots.ts ./lib/bots/fifteen-paper-bots.ts
 COPY lib/bots/digit-matrix.ts ./lib/bots/digit-matrix.ts
 COPY lib/deriv/demo-bot-contracts.mjs ./lib/deriv/demo-bot-contracts.mjs
 COPY lib/deriv/demo-15bot-worker-safety.mjs ./lib/deriv/demo-15bot-worker-safety.mjs
+COPY lib/deriv/demo-ten-x-profit-gate.mjs ./lib/deriv/demo-ten-x-profit-gate.mjs
 USER node
 WORKDIR /opt/senfx/worker
 CMD ["node", "--experimental-strip-types", "senfx-deriv-demo-15bot-worker.mjs"]
