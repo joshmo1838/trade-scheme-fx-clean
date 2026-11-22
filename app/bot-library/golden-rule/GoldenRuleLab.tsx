@@ -241,7 +241,7 @@ export default function GoldenRuleLab(){
   });
   return {bot,record,verdict,q};
  });
- const total=rows.reduce((n,x)=>n+x.record.observations,0);
+ const total=FIFTEEN_BOTS.reduce((n,x)=>n+view.bots[x.id].observations,0);
  const candidates=rows.filter(x=>x.verdict.researchCandidate).length;
  const freshQuotes=Number.isFinite(quoteAsOf)&&currentNow-quoteAsOf>=0&&
   currentNow-quoteAsOf<=15_000;
