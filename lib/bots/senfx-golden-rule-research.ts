@@ -15,7 +15,7 @@ import {
 import type {DigitSymbol,ObservedTick} from "./digit-matrix.ts";
 import {GOLDEN_RULE_MIN_FORWARD_SAMPLES} from "./senfx-golden-rule.mjs";
 
-export const GOLDEN_PAPER_MAX_HISTORY=160;
+export const GOLDEN_PAPER_MAX_HISTORY=300;
 export const GOLDEN_PAPER_STALE_MS=10_000;
 export const GOLDEN_PAPER_MIN_SPACING_SECONDS=10;
 export const GOLDEN_PAPER_DIRECTIONAL_SECONDS=300;
