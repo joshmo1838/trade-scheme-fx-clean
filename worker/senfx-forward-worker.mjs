@@ -111,6 +111,21 @@ let diagnosticsTimer;
 let receivedTickCount = 0;
 let lastTickEpoch = 0;
 
+// A completed forward-only paper study must release all timers as well as the
+// feed; otherwise Railway stays online, publishing stale tick diagnostics and
+// heartbeat writes long after the final result has been persisted.
+function stopCompletedStudy() {
+  if (stopped) return;
+  stopped = true;
+  clearInterval(heartbeatTimer);
+  clearInterval(diagnosticsTimer);
+  clearInterval(derivPingTimer);
+  clearTimeout(reconnectTimer);
+  clearTimeout(connectionStableTimer);
+  socket?.close();
+  console.log("200-trade paper study completed; feed and background timers stopped.");
+}
+
 async function saveState() {
   const rows = await db(`senfx_forward_runs?run_id=eq.${encodeURIComponent(RUN_ID)}`, {
     method: "PATCH",
@@ -179,9 +194,7 @@ async function handleCompletedBar(bar) {
       await persistTrade(trade).then(() => saveState()).then(() => {
         console.log(`Trade ${state.completedTrades}/${TARGET_TRADES}: ${trade.outcome} ${trade.side}`);
         if (state.completedTrades >= TARGET_TRADES) {
-          console.log("200-trade forward paper test completed. Disconnecting feed.");
-          stopped = true;
-          socket?.close();
+          stopCompletedStudy();
         }
       }).catch((error) => console.error("Trade persistence failed:", error));
       return;
