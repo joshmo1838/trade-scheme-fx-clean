@@ -39,13 +39,7 @@ on:
       - 'app/bot-library/golden-rule/page.tsx'
       - 'app/bot-library/golden-rule/GoldenRuleLab.tsx'
       - 'tests/senfx-golden-rule-research.test.mjs'
-      - 'tests/senfx-golden-15m-infra.test.mjs'
-      - 'tests/senfx-golden-rule-15m-postgres.sql'
-      - 'supabase/senfx-golden-rule-15m-paper-only.sql'
-      - 'worker/senfx-golden-rule-15m-worker.mjs'
-      - 'worker/golden-rule/package.json'
-      - 'worker/Dockerfile.golden15m'
-      - 'app/api/deriv/demo/bots/golden-progress/route.ts'
+      - 'tests/senfx-golden-rule-1000-rollback.test.mjs'
       - 'app/api/deriv/demo/bots/payout-preview/route.ts'
       - 'app/bot-library/FifteenDemoPayoutComparison.tsx'
       - 'app/bot-library/fifteen.module.css'
@@ -67,15 +61,7 @@ jobs:
       - name: Run broker safety gate tests (offline, no credentials)
         run: node --test tests/demo-auto-feed-policy.test.mjs tests/demo-auto-ui.test.mjs tests/demo-ai-signal.test.mjs tests/deriv-demo-execution-gate.test.mjs tests/deriv-demo-account-allowlist.test.mjs tests/deriv-demo-variable-stake-source.test.mjs tests/deriv-demo-reservation-source.test.mjs tests/deriv-demo-readiness-source.test.mjs tests/senfx-demo-individual-broker-ui.test.mjs tests/senfx-demo-start-ui-recovery.test.mjs tests/senfx-demo-dashboard-status-ux.test.mjs tests/senfx-demo-payout-comparison.test.mjs
       - name: Golden Rule forward-only statistical and no-broker-orders research gate
-        run: node --experimental-strip-types --test tests/senfx-golden-rule-research.test.mjs tests/senfx-golden-15m-infra.test.mjs
-      - name: Build separate Golden Rule research image with trading OFF
-        run: docker build --file worker/Dockerfile.golden15m --tag senfx-golden-15m-disabled .
-      - name: Prove exact research image exits safely by default (zero broker calls)
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm senfx-golden-15m-disabled > /tmp/senfx-golden-off.log
-          grep -F 'Disabled by default; no market socket, DB access or orders.' /tmp/senfx-golden-off.log
+        run: node --experimental-strip-types --test tests/senfx-golden-rule-research.test.mjs tests/senfx-golden-rule-1000-rollback.test.mjs
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
@@ -148,5 +134,3 @@ jobs:
       - name: Test disposable legacy backup, restore, $1 schema migration and rollback
         shell: bash
         run: bash tests/deriv-demo-legacy-backup-restore-qa.sh
-      - name: Test 15M paper-only lease, monotonic checkpoint and role isolation
-        run: psql -X -v ON_ERROR_STOP=1 -f tests/senfx-golden-rule-15m-postgres.sql
