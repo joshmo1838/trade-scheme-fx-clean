@@ -61,6 +61,8 @@ jobs:
         run: bash -n scripts/senfx-backup-production.sh
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
+      - name: Verify completed R100 study releases timers after persistence
+        run: node --test tests/forward-worker-completed-stop.test.mjs
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application
