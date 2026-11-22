@@ -11,6 +11,6 @@ export function parsePublicDerivTick(raw: unknown, symbol: string, nowMs: number
   if (data.symbol !== symbol || typeof data.epoch !== "number" || typeof data.quote !== "number" ||
       !Number.isSafeInteger(data.epoch) || data.epoch <= 0 || !Number.isFinite(data.quote) || data.quote <= 0) return { ok: false, reason: "invalid-symbol-or-quote" };
   const epochMs = data.epoch * 1000;
-  if (!Number.isFinite(epochMs) || epochMs > nowMs + 1000 || nowMs - epochMs > 5000) return { ok: false, reason: "stale-or-future-tick" };
+  if (!Number.isSafeInteger(epochMs) || epochMs > nowMs + 1000 || nowMs - epochMs > 5000) return { ok: false, reason: "stale-or-future-tick" };
   return { ok: true, tick: { id: symbol + ":" + String(data.epoch) + ":" + String(data.quote), epochMs, quote: data.quote } };
 }
