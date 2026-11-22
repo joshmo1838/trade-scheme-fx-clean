@@ -42,7 +42,9 @@ const WORKER="senfxdemo_"+randomUUID().replaceAll("-","");
 const MAX_HISTORY=160;
 const FRESH_MS=10_000;
 const RUN_POLL_MS=4_000;
-const MIN_DEMO_BUY_COOLDOWN_MS=10_000;
+// This is the minimum interval between broker attempts, not a target speed.
+// A verified settlement, user authorization, and the DB atomic lock still gate every buy.
+const MIN_DEMO_BUY_COOLDOWN_MS=5_000;
 const SETTLEMENT_TIMEOUT_MS=8*60_000;
 const MAX_WAIT_FOR_MARKET_MS=35_000;
 const MARKETS_NEEDED=new Set(FIFTEEN_BOTS.map(x=>x.market));
@@ -444,8 +446,8 @@ function startPublicFeed(){
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
   // A single outstanding contract is mandatory; cool down for the verified
-  // server-stored duration (never less than ten seconds).
-  const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
+  // server-stored duration (never less than five seconds).
+  const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||10)*1000);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
      now-lastBuyAt<cooldownMs||now-lastCandidateAt<cooldownMs)return;
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
