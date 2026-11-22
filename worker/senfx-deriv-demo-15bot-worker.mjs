@@ -80,6 +80,12 @@ function stopFeed(){
  if(old){old.onopen=null;old.onmessage=null;old.onerror=null;old.onclose=null;
   try{old.close();}catch{}}
  histories.clear();previousEpoch.clear();
+ // Reconnecting invalidates the recovery sample and its confirmations:
+ // pre-disconnect observations cannot make a new entry look clean.
+ if(recoveryState?.armed){
+  recoveryState={...recoveryState,postLossTicks:0,confirmations:0,
+   lastConfirmationEpoch:0,lastSignal:null};
+ }
 }
 async function stopOwnedRun(reason){
  if(finishing)return;
