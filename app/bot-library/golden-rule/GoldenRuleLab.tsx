@@ -235,6 +235,8 @@ export default function GoldenRuleLab(){
    <p className={styles.finePrint}>Research accumulates only while this tab remains
     open and resets after reload. After a feed disconnect, unresolved samples
     are discarded; older completed prospective observations remain counted.
+    Each bot's first 1,000 settled forward observations form ONE fixed-size
+    research experiment; results freeze at 1,000 to avoid optional peeking.
     Short tests are not evidence of profitability.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
