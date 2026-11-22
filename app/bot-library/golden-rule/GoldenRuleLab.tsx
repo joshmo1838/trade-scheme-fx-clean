@@ -8,10 +8,11 @@ import {
  goldenCandidateSignal,type GoldenPaperState
 } from "@/lib/bots/senfx-golden-rule-research";
 import {
- evaluateGoldenRule,GOLDEN_RULE_MIN_FORWARD_SAMPLES,
+ GOLDEN_RULE_MIN_FORWARD_SAMPLES,GOLDEN_RULE_HOLDOUT_SAMPLES,
  GOLDEN_RULE_MAX_DEMO_BALANCE_RISK
 } from "@/lib/bots/senfx-golden-rule.mjs";
 import {deriveDemoProposal} from "@/lib/deriv/demo-bot-contracts.mjs";
+import {evaluateIndependentGoldenRule} from "@/lib/bots/senfx-golden-out-of-sample.mjs";
 import {
  buildGoldenBotTickDeliveries,GOLDEN_TICK_MONITOR_WINDOW,
  GOLDEN_TICK_MONITOR_DELIVERY_MS,type GoldenBotTickDelivery
@@ -22,6 +23,7 @@ const PUBLIC_WS="wss://api.derivws.com/trading/v1/options/ws/public";
 type Balance={ok:boolean;mode?:string;balance?:number;asOf?:string;accountLabel?:string;code?:string};
 type BrokerQuote={
  botId:string;symbol:string;contractType:string;barrier:string|null;
+ duration:number;durationUnit:string;
  stake:number;askPrice:number;payout:number;netWinProfit:number;
  returnOnStakePercent:number;breakEvenWinRatePercent:number
 };
@@ -206,17 +208,27 @@ export default function GoldenRuleLab(){
    q.symbol===expected.underlying_symbol&&
    q.contractType===expected.contract_type&&
    q.barrier===(expected.barrier===undefined?null:String(expected.barrier))&&
+   q.duration===expected.duration&&q.durationUnit===expected.duration_unit&&
    q.stake===amount;
   const feedFresh=connected&&
    currentNow-(lastTickAt.current.get(bot.market)||0)<=10_000;
-  const verdict=evaluateGoldenRule({
-   observations:record.observations,wins:record.wins,
-   quote:q?{askPrice:q.askPrice,payout:q.payout}:null,
-   quoteAsOfMs:quoteAsOf,nowMs:currentNow,
-   demoBalance:balance?.ok?balance.balance:undefined,
-   demoBalanceAsOfMs:balanceAsOf,stake:amount,
-   termsMatch,brokerAligned:bot.category!=="Direction",
-   feedFresh
+  const verdict=evaluateIndependentGoldenRule({
+   discovery:{
+    observations:record.observations,wins:record.wins,
+    quote:q?{askPrice:q.askPrice,payout:q.payout}:null,
+    quoteAsOfMs:quoteAsOf,nowMs:currentNow,
+    demoBalance:balance?.ok?balance.balance:undefined,
+    demoBalanceAsOfMs:balanceAsOf,stake:amount,
+    termsMatch,
+    // Next observed public tick is NOT proven to be an executable,
+    // broker-settled contract after purchase latency. All bots fail
+    // this execution-alignment gate until independent verification.
+    brokerAligned:false,feedFresh
+   },
+   holdoutObservations:record.holdoutObservations,
+   holdoutWins:record.holdoutWins,holdoutLosses:record.holdoutLosses,
+   holdoutFirstEntryEpoch:record.holdoutFirstEntryEpoch,
+   discoveryLastScoredEpoch:record.lastScoredEpoch
   });
   return {bot,record,verdict,q};
  });
@@ -240,11 +252,12 @@ export default function GoldenRuleLab(){
     It never starts, stops, changes or buys a Deriv contract. All results are
     hypothetical next-tick or five-minute public-market observations—not broker profit.</p>
    <p className={styles.warning}>No strategy is guaranteed profitable. For every bot we
-    require 1,000 prospective samples, a conservative multiple-test-adjusted winning-rate
-    bound exceeding the current broker break-even rate by 2 percentage points,
-    and a stake no greater than 0.5% of verified virtual Demo balance.
-    Directional five-minute observations are exploratory and cannot qualify as
-    broker-aligned evidence yet.</p>
+    require 1,000 prospective discovery samples, 300 additional forward-only
+    holdout samples, an independent conservative win-rate lower bound exceeding
+    the matching broker break-even rate by 2 percentage points and a stake no
+    greater than 0.5% of verified virtual Demo balance.
+    Public-tick outcomes do not establish broker execution or settlement
+    alignment, including one-tick digit and five-minute direction studies.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
    <h2>Live forward research · all 15 bots</h2>
@@ -259,8 +272,10 @@ export default function GoldenRuleLab(){
     After a feed disconnect, unfinished observations are discarded while
     previously completed observations in this session remain counted.
     Each bot's first 1,000 settled forward observations form one fixed-size
-    paper experiment; results freeze at 1,000 to avoid optional peeking.
-    Short tests are not evidence of profitability.</p>
+    discovery experiment; results freeze at 1,000 to avoid optional peeking.
+    A separate predeclared 300-observation holdout then collects new future
+    outcomes without changing that discovery experiment. Short tests are not
+    evidence of profitability.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
    <h2>300 live ticks · 30-second delivery to all 15 research bots</h2>
@@ -324,40 +339,54 @@ export default function GoldenRuleLab(){
     "No fresh quote available. Broker break-even and EV tests remain blocked."}</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
-   <h2>Golden Rule evidence board · 15 original bots</h2>
-   <p>All entries start BLOCKED. A high hypothetical hit rate alone never
-    authorizes a trade, and multiple-testing can make apparent winning streaks misleading.</p>
+   <h2>Golden Rule independent validation and payout-quality board</h2>
+   <p>All entries start BLOCKED. The fixed 1,000-observation discovery sample is
+    followed by 300 new, independently evaluated prospective outcomes.
+    Read-only Deriv Demo payout quotes are compared against a conservative
+    holdout break-even threshold; even a passing paper result never buys a trade.</p>
    <div className={styles.scrollTable}>
     <table>
      <thead><tr>
-      <th>Existing SENFX bot</th><th>Forward samples</th><th>Observed hits</th>
-      <th>Conservative lower win rate</th><th>Current broker break-even</th>
-      <th>Conservative net EV / stake</th><th>Paper research verdict</th>
+      <th>Existing SENFX bot</th><th>Discovery (frozen)</th><th>Independent holdout</th>
+      <th>Holdout lower rate</th><th>Demo payout: win / full loss</th>
+      <th>Quote break-even</th><th>Conservative holdout EV / stake</th>
+      <th>Research status</th>
      </tr></thead>
      <tbody>{rows.map(({bot,record,verdict})=><tr key={bot.id}>
       <td>{bot.name}<div><small>{bot.market} · {bot.category==="Direction"?
        "Five-minute observational only":"One-tick digit study"}</small></div></td>
       <td>{record.observations.toLocaleString()}/{GOLDEN_RULE_MIN_FORWARD_SAMPLES.toLocaleString()}
-       <div><small>{record.voids} voided / missed</small></div></td>
-      <td>{record.wins.toLocaleString()} / {record.losses.toLocaleString()}
-       <div><small>{pct(verdict.empiricalHitRate)}</small></div></td>
-      <td>{pct(verdict.conservativeLower)}</td>
-      <td>{pct(verdict.brokerBreakEven)}</td>
-      <td>{verdict.conservativeNetEdgePerStake===null?"—":
-       (verdict.conservativeNetEdgePerStake>=0?"+":"")+
-       (verdict.conservativeNetEdgePerStake*100).toFixed(2)+"%"}</td>
+       <div><small>{record.wins} hit · {record.losses} missed</small></div></td>
+      <td>{record.holdoutObservations.toLocaleString()}/{GOLDEN_RULE_HOLDOUT_SAMPLES}
+       <div><small>{record.holdoutWins} hit · {record.holdoutLosses} missed</small></div></td>
+      <td>{pct(verdict.holdoutConservativeLower)}</td>
+      <td>{verdict.quotedNetWin===null?"—":
+       money(verdict.quotedNetWin)+" / "+money(verdict.quotedFullStakeLoss??0)}
+       <div><small>Illustrative payout; losing stake is at risk</small></div></td>
+      <td>{pct(verdict.quotedBreakEven)}</td>
+      <td>{verdict.holdoutConservativeNetEdgePerStake===null?"—":
+       (verdict.holdoutConservativeNetEdgePerStake>=0?"+":"")+
+       (verdict.holdoutConservativeNetEdgePerStake*100).toFixed(2)+"%"}</td>
       <td><strong className={verdict.researchCandidate?styles.ok:styles.blocked}>
-       {verdict.researchCandidate?"RESEARCH CANDIDATE":"BLOCKED"}</strong>
-       <div><small>{verdict.blocked[0]||"Paper-only; no broker buy permission"}</small></div>
+       {verdict.researchCandidate?"RESEARCH ONLY":"BLOCKED"}</strong>
+       <div><small>{record.observations<GOLDEN_RULE_MIN_FORWARD_SAMPLES?
+        "Collecting first 1,000 future observations":
+        record.holdoutObservations<GOLDEN_RULE_HOLDOUT_SAMPLES?
+        "Collecting independent 300-result holdout":
+        verdict.blocked[0]||"No broker buy permission"}</small></div>
       </td>
      </tr>)}</tbody>
     </table>
    </div>
-   <p className={styles.finePrint}>One-sided Wilson lower bounds use a Bonferroni
-    correction for 15 simultaneous strategy checks; nominal family-wise 95% confidence
-    under the method's assumptions. These observations are not independent guaranteed
-    broker settlements. Five-minute directional proxies are explicitly blocked
-    from an execution-eligibility conclusion. All research stays on this page.</p>
+   <p className={styles.finePrint}>Discovery and holdout use distinct, non-overlapping
+    prospective outcome cohorts. The one-sided Wilson bound is adjusted for
+    15 simultaneous strategy comparisons. A quote must match symbol, contract
+    type, barrier, duration and stake; expire after 15 seconds; and imply
+    positive conservative holdout value after accounting for full-stake loss.
+    Statistical assumptions may not hold for correlated observations.
+    Public-tick research is not broker-settlement evidence, so broker
+    execution alignment remains unverified and every execution gate stays
+    BLOCKED. Results reset when the browser page reloads.</p>
   </section>
   <footer className={styles.footer}>
    SENFX Golden Rule is observation-only. No new signals, payout overrides,
