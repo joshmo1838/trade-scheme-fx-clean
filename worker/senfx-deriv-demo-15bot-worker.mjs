@@ -12,6 +12,9 @@ import {FIFTEEN_BOTS,predictFifteenBot} from "../lib/bots/fifteen-paper-bots.ts"
 import {DIGIT_MARKETS,parsePublicDigitTick} from "../lib/bots/digit-matrix.ts";
 import {deriveDemoProposal} from "../lib/deriv/demo-bot-contracts.mjs";
 import {
+ newRecoveryState,settleRecovery,recordFreshRecoveryTick,recoveryReady,tenXChecks
+} from "../lib/deriv/demo-ten-x-profit-gate.mjs";
+import {
  isVerifiedDemoAccount,isFreshPublicTick,validBrokerProposal,
  verifiedBuyResponse,verifiedFinalContract,safeToPurchase,
 } from "../lib/deriv/demo-15bot-worker-safety.mjs";
@@ -65,6 +68,9 @@ let lastBuyAt=0;
 let lastCandidateAt=0;
 let roundRobin=0;
 let interval=null;
+// Loss recovery is session-local, never a Martingale or stake progression.
+let recoveryState=newRecoveryState();
+let recoveryBotId=null;
 
 function safeLog(label,extra=""){
  console.log("[senfx-demo-15] "+label+(extra?" · "+String(extra).slice(0,110):""));
@@ -74,6 +80,12 @@ function stopFeed(){
  if(old){old.onopen=null;old.onmessage=null;old.onerror=null;old.onclose=null;
   try{old.close();}catch{}}
  histories.clear();previousEpoch.clear();
+ // Reconnecting invalidates the recovery sample and its confirmations:
+ // pre-disconnect observations cannot make a new entry look clean.
+ if(recoveryState?.armed){
+  recoveryState={...recoveryState,postLossTicks:0,confirmations:0,
+   lastConfirmationEpoch:0,lastSignal:null};
+ }
 }
 async function stopOwnedRun(reason){
  if(finishing)return;
@@ -210,6 +222,7 @@ function clearIdleSession(reason){
  stopFeed();
  activeVersion=null;controlRow=null;
  lastTickReceived=0;lastBuyAt=0;lastCandidateAt=0;
+ recoveryState=newRecoveryState();recoveryBotId=null;
  feedStartedAt=0;feedEstablishedAt=0;feedReconnectAttempts=0;feedReconnectAt=0;
  safeLog("Owner-controlled Demo worker idle",reason);
 }
@@ -257,7 +270,7 @@ async function reconcilePurchased(session,orderId,purchase,proposal,stake,versio
    });
    if(result?.settled!==true)throw Error("Broker settled but database reconciliation refused; manual review required.");
    safeLog("Deriv virtual Demo settlement recorded",final.finalStatus);
-   return;
+   return final;
   }
   if(contract?.is_sold)throw Error("Final broker contract failed validation; risk held for review.");
   await new Promise(resolve=>setTimeout(resolve,3000));
@@ -293,6 +306,27 @@ async function executeSignal(bot,signal){
   const quoteReceivedAt=Date.now();
   const quote=response?.proposal;
   if(!validBrokerProposal(quote,stake))throw Error("Broker Demo proposal failed price/identity verification.");
+  // 10 independent fail-closed pre-buy checks. This is NOT proof of a win.
+  // Re-evaluate only the ORIGINAL bot's signal with the latest verified ticks.
+  const recentHistory=histories.get(bot.market)||[];
+  const stillEligible=predictFifteenBot(bot,recentHistory);
+  if(!stillEligible||stillEligible.prediction!==signal.prediction||
+    (stillEligible.barrier??null)!==(signal.barrier??null)){
+   safeLog("10X: signal changed before broker quote was ready; skipped",bot.id);
+   return;
+  }
+  const outstanding=await getUnresolvedOrderCount();
+  const checks=tenXChecks({
+   account,flags:{authorized:ACTIVE,realMoneyDisabled:account.account_type==="demo"},
+   control:controlRow,leaseOwned:await verifyControl(version),stake,bot,
+   signal:stillEligible,marketHistory:recentHistory,now:Date.now(),
+   quote,proposal:selected,recovery:recoveryState,
+   unresolvedCount:outstanding,previousBuyAt:lastBuyAt
+  });
+  if(!checks.passed){
+   safeLog("10X: skipped broker order",checks.failed.join(","));
+   return;
+  }
   if(finishing||!feedReady||!feed||!await verifyLease(version))
    throw Error("Stop, public-feed loss or lease change before reservation.");
   const {data:created,error:createError}=await db.from("senfx_demo_bot_orders")
@@ -354,7 +388,18 @@ async function executeSignal(bot,signal){
    .select("id").maybeSingle();
   if(openError||!opened)throw Error("Broker buy confirmed but order ledger update failed; reconcile, no retry.");
   safeLog("One genuine Deriv virtual Demo contract opened",bot.id);
-  await reconcilePurchased(session,orderId,purchase,selected,stake,version);
+  const final=await reconcilePurchased(session,orderId,purchase,selected,stake,version);
+  recoveryState=settleRecovery(recoveryState,{
+   finalStatus:final.finalStatus,profit:final.profit,settledAt:Date.now()
+  });
+  if(final.finalStatus==="lost"){
+   recoveryBotId=bot.id;
+   safeLog("10X loss recovery armed: 120s, 64 NEW market ticks, 3 signal checks",bot.id);
+  }else if(final.finalStatus==="won")recoveryBotId=null;
+  if(recoveryState.hardStop||recoveryState.netProfit<=-2*stake){
+   await finishSelectedRun("10X protective stop: repeated or excessive Demo losses. Manual review required.");
+   return;
+  }
   if(controlRow?.selected_bot_id&&
      await getAttemptedCount(version)>=Number(controlRow.target_trades)){
    await finishSelectedRun("Selected bot reached its settled-trade target.");
@@ -443,6 +488,15 @@ function startPublicFeed(){
   lastTickReceived=now;
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
+  if(recoveryState.armed){
+   const recoveryBot=FIFTEEN_BOTS.find(b=>b.id===recoveryBotId);
+   if(recoveryBot?.market===tick.symbol&&hist.length>=recoveryBot.minTicks){
+    recoveryState=recordFreshRecoveryTick(
+     recoveryState,tick,predictFifteenBot(recoveryBot,hist),now
+    );
+   }
+   if(!recoveryReady(recoveryState,now))return;
+  }
   // A single outstanding contract is mandatory; cool down for the verified
   // server-stored duration (never less than ten seconds).
   const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
