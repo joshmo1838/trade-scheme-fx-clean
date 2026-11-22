@@ -1,0 +1,31 @@
+name: SENFX public Deriv payout scan (read only)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/senfx-public-deriv-payout-scan.yml'
+      - 'scripts/senfx-public-deriv-payout-scan.mjs'
+      - 'lib/deriv/demo-bot-contracts.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check unauthenticated, read-only quote scanner
+        run: node --check scripts/senfx-public-deriv-payout-scan.mjs
+      - name: Fetch $500 public Deriv proposals for unchanged 15 bot mappings (no orders)
+        run: node scripts/senfx-public-deriv-payout-scan.mjs
+      - name: Preserve report even when broker is unreachable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: senfx-public-deriv-payout-audit
+          path: out/senfx-public-deriv-payouts.*
+          if-no-files-found: warn
+          retention-days: 3
