@@ -217,7 +217,7 @@ export default function GoldenRuleLab(){
     It never starts, stops, changes or buys a Deriv contract. All results are
     hypothetical next-tick or five-minute public-market observations—not broker profit.</p>
    <p className={styles.warning}>No strategy is guaranteed profitable. For every bot we
-    require 10,000 prospective samples, a conservative multiple-test-adjusted winning-rate
+    require 1,000,000 prospective samples, a conservative multiple-test-adjusted winning-rate
     bound exceeding the current broker break-even rate by 2 percentage points,
     and a stake no greater than 0.5% of verified virtual Demo balance.
     Directional five-minute observations are exploratory and cannot qualify as
@@ -228,15 +228,16 @@ export default function GoldenRuleLab(){
    <p role="status">{marketState}</p>
    <div className={styles.resultGrid}>
     <div><small>CONNECTED MARKETS</small><b>{connected?liveMarkets:0}/10</b></div>
-    <div><small>PROSPECTIVE OBSERVATIONS</small><b>{total}</b></div>
+    <div><small>PROSPECTIVE OBSERVATIONS / 15M TARGET</small><b>{total.toLocaleString()} / 15,000,000</b></div>
     <div><small>GOLDEN RULE PAPER CANDIDATES</small><b>{candidates}/15</b></div>
     <div><small>REAL DERIV ORDERS PLACED HERE</small><b>0</b></div>
    </div>
    <p className={styles.finePrint}>Research accumulates only while this tab remains
-    open and resets after reload. After a feed disconnect, unresolved samples
+    open and resets after reload. The one-million-per-bot target needs a future
+    persistent, always-on collector; this browser-only experiment is not durable. After a feed disconnect, unresolved samples
     are discarded; older completed prospective observations remain counted.
-    Each bot's first 10,000 settled forward observations form ONE fixed-size
-    research experiment; results freeze at 10,000 to avoid optional peeking.
+    Each bot's first 1,000,000 settled forward observations form ONE fixed-size
+    research experiment; results freeze at 1,000,000 to avoid optional peeking.
     Short tests are not evidence of profitability.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
