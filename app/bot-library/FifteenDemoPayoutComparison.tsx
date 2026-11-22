@@ -17,6 +17,16 @@ type QuoteResult={
 const money=(n:number)=>new Intl.NumberFormat("en-US",{
  style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2
 }).format(n);
+// Derived from the customer's example: $422.51 profit for a $500 winning stake.
+// This is only a reference payout, NEVER a forecast or an execution threshold.
+const exampleNetReturnPercent=422.51/500*100;
+const contractGroup=(type:string)=>{
+ if(type==="DIGITOVER"||type==="DIGITUNDER")return "Over / Under";
+ if(type==="DIGITEVEN"||type==="DIGITODD")return "Even / Odd";
+ if(type==="DIGITMATCH"||type==="DIGITDIFF")return "Matches / Differs";
+ if(type==="CALL"||type==="PUT")return "Rise / Fall";
+ return "Other";
+};
 const names=new Map<string,string>([
  ["digit-over-4","SENFX Digit Over"],["digit-under-5","SENFX Digit Under"],
  ["parity-even","SENFX Parity EVEN"],["parity-odd","SENFX Parity ODD"],
@@ -34,10 +44,15 @@ const names=new Map<string,string>([
 export default function FifteenDemoPayoutComparison({candidates}:{
  candidates:Candidate[];
 }){
- const [stake,setStake]=useState("25");
+ const [stake,setStake]=useState("500");
  const [pending,setPending]=useState(false);
  const [snapshot,setSnapshot]=useState<QuoteResult|null>(null);
  const [message,setMessage]=useState("Run an on-demand read-only comparison. No broker purchase will be made.");
+ const quoted=snapshot?.quotes||[];
+ const highestByFamily=[...new Set(quoted.map(row=>contractGroup(row.contractType)))]
+  .map(family=>({family,best:quoted.filter(row=>contractGroup(row.contractType)===family)
+   .reduce<QuoteRow|null>((best,row)=>!best||row.netWinProfit>best.netWinProfit?row:best,null)}))
+  .filter((row):row is {family:string;best:QuoteRow}=>row.best!==null);
  const stakeOk=/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$/.test(stake)&&
   Number.isFinite(Number(stake))&&Number(stake)>0&&
   Number.isSafeInteger(Math.round(Number(stake)*100));
@@ -67,9 +82,13 @@ export default function FifteenDemoPayoutComparison({candidates}:{
  return <section className={styles.panel} aria-label="Read-only Deriv payout comparison">
   <p className={styles.kicker}>READ-ONLY · EXISTING SENFX STRATEGIES UNCHANGED</p>
   <h2>Compare actual Deriv Demo payouts</h2>
-  <p>This compares the original broker contracts for currently eligible signals
-   across your 15 bots. The winning amount is <strong>not</strong> a prediction.
+  <p>Compare actual Deriv broker payouts for the original eligible signals across all
+   15 strategies, without replacing Over/Under, Matches/Differs or Rise/Fall
+   with Even/Odd. Broker quotes are the source of truth, not a promised profit.
    Higher payouts usually require lower win probabilities; we do not automatically switch contracts.</p>
+  <p className={styles.finePrint}>Your example: a $500 stake returned $422.51 net on a win
+   (84.50%). Use this as a comparison benchmark, not a guarantee.
+   A losing $500 contract can lose the full stake.</p>
   <div className={styles.inputs}>
    <label>Equal virtual Demo stake for comparison (USD)
     <input type="number" min="0.01" step="0.01" value={stake}
@@ -87,12 +106,24 @@ export default function FifteenDemoPayoutComparison({candidates}:{
   {snapshot?.ok&&<>
    <p><strong>{snapshot.quoted??0}/{snapshot.requested??0} broker quotes received</strong>
     {snapshot.asOf?" · "+new Date(snapshot.asOf).toLocaleTimeString():""}.
-    Highest return shown first; not a recommendation to buy.</p>
+    Ranked by winning payout only; NOT by expected profit, likelihood of winning, or a recommendation to buy.</p>
+   {highestByFamily.length>0&&<section aria-label="Highest quoted winning payout by existing contract family">
+    <h3>Highest verified winning payout in each existing contract family</h3>
+    <ul>{highestByFamily.map(({family,best})=><li key={family}>
+     <strong>{family}:</strong> {names.get(best.botId)||best.botId} ·
+     {money(best.netWinProfit)} net per winning {money(best.askPrice)} stake
+     ({best.returnOnStakePercent.toFixed(2)}%).
+    </li>)}</ul>
+    <p className={styles.finePrint}>Different bots have different signals, markets and win
+     conditions. The highest-paying contract in one family must not be copied
+     to another bot without validating and testing the changed strategy.</p>
+   </section>}
    {(snapshot.quotes||[]).length>0&&<div className={styles.scrollTable}>
     <table>
      <thead><tr><th>Existing SENFX bot</th><th>Contract / market</th>
       <th>Stake</th><th>Winning payout</th><th>Net win</th>
-      <th>Return on stake</th><th>Break-even wins</th></tr></thead>
+      <th>Return on stake</th><th>Break-even wins</th>
+      <th>Vs. example payout</th></tr></thead>
      <tbody>{(snapshot.quotes||[]).map(x=><tr key={x.botId}>
       <td>{names.get(x.botId)||x.botId}</td>
       <td>{x.contractType}{x.barrier!==null?" "+x.barrier:""} · {x.symbol}</td>
@@ -101,6 +132,7 @@ export default function FifteenDemoPayoutComparison({candidates}:{
       <td>{money(x.netWinProfit)}</td>
       <td>{x.returnOnStakePercent.toFixed(2)}%</td>
       <td>{x.breakEvenWinRatePercent.toFixed(2)}%</td>
+      <td>{x.returnOnStakePercent>=exampleNetReturnPercent?"Meets or exceeds":"Below"} 84.50%</td>
      </tr>)}</tbody>
     </table>
    </div>}
@@ -108,6 +140,10 @@ export default function FifteenDemoPayoutComparison({candidates}:{
     {snapshot.skipped.length} proposals were not available from the broker.
     No assumed payouts were substituted.</p>}
   </>}
+  <p className={styles.finePrint}>These are informational payout comparisons. No original
+   bot strategy, contract duration, market, barrier, broker purchase setting,
+   or active Demo run is altered by this scan. A top quoted payout does not
+   prove positive expected value.</p>
   <p className={styles.finePrint}>Break-even win rate = contract purchase price ÷
    total winning payout. This is not a forecast of the bot's actual win rate.
    Quotes use the selected Deriv virtual USD Demo account and do not buy,
