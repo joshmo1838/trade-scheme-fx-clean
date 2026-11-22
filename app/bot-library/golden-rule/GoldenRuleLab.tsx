@@ -23,6 +23,10 @@ type BrokerQuote={
 };
 type QuoteSnapshot={ok:boolean;code?:string;asOf?:string;quotes?:BrokerQuote[];
  skipped?:{botId:string;code:string}[];brokerOrdersPlaced?:number};
+type DurableProgress={ok:boolean;collectorRunning?:boolean;observationsTotal?:number;
+ targetPerBot?:number;targetTotal?:number;code?:string;
+ samples?:Array<{botId:string;observations:number;wins:number;losses:number;
+  voids:number;updatedAt:string}>};
 const pct=(p:number|null)=>
  p===null?"—":(p*100).toFixed(2)+"%";
 const money=(n:number)=>new Intl.NumberFormat("en-US",{
@@ -44,6 +48,8 @@ export default function GoldenRuleLab(){
  const [quoting,setQuoting]=useState(false);
  const [quotes,setQuotes]=useState<QuoteSnapshot|null>(null);
  const [quoteMessage,setQuoteMessage]=useState("Quotes are read-only and expire in 15 seconds.");
+ const [durable,setDurable]=useState<DurableProgress|null>(null);
+ const [durableMessage,setDurableMessage]=useState("Checking durable 15M research status…");
  const amount=Number(stake);
  const stakeValid=/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(stake)&&
   Number.isFinite(amount)&&amount>0&&Number.isSafeInteger(Math.round(amount*100));
@@ -74,6 +80,34 @@ export default function GoldenRuleLab(){
   void loadBalance();
   const id=setInterval(()=>void loadBalance(),30_000);
   return()=>{mounted=false;clearInterval(id);};
+ },[]);
+ useEffect(()=>{
+  let mounted=true;
+  async function pollDurable(){
+   try{
+    const r=await fetch("/api/deriv/demo/bots/golden-progress",{
+     credentials:"same-origin",cache:"no-store"
+    });
+    const data:DurableProgress=await r.json();
+    if(!mounted)return;
+    if(r.ok&&data.ok){
+     setDurable(data);
+     setDurableMessage(data.collectorRunning?
+      "Server-side paper collector is reporting a live lease.":
+      "Persistent collector is not currently running. Stored counts are retained.");
+    }else{
+     setDurable(null);
+     setDurableMessage(data.code==="RESEARCH_STORAGE_NOT_CONFIGURED"?
+      "Durable research storage has not been activated; browser observations cannot count toward the 15M study.":
+      "Durable research progress unavailable: "+(data.code||"Unknown status"));
+    }
+   }catch{
+    if(mounted){setDurable(null);setDurableMessage("Research checkpoint status unavailable.");}
+   }
+  }
+  void pollDurable();
+  const interval=setInterval(()=>void pollDurable(),20_000);
+  return()=>{mounted=false;clearInterval(interval);};
  },[]);
  useEffect(()=>{
   let mounted=true,ws:WebSocket|null=null,retry:ReturnType<typeof setTimeout>|null=null;
@@ -178,7 +212,14 @@ export default function GoldenRuleLab(){
   finally{setQuoting(false);}
  }
  const rows=FIFTEEN_BOTS.map(bot=>{
-  const record=view.bots[bot.id],signal=goldenCandidateSignal(view,bot);
+  const localRecord=view.bots[bot.id];
+  const evidence=durable?.ok?durable.samples?.find(x=>x.botId===bot.id):undefined;
+  const record={
+   ...localRecord,observations:evidence?.observations??0,
+   wins:evidence?.wins??0,losses:evidence?.losses??0,
+   voids:evidence?.voids??0
+  };
+  const signal=goldenCandidateSignal(view,bot);
   const q=quotes?.quotes?.find(x=>x.botId===bot.id);
   const expected=signal&&stakeValid?
    deriveDemoProposal(bot.id,signal.prediction,signal.barrier,amount):null;
@@ -228,7 +269,7 @@ export default function GoldenRuleLab(){
    <p role="status">{marketState}</p>
    <div className={styles.resultGrid}>
     <div><small>CONNECTED MARKETS</small><b>{connected?liveMarkets:0}/10</b></div>
-    <div><small>PROSPECTIVE OBSERVATIONS / 15M TARGET</small><b>{total.toLocaleString()} / 15,000,000</b></div>
+    <div><small>LOCAL PREVIEW SAMPLES (NOT DURABLE)</small><b>{total.toLocaleString()}</b></div>
     <div><small>GOLDEN RULE PAPER CANDIDATES</small><b>{candidates}/15</b></div>
     <div><small>REAL DERIV ORDERS PLACED HERE</small><b>0</b></div>
    </div>
@@ -239,6 +280,23 @@ export default function GoldenRuleLab(){
     Each bot's first 1,000,000 settled forward observations form ONE fixed-size
     research experiment; results freeze at 1,000,000 to avoid optional peeking.
     Short tests are not evidence of profitability.</p>
+  </section>
+  <section className={styles.panel} style={{margin:"16px 0"}}>
+   <h2>15-million-observation durable study</h2>
+   <p role="status">{durableMessage}</p>
+   <div className={styles.resultGrid}>
+    <div><small>TARGET PER BOT</small><b>1,000,000</b></div>
+    <div><small>ALL 15 BOTS TARGET</small><b>15,000,000</b></div>
+    <div><small>SERVER-VERIFIED OBSERVATIONS</small>
+     <b>{(durable?.observationsTotal??0).toLocaleString()}</b></div>
+    <div><small>COLLECTOR STATUS</small>
+     <b>{durable?.collectorRunning?"LEASE ACTIVE":"NOT ACTIVE"}</b></div>
+   </div>
+   <p className={styles.finePrint}>Only server-persisted observations count toward
+    the 15M study and Golden Rule verdict. The standalone public-tick collector
+    requires a separate explicit deployment. This dashboard does not launch it.
+    Even a million observations may not establish positive expectancy. Five-minute
+    strategies take substantially longer than one-tick strategies.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
    <h2>Deriv virtual Demo broker pricing · read only</h2>
