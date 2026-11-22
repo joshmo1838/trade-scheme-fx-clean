@@ -99,7 +99,7 @@ export function applyGoldenPublicTick(
    }
   }
   // A fixed, predeclared sample size prevents repeated post-hoc peeking.
-  // Once a bot's first 10,000 prospective observations settle, freeze its
+  // Once a bot's first 1,000,000 prospective observations settle, freeze its
   // trial result rather than retesting an ever-changing winning streak.
   if(next.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES){
    bots[bot.id]={...next,pending:null};
