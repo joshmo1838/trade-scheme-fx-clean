@@ -72,6 +72,14 @@ jobs:
         run: node --check worker/senfx-deriv-demo-15bot-worker.mjs
       - name: Parse no-buy Deriv Demo readiness probe
         run: node --check worker/senfx-deriv-demo-15bot-readiness.mjs
+      - name: Build exactly the broker worker container used by Railway
+        run: docker build --file worker/Dockerfile.demo15 --tag senfx-10x-no-buy-smoke .
+      - name: Boot worker image without credentials or trading flags (must exit safely)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm senfx-10x-no-buy-smoke > /tmp/senfx-worker-off.log
+          grep -F '[senfx-demo-15] Disabled. No Deriv account connection or broker orders.' /tmp/senfx-worker-off.log
 
   isolated-postgres-reservation-qa:
     runs-on: ubuntu-latest
