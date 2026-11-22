@@ -5,10 +5,10 @@ const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const worker=read("worker/senfx-deriv-demo-15bot-worker.mjs");
 const migration=read("supabase/senfx-deriv-demo-10s-cooldown-20261121.sql");
 
-test("broker worker uses version-locked ten-second minimum cooldown from control row",()=>{
- assert.match(worker,/const MIN_DEMO_BUY_COOLDOWN_MS=10_000/);
+test("broker worker uses a version-locked 5s minimum cooldown from control row",()=>{
+ assert.match(worker,/const MIN_DEMO_BUY_COOLDOWN_MS=5_000/);
  assert.match(worker,/cooldown_seconds,mode,control_version/);
- assert.match(worker,/Math\.max\(MIN_DEMO_BUY_COOLDOWN_MS,Number\(controlRow\?\.cooldown_seconds\|\|30\)\*1000\)/);
+ assert.match(worker,/Math\.max\(MIN_DEMO_BUY_COOLDOWN_MS,Number\(controlRow\?\.cooldown_seconds\|\|10\)\*1000\)/);
  assert.match(worker,/now-lastBuyAt<cooldownMs\|\|now-lastCandidateAt<cooldownMs/);
  assert.doesNotMatch(worker,/now-lastBuyAt<30_000\|\|now-lastCandidateAt<30_000/);
 });
