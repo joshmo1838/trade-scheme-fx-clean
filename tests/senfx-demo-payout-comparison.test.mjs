@@ -48,3 +48,18 @@ test("all 15 original bot rules, markets, barrier types and broker execution rem
  assert.match(ui,/brokerOrdersPlaced/); // read-only response type
  assert.doesNotMatch(ui,/confirmVirtualDemoAutomation|\.request\("buy"|Start Selected Demo Bot/);
 });
+
+test("payout research defaults to the recorded $500 stake and reviews compatible families only",()=>{
+ assert.match(ui,/useState\("500"\)/);
+ assert.match(ui,/422\.51\/500\*100/);
+ assert.match(ui,/const contractGroup=\(type:string\)=>/);
+ assert.match(ui,/"Over \/ Under"/);
+ assert.match(ui,/"Even \/ Odd"/);
+ assert.match(ui,/"Matches \/ Differs"/);
+ assert.match(ui,/"Rise \/ Fall"/);
+ assert.match(ui,/highestByFamily/);
+ assert.match(ui,/ranked by winning payout only|Ranked by winning payout only/);
+ assert.match(ui,/do not automatically switch contracts/);
+ assert.match(ui,/No original[\s\S]+?bot strategy, contract duration/);
+ assert.doesNotMatch(ui,/\.request\("buy"|fetch\("\/api\/deriv\/demo\/orders"/);
+});
