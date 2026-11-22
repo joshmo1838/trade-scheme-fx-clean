@@ -128,3 +128,14 @@ test("worker runs the 10X gate before the broker reservation and irreversible on
  assert.match(worker,/No retry of buy under ANY failure/);
  assert.equal((worker.match(/session\.request\("buy"/g)||[]).length,1);
 });
+
+
+test("isolated Railway Docker image must include every new worker dependency and default to no trading",()=>{
+ const docker=readFileSync(new URL("../worker/Dockerfile.demo15",import.meta.url),"utf8");
+ assert.match(docker,/COPY lib\/deriv\/demo-ten-x-profit-gate\.mjs \.\/lib\/deriv\/demo-ten-x-profit-gate\.mjs/);
+ assert.match(docker,/COPY lib\/deriv\/demo-15bot-worker-safety\.mjs \.\/lib\/deriv\/demo-15bot-worker-safety\.mjs/);
+ assert.match(docker,/COPY worker\/senfx-deriv-demo-15bot-worker\.mjs \.\/worker\/senfx-deriv-demo-15bot-worker\.mjs/);
+ assert.match(docker,/USER node/);
+ assert.match(docker,/CMD \["node", "--experimental-strip-types", "senfx-deriv-demo-15bot-worker\.mjs"\]/);
+ assert.doesNotMatch(docker,/ENV SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED=true|ENV DERIV_DEMO_BROKER_BUY_ENABLED=true/);
+});
