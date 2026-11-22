@@ -13,6 +13,7 @@ import {
  type PaperSignal,type FifteenBot
 } from "./fifteen-paper-bots.ts";
 import type {DigitSymbol,ObservedTick} from "./digit-matrix.ts";
+import {GOLDEN_RULE_MIN_FORWARD_SAMPLES} from "./senfx-golden-rule.mjs";
 
 export const GOLDEN_PAPER_MAX_HISTORY=160;
 export const GOLDEN_PAPER_STALE_MS=10_000;
@@ -96,6 +97,13 @@ export function applyGoldenPublicTick(
    }else if(bot.category!=="Direction"&&tick.epoch>p.expiryEpoch){
     next={...next,pending:null,voids:next.voids+1};
    }
+  }
+  // A fixed, predeclared sample size prevents repeated post-hoc peeking.
+  // Once a bot's first 1,000 prospective observations settle, freeze its
+  // trial result rather than retesting an ever-changing winning streak.
+  if(next.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES){
+   bots[bot.id]={...next,pending:null};
+   continue;
   }
   if(!next.pending&&history.length>=bot.minTicks&&
     tick.epoch-next.lastEntryEpoch>=GOLDEN_PAPER_MIN_SPACING_SECONDS){
