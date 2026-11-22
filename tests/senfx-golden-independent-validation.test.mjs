@@ -129,7 +129,7 @@ test("screen is research only; broker does not receive new purchase permissions"
  assert.match(ui,/brokerAligned:false/);
  assert.match(ui,/q\.duration===expected\.duration/);
  assert.match(ui,/q\.durationUnit===expected\.duration_unit/);
- assert.match(route,/duration:proposal\.duration,durationUnit:proposal\.duration_unit/);
+ assert.match(route,/duration:Number\(proposal\.duration\),durationUnit:String\(proposal\.duration_unit\)/);
  assert.match(tracker,/holdoutFirstEntryEpoch/);
  assert.doesNotMatch(pure,/WebSocket|fetch\(|process\.env|request\(|buy:|\.insert\(/);
  for(const text of [ui,tracker,pure,route]){
