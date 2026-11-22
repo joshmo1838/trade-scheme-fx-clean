@@ -12,6 +12,10 @@ import {
  GOLDEN_RULE_MAX_DEMO_BALANCE_RISK
 } from "@/lib/bots/senfx-golden-rule.mjs";
 import {deriveDemoProposal} from "@/lib/deriv/demo-bot-contracts.mjs";
+import {
+ buildGoldenBotTickDeliveries,GOLDEN_TICK_MONITOR_WINDOW,
+ GOLDEN_TICK_MONITOR_DELIVERY_MS,type GoldenBotTickDelivery
+} from "@/lib/bots/senfx-golden-tick-monitor";
 import styles from "../fifteen.module.css";
 
 const PUBLIC_WS="wss://api.derivws.com/trading/v1/options/ws/public";
@@ -44,6 +48,8 @@ export default function GoldenRuleLab(){
  const [quoting,setQuoting]=useState(false);
  const [quotes,setQuotes]=useState<QuoteSnapshot|null>(null);
  const [quoteMessage,setQuoteMessage]=useState("Quotes are read-only and expire in 15 seconds.");
+ const [tickDeliveries,setTickDeliveries]=useState<GoldenBotTickDelivery[]>([]);
+ const [lastTickDispatchAt,setLastTickDispatchAt]=useState(0);
  const amount=Number(stake);
  const stakeValid=/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(stake)&&
   Number.isFinite(amount)&&amount>0&&Number.isSafeInteger(Math.round(amount*100));
@@ -148,6 +154,19 @@ export default function GoldenRuleLab(){
   };
  },[]);
 
+ // Deliver one validated, symbol-specific 300-tick analysis snapshot to each
+ // of the 15 original research analyzers every 30 seconds. No trade path.
+ useEffect(()=>{
+  const dispatch=()=>{
+   const at=Date.now();
+   setTickDeliveries(buildGoldenBotTickDeliveries(research.current,at,connected));
+   setLastTickDispatchAt(at);
+  };
+  dispatch();
+  const interval=setInterval(dispatch,GOLDEN_TICK_MONITOR_DELIVERY_MS);
+  return ()=>clearInterval(interval);
+ },[connected]);
+
  const candidateRequests=useMemo(()=>{
   if(!connected||!stakeValid)return[];
   return FIFTEEN_BOTS.flatMap(bot=>{
@@ -203,6 +222,9 @@ export default function GoldenRuleLab(){
  });
  const total=FIFTEEN_BOTS.reduce((n,x)=>n+view.bots[x.id].observations,0);
  const candidates=rows.filter(x=>x.verdict.researchCandidate).length;
+ const deliveredBots=connected?tickDeliveries.filter(x=>x.status==="DELIVERED").length:0;
+ const fullTickMarkets=DIGIT_MARKETS.filter(x=>
+  (view.history[x.symbol]?.length||0)===GOLDEN_TICK_MONITOR_WINDOW).length;
  const freshQuotes=Number.isFinite(quoteAsOf)&&currentNow-quoteAsOf>=0&&
   currentNow-quoteAsOf<=15_000;
  return <main className={styles.shell}><div className={styles.content}>
@@ -239,6 +261,41 @@ export default function GoldenRuleLab(){
     Each bot's first 1,000 settled forward observations form one fixed-size
     paper experiment; results freeze at 1,000 to avoid optional peeking.
     Short tests are not evidence of profitability.</p>
+  </section>
+  <section className={styles.panel} style={{margin:"16px 0"}}>
+   <h2>300 live ticks · 30-second delivery to all 15 research bots</h2>
+   <p>Each original bot receives a separate read-only analysis of the latest
+    300 contiguous public Deriv ticks for its own existing market every 30 seconds.
+    Shared markets are monitored once, not mixed or duplicated. A bot receives no
+    analysis if its window is incomplete, stale, disconnected or has missing ticks.</p>
+   <div className={styles.resultGrid}>
+    <div><small>MARKETS WITH 300-TICK WINDOWS</small><b>{fullTickMarkets}/10</b></div>
+    <div><small>BOTS ANALYZED IN LAST DISPATCH</small><b>{deliveredBots}/15</b></div>
+    <div><small>ANALYSIS INTERVAL</small><b>30 sec</b></div>
+    <div><small>LAST DISPATCH CHECK</small><b>{lastTickDispatchAt?time(lastTickDispatchAt):"—"}</b></div>
+   </div>
+   <div className={styles.scrollTable}>
+    <table>
+     <thead><tr><th>Existing bot</th><th>Market</th><th>Live tick window</th>
+      <th>Last 30s dispatch</th><th>Read-only analysis</th></tr></thead>
+     <tbody>{FIFTEEN_BOTS.map(bot=>{
+      const result=tickDeliveries.find(x=>x.botId===bot.id);
+      return <tr key={bot.id}>
+       <td>{bot.name}</td><td>{bot.market}</td>
+       <td>{view.history[bot.market]?.length||0}/{GOLDEN_TICK_MONITOR_WINDOW}</td>
+       <td>{!connected?"DISCONNECTED":result?.status||"WARMING"}</td>
+       <td>{connected&&result?.status==="DELIVERED"?
+        (result.analysis?result.analysis.prediction+" hypothesis":"No qualifying hypothesis"):
+        "Blocked until 300 fresh contiguous ticks"}</td>
+      </tr>;
+     })}</tbody>
+    </table>
+   </div>
+   <p className={styles.finePrint}>This browser-only monitor accumulates ticks while
+    the page is open. Reaching 300 ticks takes real market time; 30 seconds is
+    the delivery interval, not a claim of 300 new market ticks in that period.
+    Reloads clear the monitor. Snapshots never enter broker purchase workers.
+    The separate 1,000-per-bot forward-study requirement is unchanged.</p>
   </section>
   <section className={styles.panel} style={{margin:"16px 0"}}>
    <h2>Deriv virtual Demo broker pricing · read only</h2>
