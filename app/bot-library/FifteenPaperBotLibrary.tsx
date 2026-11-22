@@ -205,6 +205,18 @@ export default function FifteenPaperBotLibrary(){
     <Link href="/strategy-lab">Forward Test</Link></nav>
   </header>
   <FifteenDemoLiveAccountBar/>
+  <section className={styles.panel} style={{margin:"16px 0",borderColor:"#398577"}}>
+   <p className={styles.kicker}>NEW · SENFX GOLDEN RULE · PAPER RESEARCH ONLY</p>
+   <h2>Test profitability evidence across all 15 original bots</h2>
+   <p>Track forward-only market observations, inspect real Deriv Demo break-even
+    rates and apply the Golden Rule: no positive expected-value evidence,
+    no research candidate. This separate lab NEVER starts or buys trades.</p>
+   <Link href="/bot-library/golden-rule"
+    style={{display:"inline-block",padding:"12px 16px",borderRadius:9,
+     background:"#17645b",color:"#f0fff9",fontWeight:800,marginTop:8}}>
+    Open Golden Rule Research Lab
+   </Link>
+  </section>
   <section className={styles.hero}>
    <p className={styles.kicker}>SENFX · GENUINE DERIV BROKER · VIRTUAL DEMO ONLY</p>
    <h1>{BOT_COUNT} original SENFX <span>Deriv Demo bots</span></h1>
