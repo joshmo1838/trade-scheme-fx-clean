@@ -9,6 +9,7 @@ const noStore={"Cache-Control":"private, no-store, max-age=0"};
 type Candidate={botId:string;prediction:string;barrier?:number};
 type QuoteRow={
  botId:string;symbol:string;contractType:string;barrier:string|null;
+ duration:number;durationUnit:string;
  stake:number;askPrice:number;payout:number;netWinProfit:number;
  returnOnStakePercent:number;breakEvenWinRatePercent:number;
 };
@@ -82,6 +83,7 @@ export async function POST(request:NextRequest){
     botId:item.botId,symbol:String(proposal.underlying_symbol),
     contractType:String(proposal.contract_type),
     barrier:proposal.barrier===undefined?null:String(proposal.barrier),
+    duration:Number(proposal.duration),durationUnit:String(proposal.duration_unit),
     stake,askPrice:ask,payout,
     netWinProfit:Number((payout-ask).toFixed(2)),
     returnOnStakePercent:Number(((payout-ask)/ask*100).toFixed(2)),

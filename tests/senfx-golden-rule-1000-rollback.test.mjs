@@ -41,11 +41,11 @@ test("Golden Rule research is browser-only with no broker buy or 15M API",()=>{
  const tracker=read("lib/bots/senfx-golden-rule-research.ts");
  const rules=read("lib/bots/senfx-golden-rule.mjs");
  const workflow=read(".github/workflows/deriv-demo-gate.yml");
- assert.match(ui,/require 1,000 prospective samples/);
+ assert.match(ui,/require 1,000 prospective discovery samples/);
  assert.match(ui,/15,000/);
  assert.match(ui,/results freeze at 1,000 to avoid optional peeking/);
  assert.match(ui,/const record=view\.bots\[bot\.id\]/);
- assert.match(tracker,/if\(next\.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES\)/);
+ assert.match(tracker,/next\.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES/);
  assert.match(rules,/GOLDEN_RULE_MIN_FORWARD_SAMPLES=1000/);
  for(const source of [ui,tracker,rules,workflow]){
   assert.doesNotMatch(source,/15-million-observation|15,000,000|15M study|golden-progress|Dockerfile\.golden15m|senfx-golden-rule-15m-postgres/i);

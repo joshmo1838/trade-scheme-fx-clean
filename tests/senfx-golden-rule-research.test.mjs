@@ -148,10 +148,10 @@ test("paper-only screen does not call broker buy, mutate execution, or claim pro
  assert.match(page,/\/api\/deriv\/demo\/bots\/payout-preview/);
  assert.match(page,/\/api\/deriv\/demo\/account-balance/);
  assert.match(page,/GOLDEN_RULE_MIN_FORWARD_SAMPLES/);
- assert.match(tracker,/if\(next\.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES\)/);
+ assert.match(tracker,/next\.observations>=GOLDEN_RULE_MIN_FORWARD_SAMPLES/);
  assert.match(page,/results freeze at 1,000 to avoid optional peeking/);
  assert.match(page,/researchCandidate/);
- assert.match(page,/brokerAligned:bot\.category!=="Direction"/);
+ assert.match(page,/brokerAligned:false/);
  assert.match(page,/parsePublicDigitTick/);
  assert.match(page,/No new signals, payout overrides/);
  assert.match(link,/href="\/bot-library\/golden-rule"/);
