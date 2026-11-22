@@ -54,7 +54,7 @@ BEGIN
   updated_at=now()
  WHERE lease.expires_at<now() OR lease.collector_id=EXCLUDED.collector_id
  RETURNING collector_id INTO result_id;
- RETURN result_id=p_collector_id;
+ RETURN coalesce(result_id=p_collector_id,false);
 END $$;
 REVOKE ALL ON FUNCTION public.senfx_golden_claim_collector(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.senfx_golden_claim_collector(text) TO service_role;
