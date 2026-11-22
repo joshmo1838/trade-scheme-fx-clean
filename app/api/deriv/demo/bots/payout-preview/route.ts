@@ -83,7 +83,7 @@ export async function POST(request:NextRequest){
     botId:item.botId,symbol:String(proposal.underlying_symbol),
     contractType:String(proposal.contract_type),
     barrier:proposal.barrier===undefined?null:String(proposal.barrier),
-    duration:proposal.duration,durationUnit:proposal.duration_unit,
+    duration:Number(proposal.duration),durationUnit:String(proposal.duration_unit),
     stake,askPrice:ask,payout,
     netWinProfit:Number((payout-ask).toFixed(2)),
     returnOnStakePercent:Number(((payout-ask)/ask*100).toFixed(2)),
