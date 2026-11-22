@@ -41,8 +41,8 @@ const names=new Map<string,string>([
  ["momentum-rise-fall","SENFX Momentum Rise/Fall"],
  ["volatility-scalper","SENFX Volatility Scalper"]
 ]);
-export default function FifteenDemoPayoutComparison({candidates}:{
- candidates:Candidate[];
+export default function FifteenDemoPayoutComparison({candidates,illustrative=false}:{
+ candidates:Candidate[];illustrative?:boolean;
 }){
  const [stake,setStake]=useState("500");
  const [pending,setPending]=useState(false);
@@ -94,8 +94,13 @@ export default function FifteenDemoPayoutComparison({candidates}:{
     <input type="number" min="0.01" step="0.01" value={stake}
      onChange={e=>setStake(e.target.value)} disabled={pending}/></label>
   </div>
-  <p>{candidates.length} of 15 strategies currently have a signal based on the
-   public market samples. Missing signals will not be guessed or quoted.</p>
+  {illustrative?
+   <p><strong>15 original contract mappings, illustrative price requests only.</strong>
+    Static RISE and EVEN choices and the dynamic Differs barrier 7 are examples
+    for quote comparison—not actual current bot signals or instructions to buy.
+    Broker rejection or unavailable quotes will be reported, not substituted.</p>:
+   <p>{candidates.length} of 15 strategies currently have a signal based on the
+    public market samples. Missing signals will not be guessed or quoted.</p>}
   <div className={styles.controls}>
    <button type="button" className={styles.startButton}
     onClick={()=>void compare()} disabled={pending||!stakeOk||candidates.length===0}>
