@@ -53,6 +53,8 @@ jobs:
         run: node --test tests/deriv-research-feed.test.mjs
       - name: Verify Deriv read-only tick subscription requests
         run: node --test tests/deriv-tick-subscription.test.mjs
+      - name: Verify Deriv bot research bridge
+        run: node --test tests/deriv-bot-research-bridge.test.mjs
       - name: Verify multi-symbol Deriv research hub
         run: node --test tests/deriv-research-hub.test.mjs
       - name: Verify Deriv research reconnect supervisor
