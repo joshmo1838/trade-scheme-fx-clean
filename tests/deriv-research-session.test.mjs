@@ -4,14 +4,14 @@ import { createDerivResearchSession } from "../lib/deriv/research-session.mjs";
 
 const epoch = 1_800_000_000;
 function fakeSocket() {
-  const handlers = new Set();
+  const handlers = new Map();
   const sent = [];
   return {
     readyState: 1, sent,
     send(value) { sent.push(JSON.parse(value)); },
-    addEventListener(type, fn) { handlers.add(fn); },
-    removeEventListener(type, fn) { handlers.delete(fn); },
-    emit(data) { for (const fn of handlers) fn({ data: JSON.stringify(data) }); },
+    addEventListener(type, fn) { handlers.set(type, fn); },
+    removeEventListener(type, fn) { if (handlers.get(type) === fn) handlers.delete(type); },
+    emit(data) { handlers.get("message")?.({ data: JSON.stringify(data) }); },
     get listeners() { return handlers.size; },
   };
 }
