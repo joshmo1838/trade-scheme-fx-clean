@@ -1,45 +1,84 @@
 import Link from "next/link";
+import MarketTicker from "@/components/MarketTicker";
+import LandingHeadlines from "@/components/LandingHeadlines";
+import TradingLandingVisual from "@/components/TradingLandingVisual";
 
 export default function Home() {
   return (
-    <main style={{
-      minHeight: "100svh", display: "grid", placeItems: "center",
-      padding: "clamp(16px,4vw,36px)", background:
-      "radial-gradient(ellipse at 65% 20%,#15476d 0%,#07192e 45%,#030b18 100%)",
-      color: "#f4f8ff", fontFamily: "Arial, sans-serif"
-    }}>
-      <section aria-label="Trade Scheme FX welcome" style={{
-        width: "min(100%,520px)", display: "grid", gap: "18px",
-        textAlign: "center", justifyItems: "center"
-      }}>
-        <p style={{fontSize: "12px", letterSpacing: "0.22em", color: "#8cdbff", margin: 0}}>
-          TRADE SCHEME FX
-        </p>
-        <h1 style={{fontSize: "clamp(32px,7vw,54px)", lineHeight: 1.08, margin: 0}}>
-          Your Deriv trading workspace
-        </h1>
-        <p style={{color: "#b8d1e5", lineHeight: 1.55, margin: 0}}>
-          Explore market intelligence and 15 bot strategies in one place.
-          Connect your own Deriv account securely for supported Demo features.
-        </p>
-        <Link href="/login" style={{
-          display: "block", width: "100%", maxWidth: "360px", padding: "16px",
-          borderRadius: "12px", background: "#4dc4f6", color: "#05162a",
-          fontWeight: 800, textDecoration: "none"
-        }}>Continue to secure login</Link>
-        <p style={{fontSize: "12px", color: "#9eb8ce", margin: 0}}>
-          Deriv passwords are entered only on Deriv&apos;s official website when
-          connecting your account. Existing workspace sign-in remains available.
-        </p>
-        <a href="https://home.deriv.com/dashboard/signup" target="_blank"
-          rel="noopener noreferrer" style={{fontSize: "13px", color: "#9edfff"}}>
-          New to Deriv? Create an account on Deriv
-        </a>
-        <p style={{fontSize: "11px", lineHeight: 1.5, color: "#92a7bc", margin: 0}}>
-          Independent of Deriv. Trading involves risk. Demo funds are virtual.
-          Automated broker purchases are not yet verified.
-        </p>
+    <main className="senfxLanding">
+      <header className="senfxLandingTop">
+        <div className="senfxTopInner">
+          <Link href="/" className="senfxWordmark" aria-label="Trade Scheme FX home">
+            <span className="senfxWordmarkSymbol" aria-hidden="true">⌁</span>
+            <span className="senfxWordmarkText">
+              <strong>trade<span>scheme</span></strong>
+              <small>TRADE SCHEME FX</small>
+            </span>
+          </Link>
+
+          <nav className="senfxLandingNav" aria-label="Main navigation">
+            <a href="#how-it-works">How it works</a>
+            <Link href="/bot-library">Bulk Bots</Link>
+            <Link href="/markets">Markets</Link>
+            <a href="#learn">Learn</a>
+            <a href="#faq">FAQ</a>
+          </nav>
+
+          <div className="senfxLandingAuth">
+            <Link className="senfxOutlineButton" href="/login">Log in</Link>
+            <Link className="senfxTopButton" href="/signup">Get started <span aria-hidden="true">↗</span></Link>
+          </div>
+        </div>
+      </header>
+
+      <div className="senfxLandingMarketWatch">
+        <MarketTicker />
+      </div>
+
+      <section className="senfxLandingHero" aria-label="Trade Scheme FX trading workspace introduction">
+        <TradingLandingVisual />
+        <div className="senfxLandingScrim" aria-hidden="true" />
+        <div className="senfxHeroCenter">
+          <p className="senfxHeroTag"><span className="senfxHeroTagDot" aria-hidden="true"/> FREE WORKSPACE · MARKET TOOLS · DEMO LEARNING</p>
+          <LandingHeadlines />
+          <div className="senfxHeroActions">
+            <Link href="/login" className="senfxHeroPrimary">
+              <span aria-hidden="true">↗</span> Continue to login <span aria-hidden="true">›</span>
+            </Link>
+            <Link href="/bot-library" className="senfxHeroSecondary">
+              <span aria-hidden="true">✧</span> Explore 15 Bulk Bots
+            </Link>
+            <a className="senfxHeroSubtle" href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a>
+          </div>
+          <p className="senfxDerivSignup">
+            New to Deriv?{" "}
+            <a href="https://home.deriv.com/dashboard/signup" target="_blank" rel="noopener noreferrer">
+              Create your Deriv account <span aria-hidden="true">↗</span>
+            </a>{" "}
+            <span>on the official Deriv website.</span>
+          </p>
+        </div>
+
+        <div className="senfxLandingBottom">
+          <details className="senfxRiskDetails">
+            <summary><span aria-hidden="true">⚠</span> Risk disclaimer</summary>
+            <p>
+              Trading involves risk and can result in losses. The candles in this
+              background are illustrative, not live prices or signals. Demo
+              balances are virtual funds. Trade Scheme FX is independent of Deriv
+              and does not guarantee profits or market outcomes.
+            </p>
+          </details>
+          <div className="senfxLandingTiles" aria-label="Workspace information">
+            <div><strong>Free</strong><small>WORKSPACE ACCESS</small></div>
+            <div><strong>24/7</strong><small>SYNTHETIC MARKET FOCUS</small></div>
+            <div><strong>tradesche.com</strong><small>OFFICIAL SENFX WEBSITE</small></div>
+            <div><strong><span className="senfxTileDot" /> Demo</strong><small>LEARN WITH VIRTUAL FUNDS</small></div>
+          </div>
+          <small className="senfxArtworkNote">Decorative candles · Not a live trading chart</small>
+        </div>
       </section>
+
     </main>
   );
 }
