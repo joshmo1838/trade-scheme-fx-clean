@@ -76,3 +76,11 @@ For all six endpoints: request/response schema = VERIFY; rate limits = VERIFY; a
 - Vercel preview configuration uses an existing centrally configured `DERIV_CLIENT_ID`; its validity, Deriv application permissions and redirect registration remain unverified. No secrets were read or modified in this audit.
 - Supabase project inventory returned two ACTIVE_HEALTHY projects; this is **not** proof of schema correctness, backup completeness or a successful restore. No database writes performed.
 - Release gate remains CLOSED pending complete identity/session isolation tests, CI evidence, 15-strategy regression, database backup/restore proof and production smoke tests. No broker orders, balance resets, markup or financial transfers authorized by this checkpoint.
+
+## Consolidated release audit — 2026-11-23 14:06 CST
+
+- GitHub comparison `main...feature/trade-scheme-fx-3-unified-workspace-20261123`: **89 ahead / 2 behind**, status **diverged**. Current `main` comparison SHA: `85353d9988ea5af2d3870601411e0e4e7b56cd46`; merge base: `cfe0146052a5e6e902f119ea1ac99d92ac4339c5`. Do not conflate the merge base with the latest main/production SHA.
+- Vercel 3.0 preview `dpl_GzGZCK7M55DH5E8R4zLhwDaA3qxE` was **READY** at `fae079f8fa83f783f927f424307b875fb65e22c9` (duplicate OAuth callback parameter rejection). Preview URL: https://trade-scheme-fx-clean-git-feature-trade-scheme-f93bf6-tradesche.vercel.app . This is **not** proof of functional OAuth, CI, or production readiness.
+- Reviewed `app/api/auth/deriv/start/route.ts`: it checks exact HTTPS callback origin/path, issues a PKCE S256 challenge and state, and uses short-lived HttpOnly cookies. These are static code observations; the Deriv authorization endpoint, scope, registered callback and browser round-trip must be checked against current official documentation and real staging behavior before enabling session issuance.
+- The matrix remains a **candidate inventory**, not a completed endpoint-by-endpoint schema certification. Unverified endpoints, rate limits, account eligibility and scope are blockers for their respective integrations. Preserve all 15 original strategies and independent release gates.
+- No production merge, trading operation, reset, wallet/payment transfer, markup change, database mutation, or secret rotation was performed in this audit.
