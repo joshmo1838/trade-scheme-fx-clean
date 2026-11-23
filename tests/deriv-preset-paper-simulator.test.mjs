@@ -29,3 +29,13 @@ test("loss cap fails closed and inputs cannot forge settlements",()=>{
  assert.throws(()=>createPresetPaperSession({templateId:"missing"}));
  assert.throws(()=>createPresetPaperSession({templateId:"options-martingale",baseStake:20,maxStake:10}));
 });
+
+test("zero-valued rounded stakes and over-budget opening stakes are rejected",()=>{
+ assert.throws(()=>createPresetPaperSession({templateId:"options-martingale",baseStake:0.001}),RangeError);
+ assert.throws(()=>createPresetPaperSession({templateId:"options-martingale",baseStake:5,maxCumulativeLoss:2}),RangeError);
+});
+test("reaching paper loss budget clears any executable stake",()=>{
+ const s=createPresetPaperSession({templateId:"options-martingale",maxCumulativeLoss:2});
+ assert.equal(s.recordPaperSettlement("loss",-2).stake,0);
+ assert.equal(s.snapshot().stopped,true);
+});
