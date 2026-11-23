@@ -42,3 +42,26 @@ test("validates research-window configuration", () => {
   assert.throws(() => createResearchTickWindow({ capacity: 0 }), RangeError);
   assert.throws(() => createResearchTickWindow({ maxAgeMs: -1 }), RangeError);
 });
+
+test("rejects blank and missing fields without coercing them to zero", () => {
+  const window = createResearchTickWindow({ clock: () => now });
+  for (const tick of [
+    { epoch, quote: null },
+    { epoch, quote: "" },
+    { epoch, quote: " " },
+    { epoch, quote: false },
+    { epoch: null, quote: 2 },
+    { epoch: "", quote: 2 },
+    { epoch: true, quote: 2 },
+  ]) {
+    assert.equal(window.ingest(tick).reason, "invalid_tick");
+  }
+  assert.equal(window.size, 0);
+});
+
+test("treats numeric-string epochs as duplicates of numeric epochs", () => {
+  const window = createResearchTickWindow({ clock: () => now });
+  assert.equal(window.ingest({ epoch: String(epoch), quote: 3 }).accepted, true);
+  assert.equal(window.ingest({ epoch, quote: 3 }).reason, "duplicate_tick");
+  assert.equal(window.size, 1);
+});
