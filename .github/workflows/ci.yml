@@ -53,6 +53,8 @@ jobs:
         run: node --test tests/deriv-research-feed.test.mjs
       - name: Verify Deriv read-only tick subscription requests
         run: node --test tests/deriv-tick-subscription.test.mjs
+      - name: Verify available Deriv preset catalog and paper-only simulations
+        run: node --test tests/deriv-official-preset-reference.test.mjs tests/deriv-preset-paper-simulator.test.mjs
       - name: Verify end-to-end fifteen-bot read-only research fanout
         run: node --experimental-strip-types --test tests/deriv-fifteen-bot-research-e2e.test.mjs
       - name: Verify canonical fifteen-bot research integration
