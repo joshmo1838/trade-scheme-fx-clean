@@ -9,6 +9,7 @@ import {
 import {
  DIGIT_MARKETS,parsePublicDigitTick,type DigitSymbol,type ObservedTick,
 } from "@/lib/bots/digit-matrix";
+import SenfxOpenAIExplanation from "@/app/components/SenfxOpenAIExplanation";
 import styles from "./fifteen.module.css";
 
 const PUBLIC_FEED="wss://api.derivws.com/trading/v1/options/ws/public";
@@ -293,6 +294,12 @@ export default function FifteenPaperBotLibrary(){
        "NO SIGNAL"):"UNAVAILABLE"}</b></span>
       <span>Last real quote <b>{sample.at(-1)?.quoteText||"—"}</b></span>
      </div>
+    </section>
+    <section className={styles.panel}>
+     <p className={styles.kicker}>OPTIONAL OPENAI RESEARCH · NO BROKER ORDERS</p>
+     <h2>AI explanation for the selected bot</h2>
+     <SenfxOpenAIExplanation botId={selected.id} observations={sample}
+      fresh={marketFresh} minTicks={selected.minTicks} />
     </section>
     <section className={styles.panel}>
      <p className={styles.kicker}>REAL NEXT-TICK PAPER SIMULATOR</p>
