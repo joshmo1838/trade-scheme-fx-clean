@@ -65,3 +65,14 @@ The following endpoint identities and authentication metadata were retrieved fro
 | proposal_open_contract | https://developers.deriv.com/llms/proposal-open-contract.md | WS | Yes | trade | Auth metadata from reviewed pinned reference; schema and runtime VERIFY |
 
 For all six endpoints: request/response schema = VERIFY; rate limits = VERIFY; account eligibility = VERIFY; production release = NOT VERIFIED. A public proposal does not grant permission to buy. No financial operations are authorized by this checkpoint.
+
+
+## Consolidated preview verification — 2026-11-23 09:07 CST
+
+- Latest observed Vercel preview deployment: `dpl_AJhEuA66Y6ZLZgNwrh72Yh9mfBCh`, READY, commit `d89e2a16304839ab3b60fb7f2e5d0216fdaf03f2`. READY is build/deployment status only; OAuth callback and customer session are **not** end-to-end verified.
+- Consolidated branch was **84 commits ahead and 2 behind** `main` at this audit; `main` comparison base SHA `85353d9988ea5af2d3870601411e0e4e7b56cd46`. This divergence blocks an unreviewed merge.
+- Existing Deriv-first routes: `app/api/auth/deriv/start/route.ts` and `app/api/auth/deriv/callback/route.ts`. PKCE/state logic present, but current session issuance calls `createSessionClient().auth.verifyOtp()` and then constructs a separate redirect response. **Cookie persistence on that redirect has not been verified**; investigate and test before enabling `DERIV_FIRST_LOGIN_SESSION_ENABLED`.
+- Deriv OAuth first-login redirect is enabled **on the isolated 3.0 preview branch only**; customer-session issuance remains disabled. Preview callback URI must be registered exactly in the Deriv application before completing an OAuth round trip. Do not mistake an enabled redirect for a working login.
+- Vercel preview configuration uses an existing centrally configured `DERIV_CLIENT_ID`; its validity, Deriv application permissions and redirect registration remain unverified. No secrets were read or modified in this audit.
+- Supabase project inventory returned two ACTIVE_HEALTHY projects; this is **not** proof of schema correctness, backup completeness or a successful restore. No database writes performed.
+- Release gate remains CLOSED pending complete identity/session isolation tests, CI evidence, 15-strategy regression, database backup/restore proof and production smoke tests. No broker orders, balance resets, markup or financial transfers authorized by this checkpoint.
