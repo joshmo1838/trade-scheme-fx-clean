@@ -209,7 +209,8 @@ export async function POST(request: NextRequest) {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json"
         },
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000)
       }
     );
 
