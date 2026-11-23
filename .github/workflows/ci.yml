@@ -53,6 +53,8 @@ jobs:
         run: node --test tests/deriv-research-feed.test.mjs
       - name: Verify Deriv read-only tick subscription requests
         run: node --test tests/deriv-tick-subscription.test.mjs
+      - name: Verify Deriv research reconnect supervisor
+        run: node --test tests/deriv-research-supervisor.test.mjs
       - name: Verify Deriv research WebSocket session lifecycle
         run: node --test tests/deriv-research-session.test.mjs
       - name: Run deterministic bot strategy tests
