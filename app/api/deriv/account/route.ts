@@ -137,7 +137,8 @@ export async function GET() {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json"
         },
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000)
       }
     );
 
