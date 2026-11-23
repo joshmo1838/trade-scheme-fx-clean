@@ -17,9 +17,12 @@ export async function GET(request: NextRequest) {
   if (!enabled || !clientId || !callback) {
     return NextResponse.redirect(new URL("/login?deriv=not_ready", origin));
   }
-  const redirectUri = new URL(callback);
+  let redirectUri: URL;
+  try { redirectUri = new URL(callback); }
+  catch { return NextResponse.redirect(new URL("/login?deriv=not_ready", origin)); }
   if (redirectUri.protocol !== "https:" || redirectUri.origin !== origin ||
-      redirectUri.pathname !== "/api/auth/deriv/callback") {
+      redirectUri.pathname !== "/api/auth/deriv/callback" ||
+      redirectUri.search || redirectUri.hash || redirectUri.username || redirectUri.password) {
     return NextResponse.redirect(new URL("/login?deriv=not_ready", origin));
   }
 
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
   }).toString();
 
   const response = NextResponse.redirect(authorize);
+  response.headers.set("Cache-Control", "no-store");
   const cookie = { httpOnly: true, secure: true, sameSite: "lax" as const,
     path: "/api/auth/deriv", maxAge: 600 };
   response.cookies.set("deriv_login_state", state, cookie);
