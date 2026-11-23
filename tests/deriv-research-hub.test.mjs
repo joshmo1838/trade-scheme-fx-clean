@@ -56,3 +56,38 @@ test("validates symbols and never silently creates new feeds", () => {
   const hub = createDerivResearchHub({ symbols: ["R_100"], connect: source.connect });
   assert.throws(() => hub.snapshot("R_50"), RangeError);
 });
+
+test("delivers accepted ticks only to symbol-matched subscribers", () => {
+  const source = sockets();
+  const hub = createDerivResearchHub({
+    symbols: ["R_100", "R_50"], connect: source.connect, clock: () => epoch * 1000,
+  });
+  const first = [], second = [];
+  const unsubscribe = hub.subscribe("R_100", event => first.push(event.tick.quote));
+  hub.subscribe("R_50", event => second.push(event.tick.quote));
+  hub.start();
+  source.opened[0].emit(tick("R_100", 101));
+  source.opened[1].emit(tick("R_50", 51));
+  source.opened[0].emit(tick("R_100", 101));
+  assert.deepEqual(first, [101]);
+  assert.deepEqual(second, [51]);
+  unsubscribe();
+  source.opened[0].emit(tick("R_100", 102));
+  assert.deepEqual(first, [101]);
+  hub.stop();
+});
+
+test("one failing listener does not block another research consumer", () => {
+  const source = sockets();
+  const hub = createDerivResearchHub({
+    symbols: ["R_100"], connect: source.connect, clock: () => epoch * 1000,
+  });
+  const received = [];
+  hub.subscribe("R_100", () => { throw new Error("consumer failed"); });
+  hub.subscribe("R_100", event => received.push(event.tick.quote));
+  hub.start();
+  source.opened[0].emit(tick("R_100", 42));
+  assert.deepEqual(received, [42]);
+  assert.equal(hub.listenerErrors, 1);
+  hub.stop();
+});
