@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
   catch { return finish(request, "not_ready"); }
   if (origin !== callback.origin || callback.protocol !== "https:" ||
       callback.pathname !== "/api/auth/deriv/callback" ||
-      callback.search || callback.hash) {
+      callback.search || callback.hash || callback.username || callback.password) {
     return finish(request, "not_ready");
   }
 
@@ -132,6 +132,7 @@ export async function GET(request: NextRequest) {
   const verifier = request.cookies.get("deriv_login_verifier")?.value;
   if (request.nextUrl.searchParams.has("error")) return finish(request, "cancelled");
   if (!code || !state || !expected || !verifier ||
+      code.length > 2048 || state.length > 256 || expected.length > 256 ||
       !sameSecret(state, expected) ||
       !/^[A-Za-z0-9_-]{43,128}$/.test(verifier)) {
     return finish(request, "invalid_callback");
