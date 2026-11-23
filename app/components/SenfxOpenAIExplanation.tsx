@@ -23,6 +23,7 @@ export default function SenfxOpenAIExplanation({ botId, observations, fresh, min
     requestVersion.current++;
     setExplanation("");
     setError("");
+    setLoading(false);
     setReady(false);
     setChecking(true);
     const controller = new AbortController();
