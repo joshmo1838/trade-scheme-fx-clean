@@ -50,3 +50,18 @@ Official documentation entry points:
 3. Reconcile isolated AI changes selectively; add regression tests for all 15 strategies.
 4. Implement validated shared public tick feed, subscription lifecycle and offline research fixtures.
 5. Verify independent Demo safety gate and database restore before any execution enablement or production merge.
+
+## Verified live documentation checkpoint — 2026-11-23
+
+The following endpoint identities and authentication metadata were retrieved from the live official Deriv API endpoint index. This **does not** validate field-level schemas, rate limits, runtime behavior or account eligibility. Keep all broker execution OFF.
+
+| Endpoint | Official page | Transport | Auth documented | Scope documented | Current integration status |
+|---|---|---|---|---|---|
+| ticks | https://developers.deriv.com/llms/ticks.md | WS | No | None | Research feed exists; end-to-end live compatibility VERIFY |
+| ticks_history | https://developers.deriv.com/llms/ticks-history.md | WS | No | None | Historical adapter compatibility VERIFY |
+| forget | https://developers.deriv.com/llms/forget.md | WS | No | None | Subscription cleanup implementation VERIFY |
+| forget_all | https://developers.deriv.com/llms/forget-all.md | WS | No | None | Must never unsubscribe other consumers accidentally; implementation VERIFY |
+| proposal | https://developers.deriv.com/llms/proposal.md | WS | No | None | Research-only price discovery; request schema VERIFY |
+| proposal_open_contract | https://developers.deriv.com/llms/proposal-open-contract.md | WS | Yes | trade | Auth metadata from reviewed pinned reference; schema and runtime VERIFY |
+
+For all six endpoints: request/response schema = VERIFY; rate limits = VERIFY; account eligibility = VERIFY; production release = NOT VERIFIED. A public proposal does not grant permission to buy. No financial operations are authorized by this checkpoint.
