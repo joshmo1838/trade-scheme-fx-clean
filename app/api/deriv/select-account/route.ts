@@ -225,11 +225,18 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await derivResponse.json();
-    const accounts = result?.data ?? [];
+    // Do not interpret malformed broker responses as an empty account list.
+    if (!Array.isArray(result?.data)) {
+      console.error("Deriv account selection schema mismatch");
+      return NextResponse.json(
+        { error: "Deriv returned an unexpected account response. Selection was not saved." },
+        { status: 502, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
-    const selectedAccount = Array.isArray(accounts)
-      ? accounts.find((account: { account_id?: string }) => account.account_id === accountId)
-      : null;
+    const selectedAccount = result.data.find(
+      (account: { account_id?: string }) => account?.account_id === accountId
+    );
 
     if (!selectedAccount) {
       return NextResponse.json(
