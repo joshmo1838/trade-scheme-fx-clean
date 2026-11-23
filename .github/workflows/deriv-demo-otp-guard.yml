@@ -1,0 +1,27 @@
+name: Deriv Demo OTP Guard
+on:
+  push:
+    branches:
+      - feature/trade-scheme-fx-3-unified-workspace-20261123
+    paths:
+      - lib/deriv/demo-otp-guard.mjs
+      - tests/deriv-demo-otp-guard.test.mjs
+      - .github/workflows/deriv-demo-otp-guard.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - lib/deriv/demo-otp-guard.mjs
+      - tests/deriv-demo-otp-guard.test.mjs
+      - .github/workflows/deriv-demo-otp-guard.yml
+permissions:
+  contents: read
+jobs:
+  demo-otp-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify demo account isolation and OTP URL validation
+        run: node --test tests/deriv-demo-otp-guard.test.mjs
