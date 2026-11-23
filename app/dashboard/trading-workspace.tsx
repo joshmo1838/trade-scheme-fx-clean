@@ -8,6 +8,7 @@ import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
 import LiveCandleChart from "@/app/components/LiveCandleChart";
 import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
+import DerivIntelligenceCockpit from "@/app/components/DerivIntelligenceCockpit";
 
 type Props = {
   name: string;
@@ -322,6 +323,7 @@ export default function TradingWorkspace({
               <p className="muted">Hypothetical outcomes are not broker transactions or verified returns.</p>
             </WorkspaceEvidence>
           </div>
+          <DerivIntelligenceCockpit />
           <section className="senfxWorkflowRibbon" aria-labelledby="senfx-workflow-title">
             <div className="senfxWorkflowRibbonHead">
               <div>
