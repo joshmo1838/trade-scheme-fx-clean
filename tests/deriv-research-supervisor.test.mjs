@@ -8,11 +8,11 @@ function socketFactory() {
     const handlers = new Map(), sent = [];
     const socket = {
       readyState: 0, sent,
-      addEventListener(type, fn) { handlers.set(type, fn); },
-      removeEventListener(type, fn) { if (handlers.get(type) === fn) handlers.delete(type); },
+      addEventListener(type, fn) { if (!handlers.has(type)) handlers.set(type, new Set()); handlers.get(type).add(fn); },
+      removeEventListener(type, fn) { handlers.get(type)?.delete(fn); if (handlers.get(type)?.size === 0) handlers.delete(type); },
       send(json) { sent.push(JSON.parse(json)); },
       close() { socket.readyState = 3; },
-      emit(type) { handlers.get(type)?.(); },
+      emit(type) { for (const fn of [...(handlers.get(type) ?? [])]) fn(); },
     };
     sockets.push(socket);
     return socket;
