@@ -130,6 +130,12 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const expected = request.cookies.get("deriv_login_state")?.value;
   const verifier = request.cookies.get("deriv_login_verifier")?.value;
+  // Reject ambiguous repeated OAuth parameters before using any authorization code.
+  for (const key of ["state", "code", "error"]) {
+    if (request.nextUrl.searchParams.getAll(key).length > 1) {
+      return finish(request, "invalid_callback");
+    }
+  }
   if (request.nextUrl.searchParams.has("error")) return finish(request, "cancelled");
   if (!code || !state || !expected || !verifier ||
       code.length > 2048 || state.length > 256 || expected.length > 256 ||
