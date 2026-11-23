@@ -17,7 +17,8 @@
     "worker:paper": "node --experimental-strip-types worker/senfx-customer-paper-worker.mjs",
     "test:paper-worker": "node --experimental-strip-types --test tests/paper-worker.test.mjs tests/paper-reconcile.test.mjs",
     "test:worker-e2e": "node --experimental-strip-types --test tests/offline-worker/worker-e2e.test.mjs",
-    "test:auth-controls": "node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/api.test.mjs"
+    "test:auth-controls": "node --experimental-strip-types --experimental-loader ./tests/auth-control/loader.mjs --test tests/auth-control/api.test.mjs",
+    "test:deriv-login-guard": "node --test tests/deriv-first-login-identity-guard.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
