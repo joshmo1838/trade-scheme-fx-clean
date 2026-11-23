@@ -2,11 +2,9 @@
 import Link from "next/link";
 import DerivAccountPrompt from "@/components/DerivAccountPrompt";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -28,7 +26,6 @@ export default function LoginPage() {
     <p className="eyebrow">WELCOME BACK</p><h1>Log in</h1>
     <p className="muted">Connect your Deriv account to Trade Scheme FX.</p>
     <a className="button full" href="/api/auth/deriv/start">Continue with Deriv</a>
-    {params.get("deriv") === "not_ready" && <p className="notice" role="status">Deriv-only login is not enabled yet. Use the existing sign-in option below while we complete the secure connection.</p>}
     <DerivAccountPrompt compact />
     <details style={{marginTop: "1rem"}}>
       <summary>Existing Trade Scheme FX sign-in</summary>
