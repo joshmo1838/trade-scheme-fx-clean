@@ -9,8 +9,8 @@ function fakeSocket() {
   return {
     readyState: 1, sent,
     send(value) { sent.push(JSON.parse(value)); },
-    addEventListener(type, fn) { if (type === "message") handlers.add(fn); },
-    removeEventListener(type, fn) { if (type === "message") handlers.delete(fn); },
+    addEventListener(type, fn) { handlers.add(fn); },
+    removeEventListener(type, fn) { handlers.delete(fn); },
     emit(data) { for (const fn of handlers) fn({ data: JSON.stringify(data) }); },
     get listeners() { return handlers.size; },
   };
@@ -62,4 +62,32 @@ test("refuses to start on a closed transport", () => {
   socket.readyState = 3;
   const session = createDerivResearchSession({ symbol: "R_100", transport: socket });
   assert.throws(() => session.start(), /must be open/);
+});
+
+test("connection closure deactivates the session and removes listeners", () => {
+  const listeners = new Map();
+  const socket = {
+    readyState: 1,
+    send() {},
+    addEventListener(type, fn) { listeners.set(type, fn); },
+    removeEventListener(type, fn) { if (listeners.get(type) === fn) listeners.delete(type); },
+  };
+  const session = createDerivResearchSession({ symbol: "R_100", transport: socket, clock: () => epoch * 1000 });
+  session.start();
+  listeners.get("close")();
+  assert.equal(session.stats().active, false);
+  assert.equal(session.stats().lastError, "socket_closed");
+  assert.equal(listeners.size, 0);
+});
+
+test("restart clears stale research observations and counters", () => {
+  const socket = fakeSocket();
+  const session = createDerivResearchSession({ symbol: "R_100", transport: socket, clock: () => epoch * 1000 });
+  session.start();
+  socket.emit(tick(10));
+  assert.equal(session.stats().buffered, 1);
+  session.stop();
+  session.start();
+  assert.equal(session.stats().buffered, 0);
+  assert.equal(session.stats().accepted, 0);
 });
