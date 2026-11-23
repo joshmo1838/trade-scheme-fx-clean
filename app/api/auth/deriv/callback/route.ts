@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient as createSessionClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -56,10 +56,10 @@ function aliasForIdentity(clientId: string, subject: string): string {
   return "deriv-" + digest + "@" + domain;
 }
 
-async function issueVerifiedSupabaseSession(clientId: string, subject: string) {
+async function issueVerifiedSupabaseSession(request: NextRequest, response: NextResponse, clientId: string, subject: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase server auth is not configured");
+  if (!url || !key || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error("Supabase server auth is not configured");
 
   const providerKey = "deriv:" + clientId + ":" + subject;
   const alias = aliasForIdentity(clientId, subject);
@@ -91,7 +91,15 @@ async function issueVerifiedSupabaseSession(clientId: string, subject: string) {
     throw new Error("Deriv identity is not exclusively bound to this user");
   }
 
-  const supabase = await createSessionClient();
+  // Write Supabase session cookies to the actual redirect returned to the browser.
+  const supabase = createServerClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "", {
+    cookies: {
+      getAll() { return request.cookies.getAll(); },
+      setAll(items) {
+        items.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      }
+    }
+  });
   const { data, error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
     type: "magiclink"
@@ -162,8 +170,9 @@ export async function GET(request: NextRequest) {
       return finish(request, "identity_verified");
     }
 
-    await issueVerifiedSupabaseSession(clientId, subject);
-    return finish(request, "authenticated", true);
+    const response = finish(request, "authenticated", true);
+    await issueVerifiedSupabaseSession(request, response, clientId, subject);
+    return response;
   } catch (error) {
     console.error("Deriv-first callback rejected", {
       type: error instanceof Error ? error.name : "UnknownError"
