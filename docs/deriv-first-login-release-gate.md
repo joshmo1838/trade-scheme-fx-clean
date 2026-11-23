@@ -18,3 +18,9 @@
 
 ## Current implementation status
 The first-login identity guard and tests are an isolated research slice, **not a complete authentication flow**. It must not be wired to a production callback until the above gates are met.
+
+## Verified development checkpoint (2026-11-23)
+- GitHub SENFX validation completed successfully for commit `823ffb084f197116ce05f2e404045002e8b8ebb2`.
+- The configured workflow's success does not establish that the new `test:deriv-login-guard` script was executed; check the workflow job steps or run the script explicitly before claiming its test cases passed.
+- Deriv's documented `GET /trading/v1/options/accounts` provides `account_id` values and is unsuitable as the stable user identity needed for a login bridge.
+- Until the provider exposes a verified stable user identifier and a supported Supabase session mechanism is implemented, do not enable Deriv-only login or merge this draft as an authentication feature.
