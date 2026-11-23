@@ -51,6 +51,8 @@ jobs:
         run: node --test tests/deriv-tick-normalization.test.mjs
       - name: Verify symbol-isolated Deriv research feed
         run: node --test tests/deriv-research-feed.test.mjs
+      - name: Verify Deriv read-only tick subscription requests
+        run: node --test tests/deriv-tick-subscription.test.mjs
       - name: Run deterministic bot strategy tests
         run: npm run test:engine
       - name: Verify operations deck fail-closed worker states
