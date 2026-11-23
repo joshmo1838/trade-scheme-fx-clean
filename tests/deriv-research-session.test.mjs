@@ -91,3 +91,32 @@ test("restart clears stale research observations and counters", () => {
   assert.equal(session.stats().buffered, 0);
   assert.equal(session.stats().accepted, 0);
 });
+
+test("unsubscribe failure is contained and session still stops", () => {
+  const socket = fakeSocket();
+  const session = createDerivResearchSession({ symbol: "R_100", transport: socket, clock: () => epoch * 1000 });
+  session.start();
+  socket.emit(tick(12));
+  socket.send = () => { throw new Error("connection lost"); };
+  assert.equal(session.stop(), true);
+  assert.equal(session.stats().active, false);
+  assert.equal(session.stats().lastError, "unsubscribe_failed");
+  assert.equal(socket.listeners, 0);
+});
+
+test("accepted tick callbacks are isolated from consumer errors", () => {
+  const socket = fakeSocket();
+  const received = [];
+  const session = createDerivResearchSession({
+    symbol: "R_100", transport: socket, clock: () => epoch * 1000,
+    onTick: observation => { received.push(observation.tick.quote); throw new Error("listener failed"); },
+  });
+  session.start();
+  socket.emit(tick(10));
+  socket.emit(tick(10));
+  socket.emit(tick(11));
+  assert.deepEqual(received, [10, 11]);
+  assert.equal(session.stats().callbackErrors, 2);
+  assert.equal(session.stats().accepted, 2);
+  session.stop();
+});
