@@ -1,4 +1,10 @@
-import { FIFTEEN_BOTS } from "../bots/fifteen-paper-bots.ts";
+import { FIFTEEN_BOTS, type FifteenBot } from "../bots/fifteen-paper-bots.ts";
+
+type ResearchObservation = { botId: string; symbol: string; tick: { epoch: number; quote: number }; snapshot: readonly { epoch: number; quote: number }[] };
+type ResearchBridge = {
+  attach(input: { botId: string; symbol: string; onResearch: (observation: ResearchObservation) => void }): () => void;
+  detach(botId: string): boolean;
+};
 
 /**
  * Reuse the canonical fifteen-bot catalog when selecting market subscriptions.
@@ -16,12 +22,15 @@ export function getFifteenBotResearchMarkets() {
   return markets;
 }
 
-export function attachFifteenBotResearch({ bridge, onResearchByBotId } = {}) {
+export function attachFifteenBotResearch({ bridge, onResearchByBotId }: {
+  bridge: ResearchBridge;
+  onResearchByBotId: (botId: string, bot: FifteenBot) => ((observation: ResearchObservation) => void) | null | undefined;
+}) {
   if (!bridge || typeof bridge.attach !== "function" || typeof bridge.detach !== "function") {
     throw new TypeError("Research bridge required");
   }
   if (typeof onResearchByBotId !== "function") throw new TypeError("Bot research handler factory required");
-  const detach = [];
+  const detach: Array<() => void> = [];
   try {
     for (const bot of FIFTEEN_BOTS) {
       const handler = onResearchByBotId(bot.id, bot);
