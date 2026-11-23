@@ -13,7 +13,7 @@ const symbol = (x: unknown) => typeof x === "string" && /^\w{2,30}$/.test(x);
 export function validateTicksRequest(input: unknown): DerivValidation {
   const errors: string[] = [];
   if (!object(input)) return { ok: false, errors: ["Expected object"] };
-  if (!symbol(input.ticks) && !(Array.isArray(input.ticks) && input.ticks.every(symbol))) errors.push("Invalid ticks symbol");
+  if (!symbol(input.ticks) && !(Array.isArray(input.ticks) && input.ticks.length > 0 && input.ticks.every(symbol))) errors.push("Invalid ticks symbol");
   if (input.subscribe !== undefined && input.subscribe !== 1) errors.push("subscribe must be 1");
   for (const key of Object.keys(input)) if (!["ticks", "subscribe", "passthrough", "req_id"].includes(key)) errors.push("Unknown property: " + key);
   if (input.passthrough !== undefined && !object(input.passthrough)) errors.push("passthrough must be an object");
