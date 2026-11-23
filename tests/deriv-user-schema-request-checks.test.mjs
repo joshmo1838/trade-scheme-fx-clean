@@ -41,3 +41,10 @@ test("non-object payloads are rejected", () => {
   assert.equal(validateTicksRequest(null).ok, false);
   assert.equal(validateAutoStartRequiredFields([]).ok, false);
 });
+
+
+test("tick request rejects empty symbol arrays (fail closed)", () => {
+  const result = validateTicksRequest({ ticks: [], subscribe: 1 });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes("Invalid ticks symbol"));
+});
