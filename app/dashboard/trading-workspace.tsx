@@ -8,6 +8,8 @@ import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
 import LiveCandleChart from "@/app/components/LiveCandleChart";
 import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
+import DerivIntelligenceCockpit from "@/app/components/DerivIntelligenceCockpit";
+import LiveTickObservation from "@/app/components/LiveTickObservation";
 
 type Props = {
   name: string;
@@ -37,6 +39,7 @@ const moreTools = [
   { label: "Hedging Planner", href: "/hedging" },
   { label: "Digit Tools", href: "/digit-tools" },
   { label: "Strategy Lab", href: "/strategy-lab" },
+  { label: "Deriv Strategy Templates (Research Preview)", href: "/deriv-presets" },
   { label: "Market Intelligence", href: "/intelligence" },
   { label: "Backtest Research", href: "/backtest" },
   { label: "Bot Settings", href: "/bot-settings" },
@@ -61,6 +64,13 @@ const currencySymbols: Record<string, string> = {
   USD: "$", EUR: "€", GBP: "£", AUD: "A$", CAD: "C$",
   CHF: "CHF ", JPY: "¥", KES: "KSh ", NZD: "NZ$", ZAR: "R",
 };
+function accountTypeLabel(accountType: string): string {
+  const normalized = String(accountType || "").trim().toLowerCase();
+  if (normalized === "demo") return "DEMO";
+  if (normalized === "real") return "REAL";
+  return "UNVERIFIED";
+}
+
 function accountAmount(account: DerivAccount): string {
   const amount = Number(account.balance);
   if (!Number.isFinite(amount)) return "Balance unavailable";
@@ -166,7 +176,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
         aria-expanded={opened} aria-label="View your selected Deriv account and balance">
         <span className="senfxBalanceFlag" aria-hidden="true">{selected ? flag : "💼"}</span>
         <span className="senfxBalanceText">
-          <small>{selected ? (selected.account_type === "demo" ? "DEMO" : "REAL") + " · " + currency : "DERIV ACCOUNT"}</small>
+          <small>{selected ? accountTypeLabel(selected.account_type) + " · " + currency : "DERIV ACCOUNT"}</small>
           <strong>{headline}</strong>
         </span>
         <span className="senfxBalanceChevron" aria-hidden="true">⌄</span>
@@ -192,7 +202,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
                 onClick={() => void choose(account)}>
                 <span aria-hidden="true">{currencyFlags[code] || "💱"}</span>
                 <span><strong>{accountAmount(account)}</strong>
-                  <small>{account.account_type === "demo" ? "Demo" : "Real"} · {code} · {account.account_id}</small></span>
+                  <small>{accountTypeLabel(account.account_type)} · {code} · {account.account_id}</small></span>
                 <em>{isSelected ? "Selected" : account.status === "active" ? "Choose" : "Unavailable"}</em>
               </button>
             );
@@ -314,6 +324,8 @@ export default function TradingWorkspace({
               <p className="muted">Hypothetical outcomes are not broker transactions or verified returns.</p>
             </WorkspaceEvidence>
           </div>
+          <DerivIntelligenceCockpit />
+          <LiveTickObservation />
           <section className="senfxWorkflowRibbon" aria-labelledby="senfx-workflow-title">
             <div className="senfxWorkflowRibbonHead">
               <div>

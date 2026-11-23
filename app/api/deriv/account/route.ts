@@ -137,7 +137,8 @@ export async function GET() {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json"
         },
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000)
       }
     );
 
@@ -176,11 +177,24 @@ export async function GET() {
       );
     }
 
+    // Fail closed if Deriv returns an unexpected response shape. Never present
+    // malformed broker data as a successful account connection.
+    if (!Array.isArray(result?.data)) {
+      console.error("Deriv account response schema mismatch:", {
+        stage: diagnosticStage,
+        httpStatus: derivResponse.status
+      });
+      return NextResponse.json(
+        { success: false, error: "Deriv returned an unexpected account response. Please retry." },
+        { status: 502, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     // 8. Return account information without exposing the token.
     return NextResponse.json(
       {
         success: true,
-        accounts: result?.data ?? []
+        accounts: result.data
       },
       {
         headers: {
