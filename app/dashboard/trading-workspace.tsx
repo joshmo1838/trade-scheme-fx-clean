@@ -26,6 +26,8 @@ const videoNav = [
   { label: "Markets", href: "/markets", icon: "⌁" },
   { label: "Charts", href: "/charts", icon: "▤" },
   { label: "Risk Center", href: "/risk-center", icon: "⚖" },
+  { label: "AI Intelligence Suite", href: "/intelligence/suite", icon: "✧" },
+  { label: "Smart Entry Research", href: "/intelligence/smart-entry", icon: "◎" },
   { label: "Market Scanner", href: "/ai-scanner", icon: "✧" },
   { label: "Manual Trader", href: "/manual-trader", icon: "▣" },
   { label: "History", href: "/history", icon: "◷" },

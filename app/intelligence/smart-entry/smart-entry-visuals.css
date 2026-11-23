@@ -1,0 +1,11 @@
+/* Decorative holographic research styling; no synthetic market activity. */
+.senfx-smart-entry{position:relative;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse at 78% 5%,#163b6b 0%,#081326 47%,#050b19 100%)!important}
+.senfx-smart-entry::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background-image:linear-gradient(#2c9fd60c 1px,transparent 1px),linear-gradient(90deg,#2c9fd60c 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,#0009,transparent 85%)}
+.senfx-smart-entry h1{background:linear-gradient(90deg,#f5fdff,#72dfff 60%,#b39aff);background-clip:text;-webkit-background-clip:text;color:transparent;text-shadow:0 0 38px #2d9cfb38}
+.senfx-smart-entry section{box-shadow:inset 0 1px #b9f3ff12,0 14px 34px #0003;transition:border-color .2s ease,box-shadow .2s ease}
+.senfx-smart-entry section:hover{border-color:#4e9cce!important;box-shadow:0 12px 35px #0005,0 0 24px #428ef522}
+.senfx-smart-entry button{transition:filter .2s ease,transform .2s ease,box-shadow .2s ease}
+.senfx-smart-entry button:not(:disabled):hover{filter:brightness(1.16);transform:translateY(-2px);box-shadow:0 0 20px #31b5ee55}
+.senfx-smart-entry button:focus-visible,.senfx-smart-entry input:focus-visible{outline:3px solid #8be9ff;outline-offset:3px}
+.senfx-smart-entry button:disabled{cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.senfx-smart-entry section,.senfx-smart-entry button{transition:none}.senfx-smart-entry button:not(:disabled):hover{transform:none}}

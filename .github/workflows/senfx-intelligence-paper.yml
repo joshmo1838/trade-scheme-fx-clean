@@ -1,0 +1,42 @@
+name: SENFX Intelligence isolated paper tests
+
+on:
+  push:
+    branches:
+      - feature/senfx-ai-intelligence-suite
+    paths:
+      - 'lib/market/smart-entry-paper.ts'
+      - 'lib/market/smart-entry-next-tick.ts'
+      - 'lib/market/public-tick-adapter.ts'
+      - 'lib/market/market-time-machine.ts'
+      - 'tests/market-time-machine.test.mjs'
+      - 'tests/public-tick-adapter.test.mjs'
+      - 'tests/smart-entry-next-tick.test.mjs'
+      - 'app/intelligence/suite/**'
+      - 'tests/smart-entry-paper.test.mjs'
+      - '.github/workflows/senfx-intelligence-paper.yml'
+      - 'app/intelligence/smart-entry/**'
+      - 'app/intelligence/time-machine/**'
+      - 'app/components/WorkspaceAIOrb.tsx'
+      - 'app/components/workspace-ai-orb.css'
+      - 'app/layout.tsx'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smart-entry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without modifying repository lockfiles
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+      - name: Verify TypeScript dashboard and engine
+        run: npm run typecheck
+      - name: Run isolated deterministic paper-only Smart Entry tests
+        run: node --experimental-strip-types --test tests/smart-entry-paper.test.mjs tests/smart-entry-next-tick.test.mjs tests/public-tick-adapter.test.mjs tests/market-time-machine.test.mjs

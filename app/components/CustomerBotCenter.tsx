@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SenfxBotScanner from "@/app/components/SenfxBotScanner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { evaluatePaperSignal, paperPreset } from "@/lib/bots/paper-strategy";
@@ -814,6 +815,8 @@ export default function CustomerBotCenter() {
             )}
           </section>
         )}
+
+        <SenfxBotScanner bots={bots} prices={livePrices} />
 
         <footer className="botCenterFooter">
           <Link href="/admin/bots">Admin bot catalogue</Link>
