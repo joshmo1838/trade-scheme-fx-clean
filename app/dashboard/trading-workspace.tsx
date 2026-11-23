@@ -37,6 +37,7 @@ const moreTools = [
   { label: "Hedging Planner", href: "/hedging" },
   { label: "Digit Tools", href: "/digit-tools" },
   { label: "Strategy Lab", href: "/strategy-lab" },
+  { label: "Deriv Strategy Templates (Research Preview)", href: "/deriv-presets" },
   { label: "Market Intelligence", href: "/intelligence" },
   { label: "Backtest Research", href: "/backtest" },
   { label: "Bot Settings", href: "/bot-settings" },
