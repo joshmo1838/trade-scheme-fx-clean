@@ -32,7 +32,8 @@ function verifiedIdentity(input: unknown): string {
     throw new Error("DERIV_IDENTITY_RESPONSE_MISSING");
   }
   const record = input as Record<string, unknown>;
-  if (!Array.isArray(record.errors) || record.errors.length > 0) {
+  if ("errors" in record &&
+      (!Array.isArray(record.errors) || record.errors.length > 0)) {
     throw new Error("DERIV_IDENTITY_RESPONSE_ERRORS");
   }
   const data = record.data as Record<string, unknown> | undefined;
