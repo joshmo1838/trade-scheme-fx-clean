@@ -130,6 +130,8 @@ export async function GET(request: NextRequest) {
   }
 
   let failureStage = "token_exchange";
+  let identityHttpStatus: number | undefined;
+  let identityShape: Record<string, unknown> | undefined;
   try {
     const exchange = await fetch("https://auth.deriv.com/oauth2/token", {
       method: "POST",
@@ -156,12 +158,29 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
       signal: AbortSignal.timeout(10000)
     });
+    identityHttpStatus = identityResponse.status;
     if (!identityResponse.ok) {
-      console.warn("Deriv nickname lookup failed", { httpStatus: identityResponse.status });
+      console.warn("Deriv nickname lookup failed", { httpStatus: identityHttpStatus });
       return finish(request, "identity_failed");
     }
     failureStage = "identity_response";
     const identityPayload = await identityResponse.json() as unknown;
+    const top = identityPayload && typeof identityPayload === "object" &&
+      !Array.isArray(identityPayload) ? identityPayload as Record<string, unknown> : undefined;
+    const data = top?.data;
+    const dataRecord = data && typeof data === "object" && !Array.isArray(data)
+      ? data as Record<string, unknown> : undefined;
+    identityShape = {
+      payloadType: identityPayload === null ? "null" :
+        Array.isArray(identityPayload) ? "array" : typeof identityPayload,
+      topLevelKeys: top ? Object.keys(top).slice(0, 12) : [],
+      errorsType: !top || !("errors" in top) ? "missing" :
+        Array.isArray(top.errors) ? "array" : top.errors === null ? "null" : typeof top.errors,
+      errorsCount: Array.isArray(top?.errors) ? top.errors.length : undefined,
+      dataType: !top || !("data" in top) ? "missing" :
+        data === null ? "null" : Array.isArray(data) ? "array" : typeof data,
+      dataKeys: dataRecord ? Object.keys(dataRecord).slice(0, 12) : []
+    };
     if (identityPayload && typeof identityPayload === "object" &&
         !Array.isArray(identityPayload)) {
       const rawErrors = (identityPayload as Record<string, unknown>).errors;
@@ -202,7 +221,9 @@ export async function GET(request: NextRequest) {
     console.error("Deriv-first callback rejected", {
       stage: failureStage,
       reason,
-      type: error instanceof Error ? error.name : "UnknownError"
+      type: error instanceof Error ? error.name : "UnknownError",
+      httpStatus: failureStage === "identity_response" ? identityHttpStatus : undefined,
+      identityShape: failureStage === "identity_response" ? identityShape : undefined
     });
     return finish(request, "login_failed");
   }
