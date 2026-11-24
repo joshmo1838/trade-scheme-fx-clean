@@ -29,17 +29,17 @@ function sameSecret(a: string, b: string): boolean {
 
 function verifiedIdentity(input: unknown): string {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("Deriv identity response is missing");
+    throw new Error("DERIV_IDENTITY_RESPONSE_MISSING");
   }
   const record = input as Record<string, unknown>;
   if (!Array.isArray(record.errors) || record.errors.length > 0) {
-    throw new Error("Deriv identity response contains errors");
+    throw new Error("DERIV_IDENTITY_RESPONSE_ERRORS");
   }
   const data = record.data as Record<string, unknown> | undefined;
   const id = data?.external_reference_id;
   if (typeof id !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    throw new Error("Deriv identity reference is invalid");
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error("DERIV_IDENTITY_REFERENCE_INVALID");
   }
   // Identity from the authenticated Deriv endpoint, never client input or a trading account ID.
   return id.toLowerCase();
@@ -170,8 +170,16 @@ export async function GET(request: NextRequest) {
     await issueVerifiedSupabaseSession(clientId, subject);
     return finish(request, "authenticated", true);
   } catch (error) {
+    const safeIdentityReasons = new Set([
+      "DERIV_IDENTITY_RESPONSE_MISSING",
+      "DERIV_IDENTITY_RESPONSE_ERRORS",
+      "DERIV_IDENTITY_REFERENCE_INVALID"
+    ]);
+    const reason = error instanceof Error && safeIdentityReasons.has(error.message)
+      ? error.message : undefined;
     console.error("Deriv-first callback rejected", {
       stage: failureStage,
+      reason,
       type: error instanceof Error ? error.name : "UnknownError"
     });
     return finish(request, "login_failed");
