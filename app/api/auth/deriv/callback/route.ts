@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
     return finish(request, "invalid_callback");
   }
 
+  let failureStage = "token_exchange";
   try {
     const exchange = await fetch("https://auth.deriv.com/oauth2/token", {
       method: "POST",
@@ -142,18 +143,21 @@ export async function GET(request: NextRequest) {
       signal: AbortSignal.timeout(10000)
     });
     if (!exchange.ok) return finish(request, "token_exchange_failed");
+    failureStage = "token_response";
     const token = await exchange.json() as Record<string, unknown>;
     const accessToken = token.access_token;
     if (typeof accessToken !== "string" || !accessToken) {
       return finish(request, "token_exchange_failed");
     }
 
+    failureStage = "identity_fetch";
     const identityResponse = await fetch("https://api.derivws.com/account/v1/nickname", {
       headers: { Authorization: "Bearer " + accessToken },
       cache: "no-store",
       signal: AbortSignal.timeout(10000)
     });
     if (!identityResponse.ok) return finish(request, "identity_failed");
+    failureStage = "identity_response";
     const subject = verifiedIdentity(await identityResponse.json());
 
     // Staging verifies actual Deriv identity without issuing a session until
@@ -162,10 +166,12 @@ export async function GET(request: NextRequest) {
       return finish(request, "identity_verified");
     }
 
+    failureStage = "session_issue";
     await issueVerifiedSupabaseSession(clientId, subject);
     return finish(request, "authenticated", true);
   } catch (error) {
     console.error("Deriv-first callback rejected", {
+      stage: failureStage,
       type: error instanceof Error ? error.name : "UnknownError"
     });
     return finish(request, "login_failed");
