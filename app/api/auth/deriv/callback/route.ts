@@ -156,9 +156,31 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
       signal: AbortSignal.timeout(10000)
     });
-    if (!identityResponse.ok) return finish(request, "identity_failed");
+    if (!identityResponse.ok) {
+      console.warn("Deriv nickname lookup failed", { httpStatus: identityResponse.status });
+      return finish(request, "identity_failed");
+    }
     failureStage = "identity_response";
-    const subject = verifiedIdentity(await identityResponse.json());
+    const identityPayload = await identityResponse.json() as unknown;
+    if (identityPayload && typeof identityPayload === "object" &&
+        !Array.isArray(identityPayload)) {
+      const rawErrors = (identityPayload as Record<string, unknown>).errors;
+      if (Array.isArray(rawErrors) && rawErrors.length > 0) {
+        const codes = rawErrors.flatMap((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          const code = (item as Record<string, unknown>).code;
+          return typeof code === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(code)
+            ? [code] : [];
+        });
+        console.warn("Deriv nickname lookup returned API errors", {
+          httpStatus: identityResponse.status,
+          errorCount: rawErrors.length,
+          codes
+        });
+        return finish(request, "identity_failed");
+      }
+    }
+    const subject = verifiedIdentity(identityPayload);
 
     // Staging verifies actual Deriv identity without issuing a session until
     // repeated-login stability and cross-customer isolation have been tested.
