@@ -4,10 +4,10 @@ import { derivUserinfoFromNickname } from "../lib/deriv/first-login-userinfo.ts"
 
 const uuid = "3d8f2010-78c4-4e3a-8ad9-63d14b3a2d80";
 
-test("normalizes documented Deriv identity into a subject without leaking nickname or email", () => {
+test("normalizes Deriv identity envelopes without leaking nickname or email", () => {
   const userinfo = derivUserinfoFromNickname({
     data: { external_reference_id: uuid.toUpperCase(), nickname: "private-user" },
-    errors: [], metadata: {}
+    meta: {}
   });
   assert.deepEqual(userinfo, { sub: uuid, id: uuid });
   assert.equal("email" in userinfo, false);
@@ -20,7 +20,7 @@ test("rejects invalid, error and account-only payloads", () => {
     null, [], {}, { data: {}, errors: [] },
     { data: { loginid: "VRTC123", account_id: "CR123" }, errors: [] },
     { data: { external_reference_id: uuid }, errors: [{ code: "invalid_token" }] },
-    { data: { external_reference_id: uuid } },
+    { data: { external_reference_id: uuid }, errors: "malformed" },
     { data: { external_reference_id: "CR123" }, errors: [] },
     { data: { external_reference_id: "123456" }, errors: [] }
   ]) {
@@ -30,7 +30,7 @@ test("rejects invalid, error and account-only payloads", () => {
 
 test("different Deriv identities remain distinct", () => {
   const other = "8e1a75bf-814f-4fa1-9e3c-5cbdb6e053df";
-  const a = derivUserinfoFromNickname({ data: { external_reference_id: uuid }, errors: [] });
-  const b = derivUserinfoFromNickname({ data: { external_reference_id: other }, errors: [] });
+  const a = derivUserinfoFromNickname({ data: { external_reference_id: uuid }, meta: {} });
+  const b = derivUserinfoFromNickname({ data: { external_reference_id: other }, meta: {} });
   assert.notEqual(a.sub, b.sub);
 });
