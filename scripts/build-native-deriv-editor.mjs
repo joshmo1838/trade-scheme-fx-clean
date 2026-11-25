@@ -123,6 +123,10 @@ const rewriteReferences = async directory => {
         output = output
           .replaceAll('bot.yourbrand.com', 'www.tradesche.com')
           .replace(
+            'l=()=>{let e=window.location.hostname;return Object.values(a).includes(e)}',
+            'l=()=>{let e=window.location.hostname;return Object.values(a).includes(e)||e==="trade-scheme-fx-clean.vercel.app"}',
+          )
+          .replace(
             /(STAGING:`\$\{)([^}]+)(\}options\/ws\/public`,PRODUCTION:`\$\{)([^}]+)(\}options\/ws\/public`)/,
             (_, stagingPrefix, stagingBase, productionPrefix, productionBase, suffix) =>
               `${stagingPrefix}${stagingBase}.replace(/^https:/,"wss:")${productionPrefix}${productionBase}.replace(/^https:/,"wss:")${suffix}`,
