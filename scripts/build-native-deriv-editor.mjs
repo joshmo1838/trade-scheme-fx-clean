@@ -9,7 +9,11 @@ const dist = path.join(source, "dist");
 const destination = path.join(root, "public/native-deriv");
 
 const run = (command, args) => {
-  const result = spawnSync(command, args, { cwd: source, stdio: "inherit", env: process.env });
+  const result = spawnSync(command, args, {
+    cwd: source,
+    stdio: "inherit",
+    env: { ...process.env, NODE_ENV: "development", HUSKY: "0" },
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);
 };
@@ -24,7 +28,7 @@ try {
 try {
   await readFile(path.join(dist, "index.html"));
 } catch {
-  run("npm", ["ci"]);
+  run("npm", ["ci", "--include=dev", "--ignore-scripts"]);
   run("npm", ["run", "generate:brand-css"]);
   run("npm", ["run", "build"]);
 }
