@@ -1,2 +1,5 @@
-import VisualBotBuilder from "@/app/components/VisualBotBuilder";
-export default function Page(){return <VisualBotBuilder/>;}
+import NativeDerivBuilder from "./NativeDerivBuilder";
+
+export default function Page() {
+  return <NativeDerivBuilder />;
+}

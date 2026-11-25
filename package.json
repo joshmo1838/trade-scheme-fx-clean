@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/build-native-deriv-editor.mjs",
     "build": "next build",
     "start": "next start",
     "worker:forward": "node worker/senfx-forward-worker.mjs",
     "typecheck": "tsc --noEmit",
     "test:routes": "node scripts/check-workspace-routes.mjs",
+    "test:native-editor": "node --test tests/deriv-native-editor.test.mjs",
     "test:workspace": "node --experimental-strip-types --test tests/workspace-command-palette.test.mjs",
-    "test:integration": "node --test tests/workspace-integration.test.mjs",
+    "test:integration": "node --experimental-strip-types --test tests/workspace-integration.test.mjs tests/workspace-module-targets.test.mjs",
     "test:operations": "node --experimental-strip-types --test tests/workspace-paper-operations.test.mjs",
     "test:engine": "node --experimental-strip-types --test tests/paper-strategy.test.mjs",
     "test:controls": "node --experimental-strip-types --test tests/bot-control.test.mjs",
@@ -33,6 +35,6 @@
     "typescript": "^5.7.3"
   },
   "engines": {
-    "node": ">=22.4.0"
+    "node": "24.x"
   }
 }
