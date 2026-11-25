@@ -15,8 +15,10 @@ export default function LoginPage() {
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get("deriv");
     if (!status) {
-      window.location.replace("/api/auth/deriv/start");
-      return;
+      const timer = window.setTimeout(() => {
+        window.location.replace("/api/auth/deriv/start");
+      }, 1200);
+      return () => window.clearTimeout(timer);
     }
     const messages: Record<string, string> = {
       identity_verified: "Deriv confirmed your identity successfully. This is a staging verification: dashboard sign-in has not yet been enabled.",
