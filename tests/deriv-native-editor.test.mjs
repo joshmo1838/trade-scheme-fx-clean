@@ -41,6 +41,9 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /reactRefreshEntry/);
   assert.match(script, /NODE_ENV: "production"/);
   assert.match(script, /crossorigin="anonymous"/);
+  assert.match(script, /bot\.yourbrand\.com.*www\.tradesche\.com/);
+  assert.match(script, /replace\(\/\^https:/);
+  assert.match(script, /wss:/);
   assert.match(script, /run\.disabled = true/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
 });
