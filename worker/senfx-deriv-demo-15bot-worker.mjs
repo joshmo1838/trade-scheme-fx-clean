@@ -35,6 +35,21 @@ if(typeof WebSocket!=="function")throw Error("Node 22+ global WebSocket required
 const db=createClient(SUPABASE_URL,SECRET,{
  auth:{persistSession:false,autoRefreshToken:false}
 });
+const quantumUrl=process.env.QUANTUM_SUPABASE_URL;
+const quantumKey=process.env.QUANTUM_SUPABASE_READ_KEY;
+const quantum=quantumUrl&&quantumKey?createClient(quantumUrl,quantumKey,{auth:{persistSession:false,autoRefreshToken:false}}):null;
+async function inspectQuantum(bot,signal){
+ if(!quantum)return safeLog("Quantum research connection not configured; SKIP");
+ try{
+  const {data,error}=await quantum.from("quantum_ai_latest").select("updated_at,payload").eq("symbol",bot.market).maybeSingle();
+  const age=Date.now()-Date.parse(data?.updated_at||"");
+  const p=data?.payload;
+  const evidence=p?.bots?.find(b=>b.botId===bot.id&&b.market===bot.market);
+  if(error||!Number.isFinite(age)||age<0||age>45000||p?.feedFresh!==true||p?.workerStopped!==false||!evidence||evidence.signal?.prediction!==signal.prediction||evidence.signal?.barrier!==signal.barrier)
+   return safeLog("Quantum evidence missing, stale or mismatched; SKIP");
+  safeLog("Quantum research received; independent execution authorization still required");
+ }catch{safeLog("Quantum research unavailable; SKIP");}
+}
 const BASE="https://api.derivws.com";
 const PUBLIC_WS="wss://api.derivws.com/trading/v1/options/ws/public";
 const BOT_MARKETS=new Set(DIGIT_MARKETS.map(x=>x.symbol));
@@ -407,7 +422,7 @@ function startPublicFeed(){
    roundRobin=(index+1)%FIFTEEN_BOTS.length;
    lastCandidateAt=now;
    // Research estimates are not execution authorization. Fail closed until a validated bridge exists.
-   safeLog('Quantum execution authorization unavailable; skipping candidate');
+   void inspectQuantum(bot,signal);
    return;
   }
  });
