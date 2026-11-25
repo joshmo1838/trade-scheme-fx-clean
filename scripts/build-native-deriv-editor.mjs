@@ -86,9 +86,12 @@ const safetyShim = `<script>
     diagnostic.textContent = String(message);
   };
   if (debug) {
-    window.addEventListener("error", event => report("Runtime error: " + event.message + "\\n" + event.filename + ":" + event.lineno + ":" + event.colno), true);
+    window.addEventListener("error", event => {
+      const target = event.target;
+      report("Runtime error: " + (event.message || event.error?.message || event.type) + "\\n" + (event.filename || target?.src || target?.href || target?.tagName || "unknown source") + ":" + event.lineno + ":" + event.colno);
+    }, true);
     window.addEventListener("unhandledrejection", event => report("Unhandled rejection: " + (event.reason?.stack || event.reason)));
-    document.addEventListener("securitypolicyviolation", event => report("CSP blocked " + event.violatedDirective + ": " + event.blockedURI));
+    document.addEventListener("securitypolicyviolation", event => report("CSP blocked " + event.violatedDirective + ": " + event.blockedURI + "\\n" + event.originalPolicy));
     setTimeout(() => {
       if (!document.querySelector("#root")?.childElementCount) report("No React UI mounted in #root after 8 seconds. Check browser errors and asset/CSP failures.");
     }, 8000);
