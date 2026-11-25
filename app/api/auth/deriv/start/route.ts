@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri.toString(),
-    scope: "account_manage",
+    scope: process.env.DERIV_FIRST_LOGIN_CONNECT_ENABLED === "true"
+      ? "account_manage trade" : "account_manage",
     state,
     code_challenge: challenge,
     code_challenge_method: "S256"
