@@ -1,0 +1,6 @@
+**
+!worker/
+!worker/quantum-ai/
+!worker/quantum-ai/**
+!tests/
+!tests/quantum-ai5.mjs
