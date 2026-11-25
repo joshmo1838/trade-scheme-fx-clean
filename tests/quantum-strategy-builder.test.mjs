@@ -27,7 +27,7 @@ test('strategy references are labeled as research and safely escaped in native B
   assert.match(xml,/RESEARCH ONLY · NOT AN EXECUTABLE BOT/);
 });
 
-test('generated bootstrap is valid JavaScript and only includes the 4.0 reference catalog',()=>{
+test('Nexus opens the native Deriv workspace and keeps its rule visible as a Blockly comment',()=>{
   const html=createStrategyBootstrap(STRATEGIES);
   const source=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(source);
@@ -35,14 +35,22 @@ test('generated bootstrap is valid JavaScript and only includes the 4.0 referenc
   assert.match(source,/senfx_strategy/);
   assert.match(source,/window\.Blockly\.utils\.xml\.textToDom/);
   assert.match(source,/window\.Blockly\.Xml\.domToWorkspace/);
-  assert.match(source,/RESEARCH ONLY · NOT AN EXECUTABLE BOT/);
-  assert.doesNotMatch(source,/purchase|authorize|token/i);
+  assert.match(source,/Nexus Flow — research strategy/);
+  assert.match(source,/setCommentText/);
+  assert.doesNotMatch(source,/authorize|token/i);
   let importedXml='';
   let moved=0;
   let rendered=0;
+  let comment='';
+  let commentVisible=false;
+  const tradeParameters={
+    type:'trade_definition',
+    setCommentText:value=>{comment=value;},
+    getComment:()=>({setVisible:value=>{commentVisible=value;}}),
+  };
   const workspace={
     __senfxStrategyReference:null,
-    getTopBlocks:()=>[{moveBy:()=>moved++}],
+    getTopBlocks:()=>[tradeParameters],
     getBlockById:()=>null,
     render:()=>rendered++,
   };
@@ -55,9 +63,11 @@ test('generated bootstrap is valid JavaScript and only includes the 4.0 referenc
     },
   };
   runInNewContext(source,{window,URLSearchParams,console});
-  assert.match(importedXml,/4\.0 STRATEGY REFERENCE/);
-  assert.match(importedXml,/Nexus Flow/);
-  assert.equal(moved,1);
+  assert.equal(importedXml,'');
+  assert.match(comment,/Nexus Flow — research strategy/);
+  assert.match(comment,/After 300 valid ticks/);
+  assert.equal(commentVisible,true);
+  assert.equal(moved,0);
   assert.equal(rendered,1);
 });
 
