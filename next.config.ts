@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     };
   },
   async headers() {
-    const editorCsp = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    const editorCsp = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src wss://api.derivws.com/trading/v1/options/ws/public wss://staging-api.derivws.com/trading/v1/options/ws/public; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
     return [
       {
         source: "/native-deriv/:path*",
