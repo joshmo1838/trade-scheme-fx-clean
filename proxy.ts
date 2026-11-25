@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  // Clean workspace: deny legacy API access until explicitly reintroduced.
+  if (path.startsWith("/api/") && !/^\/api\/(?:auth(?:\/|$)|deriv\/(?:account|select-account|connect|disconnect|callback|ticks|markets|symbols)(?:\/|$))/.test(path)) {
+    return NextResponse.json({ error: "Endpoint unavailable during workspace reset" }, { status: 410 });
+  }
+  if (/^\/(?:builder|bot-center|bot-controls|bulk-trader|bot-settings|strategy-lab|manual-trader|backtest)(?:\/|$)/.test(path)) {
+    return NextResponse.redirect(new URL("/bot-library", request.url));
+  }
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
