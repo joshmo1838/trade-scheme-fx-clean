@@ -208,6 +208,7 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
               </label>
               <label className="fieldLabel">Candle interval
                 <select className="fieldInput" value={frame} onChange={e => setFrame(Number(e.target.value))} style={{ display: "block" }}>
+                  <option value={5}>5 seconds</option>
                   <option value={15}>15 seconds</option>
                   <option value={60}>1 minute</option>
                   <option value={300}>5 minutes</option>
@@ -235,21 +236,21 @@ export default function LiveCandleChart({ embedded = false }: { embedded?: boole
               {render && bars.map((bar, i) => {
                 const x = AXIS_WIDTH + PLOT_WIDTH - render.gap * (bars.length - i) + render.gap / 2;
                 const rise = bar.close >= bar.open;
-                const color = rise ? "#1dd69b" : "#f04d84";
+                const color = rise ? "#29f5b0" : "#ff507b";
                 const openY = render.priceToY(bar.open);
                 const closeY = render.priceToY(bar.close);
-                return <g key={bar.bucket}>
+                return <g key={bar.bucket} style={{filter:i===bars.length-1?`drop-shadow(0 0 4px ${color})`:undefined}}>
                   <line x1={x} x2={x} y1={render.priceToY(bar.high)} y2={render.priceToY(bar.low)} stroke={color} strokeWidth="1.5" />
                   <rect x={x - Math.max(2.5, render.gap * .28)} y={Math.min(openY, closeY)}
                     width={Math.max(5, render.gap * .56)} height={Math.max(1.8, Math.abs(closeY - openY))}
-                    fill={color} rx="1"/>
+                    fill={color} rx="2" style={{transition:"y 160ms ease-out, height 160ms ease-out"}}/>
                   {(i === bars.length - 1 || i % Math.max(1, Math.floor(130 / render.gap)) === 0) &&
                     <text x={x - 19} y="352" fill="#789bbb" fontSize="10">
                       {new Date(bar.bucket * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: frame < 60 ? "2-digit" : undefined })}
                     </text>}
                 </g>;
               })}
-              {render && lastPrice !== null && <line x1={AXIS_WIDTH} x2="960" y1={render.priceToY(lastPrice)} y2={render.priceToY(lastPrice)} stroke="#31d8dd" strokeDasharray="5 4" opacity=".45" />}
+              {render && lastPrice !== null && <g><line x1={AXIS_WIDTH} x2="960" y1={render.priceToY(lastPrice)} y2={render.priceToY(lastPrice)} stroke="#31d8dd" strokeDasharray="5 4" opacity=".75"/><rect x="810" y={render.priceToY(lastPrice)-10} width="145" height="20" rx="5" fill="#0e7490"/><text x="882" y={render.priceToY(lastPrice)+4} textAnchor="middle" fill="white" fontSize="12">{format(lastPrice)}</text></g>}
             </svg>
             {!bars.length && <p className="muted" style={{ textAlign: "center", margin: "0 10px 22px" }}>Awaiting the first real tick. No historical prices are fabricated.</p>}
           </div>
