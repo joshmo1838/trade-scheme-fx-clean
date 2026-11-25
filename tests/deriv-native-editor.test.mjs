@@ -48,6 +48,7 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /Deriv editor entry script is missing/);
   assert.match(script, /html\.replaceAll\(entryMatch\[2\], newEntryName\)/);
   assert.match(script, /run\.disabled = true/);
+  assert.match(script, /text\.textContent !== "Run disabled"/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
 });
 
