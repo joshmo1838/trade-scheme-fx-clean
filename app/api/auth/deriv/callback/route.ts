@@ -173,6 +173,14 @@ export async function GET(request: NextRequest) {
     return finish(request, "invalid_callback");
   }
 
+  const startedAt = performance.now();
+  let lastStageAt = startedAt;
+  const timing: Record<string, number> = {};
+  function mark(stage: string) {
+    const now = performance.now();
+    timing[stage] = Math.round(now - lastStageAt);
+    lastStageAt = now;
+  }
   let failureStage = "token_exchange";
   let identityHttpStatus: number | undefined;
   let identityShape: Record<string, unknown> | undefined;
@@ -196,6 +204,7 @@ export async function GET(request: NextRequest) {
       return finish(request, "token_exchange_failed");
     }
 
+    mark("token_exchange");
     failureStage = "identity_fetch";
     const identityResponse = await fetch("https://api.derivws.com/account/v1/nickname", {
       headers: { Authorization: "Bearer " + accessToken },
@@ -244,6 +253,7 @@ export async function GET(request: NextRequest) {
       }
     }
     const subject = verifiedIdentity(identityPayload);
+    mark("identity_lookup");
 
     // Staging verifies actual Deriv identity without issuing a session until
     // repeated-login stability and cross-customer isolation have been tested.
@@ -253,6 +263,7 @@ export async function GET(request: NextRequest) {
 
     failureStage = "session_issue";
     const userId = await issueVerifiedSupabaseSession(clientId, subject);
+    mark("session_issue");
     if (process.env.DERIV_FIRST_LOGIN_CONNECT_ENABLED === "true") {
       try {
         await storeVerifiedConnection(userId, token);
@@ -261,6 +272,8 @@ export async function GET(request: NextRequest) {
         return finish(request, "connection_failed", true);
       }
     }
+    mark("connection");
+    console.info("Deriv login timing", { ...timing, totalMs: Math.round(performance.now() - startedAt) });
     return finish(request, "authenticated", true);
   } catch (error) {
     const safeIdentityReasons = new Set([
