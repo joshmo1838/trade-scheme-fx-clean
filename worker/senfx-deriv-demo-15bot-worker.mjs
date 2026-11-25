@@ -59,6 +59,10 @@ let lastBuyAt=0;
 let lastCandidateAt=0;
 let roundRobin=0;
 let interval=null;
+let reconnectAttempts=0;
+let reconnectAfter=0;
+let feedOpenedAt=0;
+let feedStableSince=0;
 
 function safeLog(label,extra=""){
  console.log("[senfx-demo-15] "+label+(extra?" · "+String(extra).slice(0,110):""));
@@ -334,8 +338,18 @@ async function executeSignal(bot,signal){
   busy=false;
  }
 }
+function reconnectPublicFeed(ws,reason){
+ if(finishing||feed!==ws)return;
+ stopFeed();
+ feedStableSince=0;
+ if(busy||++reconnectAttempts>3){void stopOwnedRun(reason);return;}
+ reconnectAfter=Date.now()+Math.min(30000,2000*2**reconnectAttempts);
+ safeLog('Public feed disconnected; fresh warmup required',`retry ${reconnectAttempts}/3`);
+}
 function startPublicFeed(){
- if(feed||finishing)return;
+ if(feed||finishing||Date.now()<reconnectAfter)return;
+ feedOpenedAt=Date.now();
+ feedStableSince=0;
  feedReady=false;
  const ws=new WebSocket(PUBLIC_WS);
  feed=ws;
@@ -378,6 +392,8 @@ function startPublicFeed(){
   if(tick.epoch<=prior)return;
   previousEpoch.set(tick.symbol,tick.epoch);
   lastTickReceived=now;
+  if(!feedStableSince)feedStableSince=now;
+  if(now-feedStableSince>=60000)reconnectAttempts=0;
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
@@ -395,8 +411,8 @@ function startPublicFeed(){
    return;
   }
  });
- ws.addEventListener("error",()=>{void stopOwnedRun("Deriv public data WebSocket error.");});
- ws.addEventListener("close",()=>{if(!finishing)void stopOwnedRun("Public feed disconnected; no guessing or auto retry.");});
+ ws.addEventListener("error",()=>reconnectPublicFeed(ws,"Deriv public data WebSocket error."));
+ ws.addEventListener("close",()=>reconnectPublicFeed(ws,"Public feed disconnected; retry budget exhausted."));
 }
 async function poll(){
  if(finishing||pollBusy)return;
@@ -429,8 +445,8 @@ async function poll(){
    }
   }
   if(!feed)startPublicFeed();
-  if(feedReady&&!busy&&lastTickReceived>0&&Date.now()-lastTickReceived>MAX_WAIT_FOR_MARKET_MS)
-   await stopOwnedRun("Public feed has no fresh ticks; no purchases permitted.");
+  if(feed&&!busy&&Date.now()-Math.max(feedOpenedAt,lastTickReceived)>MAX_WAIT_FOR_MARKET_MS)
+   reconnectPublicFeed(feed,"Public feed has no fresh ticks; retry budget exhausted.");
  }catch(error){
   await stopOwnedRun(error instanceof Error?error.message:"Control heartbeat failed.");
  }finally{pollBusy=false;}
