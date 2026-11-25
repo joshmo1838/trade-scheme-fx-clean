@@ -27,6 +27,8 @@ test("native editor frame denies broker networking and form submissions", async 
   assert.match(config, /connect-src wss:\/\/api\.derivws\.com\/trading\/v1\/options\/ws\/public wss:\/\/staging-api\.derivws\.com\/trading\/v1\/options\/ws\/public/);
   assert.match(config, /fonts\.googleapis\.com/);
   assert.match(config, /fonts\.gstatic\.com/);
+  assert.match(config, /https:\/\/\*\.vercel\.app/);
+  assert.match(config, /https:\/\/www\.tradesche\.com/);
   assert.match(config, /form-action 'none'/);
   assert.match(config, /frame-src 'none'/);
 });
