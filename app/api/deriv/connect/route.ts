@@ -18,14 +18,12 @@ function base64Url(value: Buffer): string {
 
 export async function GET(request: NextRequest) {
   try {
-    // Use the canonical www hostname.
+    // Never transfer a preview session to the production hostname.
+    // Until a dedicated secondary callback is registered, fail closed on previews.
     if (request.nextUrl.hostname !== "www.tradesche.com") {
-      const canonicalUrl = new URL(
-        request.nextUrl.pathname + request.nextUrl.search,
-        "https://www.tradesche.com"
+      return NextResponse.redirect(
+        new URL("/dashboard?deriv=not_configured", request.nextUrl.origin)
       );
-
-      return NextResponse.redirect(canonicalUrl);
     }
 
     // Verify that the customer is signed in.
@@ -128,7 +126,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         "/dashboard?deriv=connect_failed",
-        "https://www.tradesche.com"
+        request.nextUrl.origin
       )
     );
   }
