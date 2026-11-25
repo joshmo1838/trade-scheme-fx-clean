@@ -15,6 +15,7 @@ export async function readNativeDemoStatus() {
 // Only call from an explicit owner action after validating the native workspace
 // against its original strategy. This transport does not validate XML.
 export async function sendNativeDemoCommand(command: Command) {
+ if (!command || (command.action !== "stop" && command.action !== "start_one")) throw new Error("Unsupported Demo command");
  if (command.action === "start_one") {
   if (!findFifteenBot(command.botId) || command.confirmVirtualDemoAutomation !== true ||
       !Number.isSafeInteger(command.targetTrades) || command.targetTrades < 1 || command.targetTrades > 200 ||
@@ -27,7 +28,11 @@ export async function sendNativeDemoCommand(command: Command) {
  const response = await fetch(endpoint, {
   method: "POST", credentials: "same-origin",
   headers: {"Content-Type":"application/json"},
-  body: JSON.stringify(command)
+  body: JSON.stringify(command.action === "stop" ? { action: "stop" } : {
+   action: "start_one", botId: command.botId, stakeAmount: command.stakeAmount,
+   targetTrades: command.targetTrades, expectedVersion: command.expectedVersion,
+   confirmVirtualDemoAutomation: true
+  })
  });
  const body = await response.json();
  if (!response.ok || body.ok !== true || body.brokerOrderPlaced !== false)
