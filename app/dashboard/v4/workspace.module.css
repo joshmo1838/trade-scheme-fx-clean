@@ -44,3 +44,27 @@
 @keyframes botArrival{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:600px){.botBanner{gap:8px;padding:8px}.botBanner .botArt{flex-basis:125px}.botArt{height:125px}}
 @media(prefers-reduced-motion:reduce){.botCore,.botArt span{transform:translate(-50%,-50%)}}
+
+.launchGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.launchGrid .launchCard{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:180px;border-color:color-mix(in srgb,var(--module-accent) 55%,#14263c);background:radial-gradient(ellipse at top,color-mix(in srgb,var(--module-accent) 22%,#071322),#071322 75%);padding:12px}
+.launchCard strong{color:var(--module-accent);font-size:16px}.launchCard small{font-size:11px;line-height:1.5}
+.moduleArt{height:110px;width:100%;position:relative;overflow:hidden;display:grid;place-items:center;isolation:isolate;border-radius:12px;background:radial-gradient(circle,color-mix(in srgb,var(--module-accent) 24%,transparent),transparent 65%)}
+.moduleOrbit{position:absolute;left:50%;top:50%;width:80px;height:80px;border:1px dashed var(--module-accent);border-radius:50%;animation:energyRing 6s linear infinite;opacity:.65}
+.moduleOrbit:nth-child(2){width:100px;height:100px;border-style:dotted;animation-direction:reverse;animation-duration:10s}
+.moduleGlyph{position:relative;z-index:2;font-size:40px;color:var(--module-accent);text-shadow:0 0 22px var(--module-accent);animation:glyphFloat 3s ease-in-out infinite}
+.moduleBars{position:absolute;inset:0 8px 0;display:flex;gap:4px;align-items:flex-end;justify-content:center;opacity:.32}
+.moduleBars i{flex:1;max-width:12px;background:linear-gradient(transparent,var(--module-accent));transform-origin:bottom;animation:energyBars 2s ease-in-out infinite alternate;border-radius:3px}
+.moduleHeader{display:flex;align-items:center;gap:20px;padding:12px 20px;margin:12px 0 18px;border:1px solid color-mix(in srgb,var(--module-accent) 55%,#071322);border-radius:16px;background:radial-gradient(ellipse at left,color-mix(in srgb,var(--module-accent) 17%,#071322),#071322 75%)}
+.moduleHeader .moduleArt{flex:0 0 140px}.moduleHeader h2{color:var(--module-accent);margin:4px 0}.moduleHeader p{color:#a9c4df}
+.chartFrame{margin-top:18px;padding:8px;border:1px solid #245c74;border-radius:18px;background:#06101e;box-shadow:0 0 25px #22d3ee12}
+.chartFrame :global(.panel){background:linear-gradient(145deg,#0b2035,#07101d);border-color:#23435c}
+.chartFrame :global(.senfxEmbeddedChartContent){padding:12px}
+.shell .orb{width:76px;height:76px;display:grid;place-items:center;overflow:visible;background:radial-gradient(circle at 30% 25%,#c4b5fd,#5835b6 45%,#100a35 85%)!important}
+.aiOrbit{position:absolute;inset:-7px;border:1px dashed #b9a1ff;border-radius:50%;animation:aiSpin 9s linear infinite;pointer-events:none}
+.aiOrbit:nth-child(2){inset:-13px;border-color:#38bdf8;border-style:dotted;animation-direction:reverse;animation-duration:14s}
+.aiCenter{display:grid;place-items:center;font-size:30px;line-height:1;color:#fff;text-shadow:0 0 15px #fff}.aiCenter small{font-size:11px;letter-spacing:2px;color:#e9d5ff}
+.assistant{border:1px solid #a78bfa;background:linear-gradient(145deg,#211944,#071322);box-shadow:0 0 35px #8b5cf640;bottom:120px}
+@keyframes aiSpin{to{transform:rotate(360deg)}}@keyframes glyphFloat{50%{transform:translateY(-6px) scale(1.1)}}
+@media(max-width:1100px){.launchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.moduleHeader{gap:8px;padding:8px}.moduleHeader .moduleArt{flex-basis:100px}.launchGrid .launchCard{min-height:155px}.shell .orb{width:58px;height:58px;right:20px;bottom:20px}}
+@media(prefers-reduced-motion:reduce){.moduleOrbit{transform:translate(-50%,-50%)}}
