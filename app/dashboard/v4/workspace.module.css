@@ -69,6 +69,23 @@
 .notice{margin:12px 0;padding:12px 16px;border:1px solid #397460;border-radius:10px;background:#0b2a27;color:#d7fff3}
 .builderFrame{display:block;width:100%;height:min(78vh,920px);min-height:620px;margin-top:18px;border:1px solid #294766;border-radius:14px;background:#fff}
 .sideSafety{margin-top:24px;font-size:12px}
+.quantumCatalog{margin-top:20px}
+.quantumCatalogHead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;border:1px solid #28506d;border-radius:14px;background:radial-gradient(ellipse at left,#12334a,#071322 72%)}
+.quantumCatalogHead small,.quantumBotCard>small{color:#71deea;font-size:11px;letter-spacing:.08em}
+.quantumCatalogHead h2{margin:6px 0 0;color:#e6f1ff}
+.quantumCatalogHead>span{color:#71deea;font-size:11px;font-weight:800;text-align:right}
+.quantumCatalogNote{max-width:900px;color:#a9c4df;line-height:1.6}
+.quantumBotGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:18px}
+.quantumBotCard{min-width:0;padding:14px;border:1px solid color-mix(in srgb,var(--bot-accent) 50%,#13233c);border-radius:14px;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--bot-accent) 15%,#071322),#071322 72%);transition:transform .2s,border-color .2s,box-shadow .2s}
+.quantumBotCard:hover{transform:translateY(-3px);border-color:var(--bot-accent);box-shadow:0 0 22px color-mix(in srgb,var(--bot-accent) 25%,transparent)}
+.quantumBotArt{position:relative;display:flex;align-items:flex-end;justify-content:center;gap:8px;height:96px;overflow:hidden;margin-bottom:12px;border-radius:10px;background:radial-gradient(circle,color-mix(in srgb,var(--bot-accent) 20%,transparent),transparent 70%)}
+.quantumBotArt i{width:14px;height:var(--bar-height,35px);border-radius:3px 3px 0 0;background:linear-gradient(transparent,var(--bot-accent));animation:energyBars 1.8s ease-in-out infinite alternate}
+.quantumBotArt i:nth-child(2){height:58px;animation-delay:.2s}.quantumBotArt i:nth-child(3){height:43px;animation-delay:.4s}
+.quantumBotArt b{position:absolute;top:8px;right:10px;color:var(--bot-accent);font-size:12px;letter-spacing:.12em}
+.quantumBotCard h3{margin:7px 0;color:var(--bot-accent)}
+.quantumBotCard p{min-height:84px;color:#c5d8ed;font-size:13px;line-height:1.5}
+.quantumBotCard button{width:100%;border-color:var(--bot-accent);background:color-mix(in srgb,var(--bot-accent) 14%,#081321);font-weight:700}
+@media(max-width:600px){.quantumCatalogHead{align-items:flex-start;flex-direction:column}.quantumCatalogHead>span{text-align:left}.quantumBotGrid{grid-template-columns:1fr}}
 @media(max-width:680px){.targetCard{display:block;padding:20px}.targetCard>.moduleArt{width:130px;margin-bottom:18px}.builderFrame{min-height:500px}}
 .shell .orb{width:76px;height:76px;display:grid;place-items:center;overflow:visible;background:radial-gradient(circle at 30% 25%,#c4b5fd,#5835b6 45%,#100a35 85%)!important}
 .aiOrbit{position:absolute;inset:-7px;border:1px dashed #b9a1ff;border-radius:50%;animation:aiSpin 9s linear infinite;pointer-events:none}
@@ -79,32 +96,3 @@
 @media(max-width:1100px){.launchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.moduleHeader{gap:8px;padding:8px}.moduleHeader .moduleArt{flex-basis:100px}.launchGrid .launchCard{min-height:155px}.shell .orb{width:58px;height:58px;right:20px;bottom:20px}}
 @media(prefers-reduced-motion:reduce){.moduleOrbit{transform:translate(-50%,-50%)}}
-
-/* The full Deriv Blockly surface is the default, with SENFX tools kept in a compact drawer. */
-.shell{position:relative;min-height:calc(100dvh - 54px);background:#f4f5f6;color:#333;border-radius:0;overflow:visible;font-family:Arial,Helvetica,sans-serif}
-.dbotTopbar{height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px;background:#fff;border-bottom:1px solid #e5e7e9;color:#333}
-.dbotBrand{display:flex;align-items:center;gap:4px;font-weight:800;letter-spacing:.04em;color:#25292d;white-space:nowrap}
-.dbotBrand b{color:#e53e4d}.dbotBrand small{margin-left:10px;color:#68747d;font-size:9px;letter-spacing:.13em}
-.dbotStatus{display:flex;align-items:center;gap:8px;color:#148b7a;font-weight:800;font-size:12px;letter-spacing:.04em}
-.dbotStatus>span{width:8px;height:8px;border-radius:50%;background:#19a88f;box-shadow:0 0 0 3px #19a88f22}
-.dbotStatus small{font-size:9px;color:#59656b;font-weight:600;letter-spacing:.04em}
-.toolsToggle{border:1px solid #d7dadd!important;background:#fff!important;color:#343a40!important;border-radius:8px!important;padding:8px 12px!important;font-size:12px!important;font-weight:700}
-.toolDrawer{position:absolute;z-index:80;top:60px;right:12px;width:min(660px,calc(100vw - 24px));max-height:calc(100dvh - 150px);overflow:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:12px;background:#fff;border:1px solid #d8dcdf;border-radius:12px;box-shadow:0 12px 36px #10203035}
-.toolDrawer button{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:#fff!important;color:#30363b!important;border:1px solid #e1e4e6!important;border-radius:8px!important;padding:10px!important}
-.toolDrawer button:hover,.toolDrawer button[aria-current=page]{border-color:#e34453!important;background:#fff5f5!important}
-.toolDrawer button span{font-size:12px;font-weight:750}.toolDrawer button small{color:#6d777c;font-size:10px;line-height:1.35}
-.layout{display:block;min-height:calc(100dvh - 108px);background:#f4f5f6}
-.main{padding:0;min-width:0;animation:none}
-.main>header{padding:16px 20px 0}.main>header h1{margin:4px 0 10px}
-.builderMain{padding:0!important}
-.builderNotice{min-height:42px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:6px 12px;background:#f1fbfa;border-bottom:1px solid #cce8e3;color:#285d56;font-size:11px;text-align:center}
-.builderNotice strong{font-size:11px;letter-spacing:.06em;text-transform:uppercase}.builderNotice span{color:#3f5351}.builderNotice a{color:#087c91;font-weight:750;text-decoration:underline}
-.builderFrame{width:100%;height:calc(100dvh - 158px);min-height:560px;margin:0;border:0;border-radius:0;background:#fff}
-.builderMain>.moduleHeader{display:none}
-.builderMain .orb{display:none}
-.builderMain .assistant{z-index:90}
-@media(max-width:700px){
- .dbotTopbar{height:48px;padding:0 10px;gap:5px}.dbotBrand{font-size:12px}.dbotBrand small{font-size:7px;margin-left:4px}.dbotStatus{font-size:9px;gap:5px}.dbotStatus small{font-size:7px}.toolsToggle{padding:7px 8px!important;font-size:10px!important}
- .layout{min-height:calc(100dvh - 102px)}.toolDrawer{top:52px;grid-template-columns:repeat(2,minmax(0,1fr));max-height:calc(100dvh - 120px)}
- .builderNotice{min-height:48px;gap:4px;padding:5px 7px;font-size:9px}.builderNotice span{max-width:100%}.builderFrame{height:calc(100dvh - 150px);min-height:540px}
-}

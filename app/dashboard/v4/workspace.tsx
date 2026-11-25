@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import {useState} from 'react';
 import type {CSSProperties} from 'react';
-import FifteenDemoBotControlPanel from '@/app/bot-library/FifteenDemoBotControlPanel';
 import QuantumLiveCharts from './QuantumLiveCharts';
+import QuantumBotCatalog from './QuantumBotCatalog';
 import LiveCandleChart from '@/app/components/LiveCandleChart';
 import {modules,moduleTargets,type WorkspaceModule} from './registry';
 import styles from './workspace.module.css';
 
 const themes:Record<string,{color:string;icon:string;description:string}>={
   'Bulk Trader':{color:'#22d3ee',icon:'▥',description:'Plan batch exposure'},
-  'Premium AI Bots':{color:'#fbbf24',icon:'◇',description:'Original SENFX strategies'},
+  'Premium AI Bots':{color:'#fbbf24',icon:'◇',description:'Current 4.0 research strategies'},
   Speedbot:{color:'#fb7185',icon:'ϟ',description:'Live digit research'},
   'Manual Trader':{color:'#34d399',icon:'↗',description:'Manual paper practice'},
   'Apex Bot':{color:'#a78bfa',icon:'△',description:'Strict strategy research'},
@@ -24,7 +24,7 @@ const themes:Record<string,{color:string;icon:string;description:string}>={
   'Signal AI':{color:'#c084fc',icon:'✧',description:'Signal research'},
   Charts:{color:'#34d399',icon:'▥',description:'Public-market candles'},
   'Bot Builder':{color:'#22d3ee',icon:'▦',description:'Official Deriv Blockly'},
-  'Free Bots':{color:'#60a5fa',icon:'◇',description:'Original 15 SENFX bots'},
+  'Free Bots':{color:'#60a5fa',icon:'◇',description:'Current 4.0 research strategies'},
   'Auto AI':{color:'#a78bfa',icon:'✦',description:'Golden Rule validation'},
 };
 
@@ -79,7 +79,7 @@ export default function MasterWorkspace(){
             <div className={styles.marketArt} aria-hidden="true">{Array.from({length:32},(_,i)=><i key={i} className={i%5===1||i%5===2?styles.down:styles.up} style={{left:`${i*3.2}%`,bottom:`${18+i*1.35+Math.sin(i*.65)*15}%`,height:`${18+(i*17)%48}px`,animationDelay:`${-i*.23}s`}}/>)}</div>
             <div className={styles.floor} aria-hidden="true"/>
             <h2>Your 17-tool workspace</h2>
-            <p>Open the existing research tools, the pinned Blockly editor, and the original 15-bot Demo controls.</p>
+            <p>Open the existing research tools, the pinned Blockly editor, and the current 4.0 strategy bots.</p>
           </div>
           <div className={`${styles.grid} ${styles.launchGrid}`}>
             {(['Bulk Trader','Premium AI Bots','Speedbot','Manual Trader'] as const).map(module=>{
@@ -92,19 +92,21 @@ export default function MasterWorkspace(){
         </>}
 
         {tab==='Bot Builder'&&<>
-          <p className={styles.muted}>Official Deriv Blockly, pinned to the repository revision. The editor is isolated from broker networking; Run stays disabled until original SENFX strategy mappings pass validation.</p>
+          <p className={styles.muted}>Official Deriv Blockly, pinned to the repository revision. Select a current 4.0 strategy from Premium AI Bots to open its reference in the editor. Broker networking is isolated and Run remains disabled.</p>
           <div className={styles.notice} role="note">Demo execution remains in the existing SENFX controls. Real-money trading is disabled.</div>
-          <p><Link href="/bot-library">Open the original 15 strategies and their existing Demo controls ↗</Link></p>
+          <p><button type="button" onClick={()=>setTab('Premium AI Bots')}>Browse current 4.0 strategy bots ↗</button></p>
           <iframe title="Official Deriv Blockly Bot Builder" src="/native-deriv/index.html#bot_builder" sandbox="allow-scripts allow-downloads" referrerPolicy="no-referrer" className={styles.builderFrame}/>
         </>}
 
-        {tab==='Automated'&&<><FifteenDemoBotControlPanel/><QuantumLiveCharts/></>}
+        {(tab==='Premium AI Bots'||tab==='Free Bots')&&<QuantumBotCatalog/>}
+
+        {tab==='Automated'&&<><QuantumBotCatalog/><QuantumLiveCharts/></>}
         {tab==='Charts'&&<><div className={styles.chartFrame}><LiveCandleChart embedded/></div><QuantumLiveCharts/></>}
-        {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&<ToolLaunch module={tab}/>}
+        {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&tab!=='Premium AI Bots'&&tab!=='Free Bots'&&<ToolLaunch module={tab}/>}
       </section>
       <aside className={styles.side}>
-        <h3>Session</h3><p>Deriv Demo status and original bot selection are available in Automated and the 15-bot library.</p>
-        <Link href="/bot-library">Open original 15-bot library</Link>
+        <h3>Session</h3><p>Current 4.0 strategy references are available in the bot library and Deriv Blockly. Demo execution remains separate.</p>
+        <Link href="/bot-library">Open current 4.0 bot library</Link>
         <p className={styles.sideSafety}>Real-money trading is disabled. Research tools do not place orders.</p>
       </aside>
     </div>
