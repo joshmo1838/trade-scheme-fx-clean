@@ -12,6 +12,7 @@ test("builder route mounts the pinned official Blockly bundle in a sandbox", asy
   ]);
   assert.match(page, /NativeDerivBuilder/);
   assert.match(component, /\/native-deriv\/index\.html#bot_builder/);
+  assert.match(component, /senfx_strategy=/);
   assert.match(component, /sandbox="allow-scripts allow-downloads"/);
   assert.doesNotMatch(component, /allow-same-origin/);
   assert.match(registry, /da24196175b5a11088d8b982dd4abe83a13a198c/);

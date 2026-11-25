@@ -2,6 +2,8 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {STRATEGIES} from "../lib/quantum/strategy-catalog.mjs";
+import {createStrategyBootstrap} from "../lib/quantum/strategy-builder-reference.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "vendor/deriv-trading-bot");
@@ -76,6 +78,7 @@ const safetyShim = `<script>
   document.addEventListener("DOMContentLoaded", apply, { once: true });
 })();
 </script>`;
+const strategyBootstrap = createStrategyBootstrap(STRATEGIES);
 
 const rewriteReferences = async directory => {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -87,7 +90,7 @@ const rewriteReferences = async directory => {
         .replaceAll("/static/", "/native-deriv/static/");
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
-          .replace("</body>", `${safetyShim}</body>`)
+          .replace("</body>", `${safetyShim}${strategyBootstrap}</body>`)
           .replace("<title>Automate Your Trades | Deriv Bot</title>", "<title>Deriv Blockly Editor | Trade Scheme FX</title>");
       }
       if (output !== input) await writeFile(target, output);

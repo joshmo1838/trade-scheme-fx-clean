@@ -1,3 +1,1 @@
-export const STRATEGIES = [
-['Nexus Flow','ADAPTIVE_TREND','#22d3ee'],['Volt Sprint','SHORT_MOMENTUM','#a78bfa'],['Apex Signal','MULTI_FACTOR','#34d399'],['Prism Range','MEAN_REVERSION','#fbbf24'],['Straddle Shift','VOLATILITY_BREAKOUT','#fb7185'],['Pulse Rhythm','REGIME_DETECTION','#60a5fa'],['Vertex Digits','DIGIT_ANALYSIS','#f472b6'],['Quantum Edge AI','ENSEMBLE','#fb923c'],['Sterling Edge','RISK_ADJUSTED_MOMENTUM','#ffd700'],['Meridian Pivot','TREND_REVERSAL','#38bdf8'],['Regent Parity','ODD_EVEN','#c084fc'],['Atlas Range','ADAPTIVE_RANGE','#2dd4bf'],['Windsor Continuity','TREND_CONTINUATION','#818cf8'],['Marlow Flow','PRICE_ACCELERATION','#f97316'],['Cadence Sequence','SEQUENTIAL_ANALYSIS','#ec4899'],['Monarch Echo','ADAPTIVE_ENSEMBLE','#eab308']
-].map(([name,model,color])=>({name,model,color,version:'1.0.0',mode:'RESEARCH' as const,validated:false,executionEnabled:false}));
+export {STRATEGIES} from './strategy-catalog.mjs';

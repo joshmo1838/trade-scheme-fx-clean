@@ -1,4 +1,4 @@
 import type { Metadata } from "next";
-import FifteenPaperBotLibrary from "./FifteenPaperBotLibrary";
-export const metadata: Metadata = { title: "Bot Workspace | Trade Scheme FX" };
-export default function Page() { return <FifteenPaperBotLibrary />; }
+import CurrentBotLibrary from "./CurrentBotLibrary";
+export const metadata: Metadata = { title: "Trade Scheme FX 4.0 Bots | Trade Scheme FX" };
+export default function Page() { return <CurrentBotLibrary />; }

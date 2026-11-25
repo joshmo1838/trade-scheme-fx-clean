@@ -15,11 +15,14 @@ test("the original fifteen strategy definitions and broker mappings remain disti
   assert.equal(deriveDemoProposal("digit-over-4","OVER",undefined,2)?.barrier,"4");
 });
 
-test("the bot-library route mounts all fifteen original strategies and keeps Demo controls gated",()=>{
+test("the current bot-library route mounts the 4.0 strategies while legacy Demo endpoints stay gated",()=>{
   const page=read("app/bot-library/page.tsx");
   const library=read("app/bot-library/FifteenPaperBotLibrary.tsx");
   const control=read("app/bot-library/FifteenDemoBotControlPanel.tsx");
-  assert.match(page,/FifteenPaperBotLibrary/);
+  const current=read("app/bot-library/CurrentBotLibrary.tsx");
+  assert.match(page,/CurrentBotLibrary/);
+  assert.doesNotMatch(page,/FifteenPaperBotLibrary/);
+  assert.match(current,/QuantumBotCatalog/);
   assert.match(library,/FIFTEEN_BOTS/);
   assert.match(library,/FifteenDemoBotControlPanel/);
   assert.match(control,/status\?\.ok&&status\.controlsEnabled&&!armed&&consent&&validStake/);
