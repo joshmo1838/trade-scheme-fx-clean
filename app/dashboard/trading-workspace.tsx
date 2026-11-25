@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { WorkspaceEvidence } from "@/app/components/WorkspaceEvidence";
 import MasterWorkspace from "./v4/workspace";
+import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
+import LiveCandleChart from "@/app/components/LiveCandleChart";
+import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
 
 type Props = {
   name: string;
@@ -180,6 +184,18 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
   );
 }
 
-export default function TradingWorkspace({derivStatus}: Props) {
- return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><MasterWorkspace /></main>;
+export default function TradingWorkspace({derivStatus, derivError}: Props) {
+ return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><WorkspaceQuickSwitch /><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><MasterWorkspace /><details style={{margin:"12px",padding:"12px"}}><summary>Market charts, risk and paper bot controls</summary><nav aria-label="Workspace tools" style={{display:"flex",gap:"16px",flexWrap:"wrap",padding:"12px 0"}}><Link href="/charts">Charts</Link><Link href="/risk-center">Risk center</Link><Link href="/bot-center">Bot center</Link><Link href="/bot-controls">Paper bot controls</Link></nav><div className="dashGrid" aria-label="Workspace evidence and safety">
+            <WorkspaceEvidence
+              label="Deriv account connection"
+              state={derivError ? "unavailable" : derivStatus === "Connected" ? "verified" : "unavailable"}
+              source="Authenticated account connection status"
+            >
+              <p className="muted">Connection: {derivStatus}. Connected does not mean a bot is running or a trade was placed.</p>
+            </WorkspaceEvidence>
+            <WorkspaceEvidence label="Paper practice" state="simulation" source="Workspace paper practice tools">
+              <p className="muted">Hypothetical outcomes are not broker transactions or verified returns.</p>
+            </WorkspaceEvidence>
+          </div>
+          <LiveCandleChart embedded /><WorkspaceOperationsStatus derivStatus={derivStatus} /></details></main>;
 }
