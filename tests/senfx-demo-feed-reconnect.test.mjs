@@ -21,7 +21,11 @@ test("reconnect invalidates tick history and suspends new buys until fresh subsc
  assert.match(reconnection,/feedEstablishedAt=0/);
  const start=source.slice(source.indexOf("function startPublicFeed("),source.indexOf("async function poll("));
  assert.match(start,/feedReady=false/);
- assert.match(start,/feedEstablishedAt=Date\.now\(\)/);
+ assert.ok(start.includes("confirmed.size===MARKETS_NEEDED.size"));
+ assert.ok(start.includes("feedEstablishedAt=now"));
+ assert.ok(start.includes("if(!feedReady)return;"));
+ assert.ok(start.includes("JSON.stringify({ping:1})"));
+ assert.ok(source.includes("clearInterval(feedHeartbeat)"));
  assert.match(start,/feedReady=true/);
  const reserve=source.slice(source.indexOf("async function executeSignal("),source.indexOf("function recoverTransientPublicFeed("));
  assert.match(reserve,/finishing\|\|!feedReady\|\|!feed\|\|!await verifyLease\(version\)/);

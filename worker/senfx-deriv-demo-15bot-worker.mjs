@@ -52,6 +52,7 @@ const MARKETS_NEEDED=new Set(FIFTEEN_BOTS.map(x=>x.market));
 const histories=new Map();
 const previousEpoch=new Map();
 let feed=null;
+let feedHeartbeat=null;
 let activeVersion=null;
 let controlRow=null;
 let feedReady=false;
@@ -77,6 +78,7 @@ function safeLog(label,extra=""){
 }
 function stopFeed(){
  const old=feed;feed=null;feedReady=false;
+ if(feedHeartbeat!==null){clearInterval(feedHeartbeat);feedHeartbeat=null;}
  if(old){old.onopen=null;old.onmessage=null;old.onerror=null;old.onclose=null;
   try{old.close();}catch{}}
  histories.clear();previousEpoch.clear();
@@ -425,7 +427,7 @@ async function executeSignal(bot,signal){
 // Invalidate every prior tick; recover only through fresh market subscriptions.
 function recoverTransientPublicFeed(reason){
  if(finishing||!feed)return;
- const healthyLongEnough=feedEstablishedAt>0&&Date.now()-feedEstablishedAt>60_000;
+ const healthyLongEnough=feedReady&&feedEstablishedAt>0&&Date.now()-feedEstablishedAt>60_000&&Date.now()-lastTickReceived<5000;
  stopFeed();
  lastTickReceived=0;
  feedEstablishedAt=0;
@@ -447,9 +449,14 @@ function startPublicFeed(){
  const ws=new WebSocket(PUBLIC_WS);
  feed=ws;
  const subscribed=new Set();
+ const confirmed=new Set();
  let gotDirectory=false;
  ws.addEventListener("open",()=>{
   if(finishing||feed!==ws)return;
+  feedHeartbeat=setInterval(()=>{
+   if(feed!==ws||finishing||ws.readyState!==1)return;
+   try{ws.send(JSON.stringify({ping:1}));}catch{recoverTransientPublicFeed("heartbeat send failed");}
+  },30000);
   try{ws.send(JSON.stringify({active_symbols:"brief",req_id:101}));}
   catch{void stopOwnedRun("Cannot request public market directory.");}
  });
@@ -458,7 +465,7 @@ function startPublicFeed(){
   let msg;
   try{msg=JSON.parse(String(event.data));}
   catch{void stopOwnedRun("Public tick payload malformed.");return;}
-  if(msg?.error){void stopOwnedRun("Public feed rejected a request.");return;}
+  if(msg?.error){const code=String(msg.error.code??"Unknown");safeLog("Public feed rejection",/^[A-Za-z0-9_]{1,80}$/.test(code)?code:"Unknown");void stopOwnedRun("Public feed rejected a request.");return;}
   if(msg.msg_type==="active_symbols"){
    gotDirectory=true;
    if(!Array.isArray(msg.active_symbols)){
@@ -473,11 +480,10 @@ function startPublicFeed(){
     try{ws.send(JSON.stringify({ticks:market,subscribe:1,req_id:1000+i}));}
     catch{void stopOwnedRun("Public market subscription failed.");return;}
    }
-   feedEstablishedAt=Date.now();
-   feedReady=true;safeLog("15 strategies subscribed to verified public Demo markets");
+   safeLog("Public market subscriptions requested; awaiting verified ticks");
    return;
   }
-  if(msg.msg_type!=="tick"||!feedReady||!gotDirectory)return;
+  if(msg.msg_type!=="tick"||!gotDirectory)return;
   const now=Date.now(),tick=parsePublicDigitTick(msg,now);
   if(!tick||!subscribed.has(tick.symbol)||!isFreshPublicTick(tick,now)){
    void stopOwnedRun("Public tick invalid, out of order or stale.");return;
@@ -488,6 +494,9 @@ function startPublicFeed(){
   lastTickReceived=now;
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
+  confirmed.add(tick.symbol);
+  if(!feedReady&&confirmed.size===MARKETS_NEEDED.size){feedReady=true;feedEstablishedAt=now;safeLog("All required public markets delivered verified ticks");}
+  if(!feedReady)return;
   if(recoveryState.armed){
    const recoveryBot=FIFTEEN_BOTS.find(b=>b.id===recoveryBotId);
    if(recoveryBot?.market===tick.symbol&&hist.length>=recoveryBot.minTicks){
@@ -499,7 +508,7 @@ function startPublicFeed(){
   }
   // A single outstanding contract is mandatory; cool down for the verified
   // server-stored duration (never less than ten seconds).
-  const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
+  const cooldownMs=Math.max(30000,MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
      now-lastBuyAt<cooldownMs||now-lastCandidateAt<cooldownMs)return;
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
@@ -518,8 +527,8 @@ function startPublicFeed(){
  ws.addEventListener("error",()=>{
   if(feed===ws&&!finishing)recoverTransientPublicFeed("socket error");
  });
- ws.addEventListener("close",()=>{
-  if(feed===ws&&!finishing)recoverTransientPublicFeed("socket closed");
+ ws.addEventListener("close",event=>{
+  if(feed===ws&&!finishing){safeLog("Public socket close code",String(Number(event.code)||0));recoverTransientPublicFeed("socket closed");}
  });
 }
 async function poll(){
