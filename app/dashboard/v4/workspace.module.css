@@ -25,3 +25,22 @@
 @keyframes orbGlow{50%{box-shadow:0 0 16px #d8b4fe,0 0 42px #8b5cf6;transform:scale(1.06)}}
 @media(max-width:800px){.hero{min-height:240px}.launchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.launchGrid>button{min-height:80px}}
 @media(prefers-reduced-motion:reduce){.shell *,.shell *:before,.shell *:after{animation:none!important;transition:none!important}}
+
+.grid .botCard{position:relative;overflow:hidden;isolation:isolate;border-color:color-mix(in srgb,var(--bot-accent) 45%,#13233c);background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--bot-accent) 18%,#071322),#071322 70%);animation:botArrival .5s ease-out}
+.grid .botCard:hover{border-color:var(--bot-accent);box-shadow:0 0 26px color-mix(in srgb,var(--bot-accent) 35%,transparent);transform:translateY(-5px) scale(1.015)}
+.botCard h3,.botBanner h2{color:var(--bot-accent);text-shadow:0 0 16px color-mix(in srgb,var(--bot-accent) 50%,transparent)}
+.botCard button{width:100%;border-color:var(--bot-accent);background:color-mix(in srgb,var(--bot-accent) 13%,#081321)}
+.botArt{height:136px;position:relative;display:flex;align-items:flex-end;justify-content:center;gap:5px;overflow:hidden;isolation:isolate;background:radial-gradient(circle at center,color-mix(in srgb,var(--bot-accent) 18%,transparent),transparent 70%);border-radius:12px}
+.botArt span{position:absolute;width:92px;height:92px;left:50%;top:50%;border:1px solid var(--bot-accent);border-radius:50%;box-shadow:0 0 12px color-mix(in srgb,var(--bot-accent) 40%,transparent);animation:energyRing 5s linear infinite;opacity:.7}
+.botArt span:nth-child(2){width:110px;height:110px;border-style:dashed;animation-duration:8s;animation-direction:reverse}
+.botArt span:nth-child(3){width:126px;height:126px;border-style:dotted;animation-duration:12s;opacity:.4}
+.botCore{position:absolute;z-index:2;left:50%;top:50%;display:grid;place-items:center;width:58px;height:58px;border-radius:50%;font-size:34px;color:#fff;background:radial-gradient(circle at 30% 25%,#fff,var(--bot-accent) 30%,#071322 85%);box-shadow:0 0 25px var(--bot-accent);animation:coreGrow 2.7s ease-in-out infinite}
+.botArt i{width:5%;max-width:12px;border-radius:3px 3px 0 0;background:linear-gradient(transparent,var(--bot-accent));opacity:.35;transform-origin:bottom;animation:energyBars 1.8s ease-in-out infinite alternate}
+.botBanner{display:flex;align-items:center;gap:20px;padding:14px 20px;border:1px solid var(--bot-accent);border-radius:16px;background:radial-gradient(ellipse at left,color-mix(in srgb,var(--bot-accent) 20%,#071322),#071322 70%);margin:12px 0 20px}
+.botBanner .botArt{flex:0 0 150px}
+@keyframes energyRing{from{transform:translate(-50%,-50%) rotate(0deg) scale(.88)}to{transform:translate(-50%,-50%) rotate(360deg) scale(1.08)}}
+@keyframes coreGrow{0%,100%{transform:translate(-50%,-50%) scale(.88)}50%{transform:translate(-50%,-50%) scale(1.13);box-shadow:0 0 40px var(--bot-accent)}}
+@keyframes energyBars{from{transform:scaleY(.35)}to{transform:scaleY(1)}}
+@keyframes botArrival{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:600px){.botBanner{gap:8px;padding:8px}.botBanner .botArt{flex-basis:125px}.botArt{height:125px}}
+@media(prefers-reduced-motion:reduce){.botCore,.botArt span{transform:translate(-50%,-50%)}}
