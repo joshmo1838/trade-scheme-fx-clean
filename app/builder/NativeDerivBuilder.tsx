@@ -4,11 +4,11 @@ import {useEffect,useState} from "react";
 import {STRATEGIES} from "@/lib/quantum/strategies";
 
 export default function NativeDerivBuilder() {
-  const [src,setSrc]=useState("/native-deriv/index.html#bot_builder");
+  const [src,setSrc]=useState("/?native_deriv=1#bot_builder");
   useEffect(()=>{
     const selected=new URL(window.location.href).searchParams.get("strategyId");
     if(STRATEGIES.some(strategy=>strategy.id===selected))
-      setSrc(`/native-deriv/index.html?senfx_strategy=${encodeURIComponent(selected!)}#bot_builder`);
+      setSrc(`/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected!)}#bot_builder`);
   },[]);
   return (
     <main style={{ position: "fixed", inset: 0, width: "100vw", height: "100dvh", overflow: "hidden", background: "#fff" }}>
