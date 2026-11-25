@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const name = user.user_metadata?.full_name || user.email || "Trader";
+  const name = user.app_metadata?.deriv_provider_key ? "Trader" : (user.user_metadata?.full_name || user.email || "Trader");
   let derivStatus = "Not connected";
   let derivExpiry: string | null = null;
   let derivError = false;
