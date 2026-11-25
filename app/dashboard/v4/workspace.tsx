@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {useState} from 'react';
 import type {CSSProperties} from 'react';
 import FifteenDemoBotControlPanel from '@/app/bot-library/FifteenDemoBotControlPanel';
+import FifteenDemoLiveAccountBar from '@/app/bot-library/FifteenDemoLiveAccountBar';
 import QuantumLiveCharts from './QuantumLiveCharts';
 import LiveCandleChart from '@/app/components/LiveCandleChart';
 import {modules,moduleTargets,type WorkspaceModule} from './registry';
@@ -53,21 +54,33 @@ function ToolLaunch({module}:{module:Exclude<WorkspaceModule,'Dashboard'|'Automa
 }
 
 export default function MasterWorkspace(){
-  const [tab,setTab]=useState<WorkspaceModule>('Dashboard');
+  const [tab,setTab]=useState<WorkspaceModule>('Bot Builder');
+  const [toolsOpen,setToolsOpen]=useState(false);
   const [orb,setOrb]=useState(false);
   const theme=themes[tab]||themes['Volt AI'];
   return <div className={styles.shell}>
-    <nav className={styles.nav} aria-label="Trading tools">
-      {modules.map(module=><button key={module} aria-pressed={tab===module} onClick={()=>setTab(module)}>{module}</button>)}
-    </nav>
+    <header className={styles.dbotTopbar}>
+      <div className={styles.dbotBrand}>TRADE SCHEME <b>FX</b><small>DERIV DEMO WORKSPACE</small></div>
+      <div className={styles.dbotStatus}><span/>DEMO ONLY <small>REAL-MONEY TRADING DISABLED</small></div>
+      <button className={styles.toolsToggle} type="button" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>
+        {toolsOpen?'Close tools':'All 17 tools'}
+      </button>
+    </header>
+    {toolsOpen&&<nav className={styles.toolDrawer} aria-label="All 17 workspace tools">
+      {modules.map(module=><button key={module} aria-current={tab===module?'page':undefined} onClick={()=>{setTab(module);setToolsOpen(false);}}>
+        <span>{module}</span><small>{module==='Bot Builder'?'Deriv Blockly':module==='Dashboard'?'Demo overview':moduleTargets[module as keyof typeof moduleTargets]?.title||module}</small>
+      </button>)}
+    </nav>}
     <div className={styles.layout}>
-      <section className={styles.main} key={tab}>
-        <header><small>TRADE SCHEME FX / 4.0 WORKSPACE</small><h1>{tab}</h1></header>
+      <section className={`${styles.main} ${tab==='Bot Builder'?styles.builderMain:''}`} key={tab}>
+        {tab!=='Bot Builder'&&<header><small>TRADE SCHEME FX / 4.0 WORKSPACE</small><h1>{tab}</h1></header>}
         {tab!=='Dashboard'&&tab!=='Bot Builder'&&<div className={styles.moduleHeader} style={{'--module-accent':theme.color} as CSSProperties}>
           <ModuleArt name={tab}/><div><small>TRADE SCHEME FX · TOOL WORKSPACE</small><h2>{tab}</h2><p>{theme.description}</p></div>
         </div>}
 
         {tab==='Dashboard'&&<>
+          <FifteenDemoLiveAccountBar/>
+          <FifteenDemoBotControlPanel/>
           <div className={styles.hero}>
             <div className={styles.wave} aria-hidden="true"/><div className={styles.waveTwo} aria-hidden="true"/>
             <div className={styles.marketArt} aria-hidden="true">{Array.from({length:32},(_,i)=><i key={i} className={i%5===1||i%5===2?styles.down:styles.up} style={{left:`${i*3.2}%`,bottom:`${18+i*1.35+Math.sin(i*.65)*15}%`,height:`${18+(i*17)%48}px`,animationDelay:`${-i*.23}s`}}/>)}</div>
@@ -86,9 +99,7 @@ export default function MasterWorkspace(){
         </>}
 
         {tab==='Bot Builder'&&<>
-          <p className={styles.muted}>Official Deriv Blockly, pinned to the repository revision. The editor is isolated from broker networking; Run stays disabled until original SENFX strategy mappings pass validation.</p>
-          <div className={styles.notice} role="note">Demo execution remains in the existing SENFX controls. Real-money trading is disabled.</div>
-          <p><Link href="/bot-library">Open the original 15 strategies and their existing Demo controls ↗</Link></p>
+          <div className={styles.builderNotice} role="status"><strong>Demo workspace</strong><span>Blockly edits stay in this browser. Broker Run is locked until the 15 original strategies pass mapping and safety validation.</span><Link href="/bot-library">Open the 15 existing Demo bots ↗</Link></div>
           <iframe title="Official Deriv Blockly Bot Builder" src="/native-deriv/index.html#bot_builder" sandbox="allow-scripts allow-downloads" referrerPolicy="no-referrer" className={styles.builderFrame}/>
         </>}
 
@@ -96,13 +107,8 @@ export default function MasterWorkspace(){
         {tab==='Charts'&&<><div className={styles.chartFrame}><LiveCandleChart embedded/></div><QuantumLiveCharts/></>}
         {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&<ToolLaunch module={tab}/>}
       </section>
-      <aside className={styles.side}>
-        <h3>Session</h3><p>Deriv Demo status and original bot selection are available in Automated and the 15-bot library.</p>
-        <Link href="/bot-library">Open original 15-bot library</Link>
-        <p className={styles.sideSafety}>Real-money trading is disabled. Research tools do not place orders.</p>
-      </aside>
     </div>
     {orb&&<div className={styles.assistant}><h3>AI Market Scanner</h3><p>Research and public-market indicators.</p><Link href="/ai-scanner">Open market analysis ↗</Link><button onClick={()=>setOrb(false)}>Close</button></div>}
-    <button className={styles.orb} aria-label="Open AI scanner" aria-expanded={orb} onClick={()=>setOrb(value=>!value)}><span className={styles.aiOrbit}/><span className={styles.aiOrbit}/><span className={styles.aiCenter}>✦<small>AI</small></span></button>
+    {tab!=='Bot Builder'&&<button className={styles.orb} aria-label="Open AI scanner" aria-expanded={orb} onClick={()=>setOrb(value=>!value)}><span className={styles.aiOrbit}/><span className={styles.aiOrbit}/><span className={styles.aiCenter}>✦<small>AI</small></span></button>}
   </div>;
 }

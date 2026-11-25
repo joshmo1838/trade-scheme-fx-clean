@@ -65,7 +65,11 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
           accountsData.success !== true || selectedData.success !== true) {
         throw new Error(accountsData.error || selectedData.error || "Could not load Deriv accounts.");
       }
-      const rows = Array.isArray(accountsData.accounts) ? accountsData.accounts as DerivAccount[] : [];
+      // The customer workspace is Demo-only: never surface a real balance or
+      // allow selecting a real account from this screen.
+      const rows = Array.isArray(accountsData.accounts)
+        ? (accountsData.accounts as DerivAccount[]).filter(account => account.account_type === "demo")
+        : [];
       setAccounts(rows);
       const savedId = String(selectedData.active_account_id || "");
       setSelectedId(rows.some(account => account.account_id === savedId) ? savedId : "");
@@ -81,7 +85,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   async function choose(account: DerivAccount) {
-    if (saving || account.status !== "active") return;
+    if (saving || account.status !== "active" || account.account_type !== "demo") return;
     setSaving(true);
     setError("");
     try {
@@ -128,7 +132,7 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
   const flag = currencyFlags[currency] || "💱";
   const headline = loading ? "Loading…" :
     selected ? accountAmount(selected) :
-    connectionStatus === "Connected" ? "Select account" : "Connect Deriv";
+    connectionStatus === "Connected" ? "Select Demo account" : "Connect Deriv";
 
   return (
     <div className="senfxBalanceWrap" onKeyDown={event => {
@@ -136,9 +140,9 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
     }}>
       <button type="button" className="senfxBalanceButton" onClick={() => setOpened(previous => !previous)}
         aria-expanded={opened} aria-label="View your selected Deriv account and balance">
-        <span className="senfxBalanceFlag" aria-hidden="true">{selected ? flag : "💼"}</span>
+        <span className="senfxBalanceFlag" aria-hidden="true">{selected ? flag : "🧪"}</span>
         <span className="senfxBalanceText">
-          <small>{selected ? (selected.account_type === "demo" ? "DEMO" : "REAL") + " · " + currency : "DERIV ACCOUNT"}</small>
+          <small>{selected ? "DEMO · " + currency : "DERIV DEMO"}</small>
           <strong>{headline}</strong>
         </span>
         <span className="senfxBalanceChevron" aria-hidden="true">⌄</span>
@@ -146,10 +150,10 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
       {opened && (
         <div className="senfxAccountMenu">
           <div className="senfxAccountMenuTop">
-            <strong>Deriv accounts</strong>
+            <strong>Deriv Demo account</strong>
             <button type="button" disabled={saving || loading} onClick={() => void refresh()}>↻ Refresh</button>
           </div>
-          <p className="senfxAccountHint">Balances are retrieved from Deriv. Select which account is shown in the top-right header. Flags indicate the currency, not your nationality.</p>
+          <p className="senfxAccountHint">This workspace is restricted to virtual Demo funds. Real accounts and deposits are not available here.</p>
           {loading && <p role="status">Retrieving your account balances…</p>}
           {error && <p className="senfxBalanceError" role="alert">{error}</p>}
           {!loading && accounts.length === 0 && (

@@ -79,3 +79,32 @@
 @media(max-width:1100px){.launchGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.moduleHeader{gap:8px;padding:8px}.moduleHeader .moduleArt{flex-basis:100px}.launchGrid .launchCard{min-height:155px}.shell .orb{width:58px;height:58px;right:20px;bottom:20px}}
 @media(prefers-reduced-motion:reduce){.moduleOrbit{transform:translate(-50%,-50%)}}
+
+/* The full Deriv Blockly surface is the default, with SENFX tools kept in a compact drawer. */
+.shell{position:relative;min-height:calc(100dvh - 54px);background:#f4f5f6;color:#333;border-radius:0;overflow:visible;font-family:Arial,Helvetica,sans-serif}
+.dbotTopbar{height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px;background:#fff;border-bottom:1px solid #e5e7e9;color:#333}
+.dbotBrand{display:flex;align-items:center;gap:4px;font-weight:800;letter-spacing:.04em;color:#25292d;white-space:nowrap}
+.dbotBrand b{color:#e53e4d}.dbotBrand small{margin-left:10px;color:#68747d;font-size:9px;letter-spacing:.13em}
+.dbotStatus{display:flex;align-items:center;gap:8px;color:#148b7a;font-weight:800;font-size:12px;letter-spacing:.04em}
+.dbotStatus>span{width:8px;height:8px;border-radius:50%;background:#19a88f;box-shadow:0 0 0 3px #19a88f22}
+.dbotStatus small{font-size:9px;color:#59656b;font-weight:600;letter-spacing:.04em}
+.toolsToggle{border:1px solid #d7dadd!important;background:#fff!important;color:#343a40!important;border-radius:8px!important;padding:8px 12px!important;font-size:12px!important;font-weight:700}
+.toolDrawer{position:absolute;z-index:80;top:60px;right:12px;width:min(660px,calc(100vw - 24px));max-height:calc(100dvh - 150px);overflow:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:12px;background:#fff;border:1px solid #d8dcdf;border-radius:12px;box-shadow:0 12px 36px #10203035}
+.toolDrawer button{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:#fff!important;color:#30363b!important;border:1px solid #e1e4e6!important;border-radius:8px!important;padding:10px!important}
+.toolDrawer button:hover,.toolDrawer button[aria-current=page]{border-color:#e34453!important;background:#fff5f5!important}
+.toolDrawer button span{font-size:12px;font-weight:750}.toolDrawer button small{color:#6d777c;font-size:10px;line-height:1.35}
+.layout{display:block;min-height:calc(100dvh - 108px);background:#f4f5f6}
+.main{padding:0;min-width:0;animation:none}
+.main>header{padding:16px 20px 0}.main>header h1{margin:4px 0 10px}
+.builderMain{padding:0!important}
+.builderNotice{min-height:42px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:6px 12px;background:#f1fbfa;border-bottom:1px solid #cce8e3;color:#285d56;font-size:11px;text-align:center}
+.builderNotice strong{font-size:11px;letter-spacing:.06em;text-transform:uppercase}.builderNotice span{color:#3f5351}.builderNotice a{color:#087c91;font-weight:750;text-decoration:underline}
+.builderFrame{width:100%;height:calc(100dvh - 158px);min-height:560px;margin:0;border:0;border-radius:0;background:#fff}
+.builderMain>.moduleHeader{display:none}
+.builderMain .orb{display:none}
+.builderMain .assistant{z-index:90}
+@media(max-width:700px){
+ .dbotTopbar{height:48px;padding:0 10px;gap:5px}.dbotBrand{font-size:12px}.dbotBrand small{font-size:7px;margin-left:4px}.dbotStatus{font-size:9px;gap:5px}.dbotStatus small{font-size:7px}.toolsToggle{padding:7px 8px!important;font-size:10px!important}
+ .layout{min-height:calc(100dvh - 102px)}.toolDrawer{top:52px;grid-template-columns:repeat(2,minmax(0,1fr));max-height:calc(100dvh - 120px)}
+ .builderNotice{min-height:48px;gap:4px;padding:5px 7px;font-size:9px}.builderNotice span{max-width:100%}.builderFrame{height:calc(100dvh - 150px);min-height:540px}
+}
