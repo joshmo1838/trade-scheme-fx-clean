@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import LiveCandleChart from "@/app/components/LiveCandleChart";
+import MasterWorkspace from "./v4/workspace";
 
 type Props = {
   name: string;
@@ -180,6 +180,6 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
   );
 }
 
-export default function TradingWorkspace({name, derivStatus, derivError}: Props) {
- return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><nav className="videoTopNav"><Link href="/dashboard">Dashboard</Link><Link href="/markets">Markets</Link><Link href="/charts">Charts</Link><Link href="/messages">Support</Link></nav><section className="workspaceMain"><h1>Welcome, {name.split("@")[0]}</h1><p>Deriv connection: {derivError ? "Unable to verify" : derivStatus}</p><h2>New workspace</h2><p>No bots available. Automated trading is not available in this workspace.</p><LiveCandleChart embedded /></section></main>;
+export default function TradingWorkspace({derivStatus}: Props) {
+ return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><MasterWorkspace /></main>;
 }
