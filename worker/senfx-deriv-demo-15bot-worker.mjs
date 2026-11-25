@@ -42,7 +42,7 @@ const BASE="https://api.derivws.com";
 const PUBLIC_WS="wss://api.derivws.com/trading/v1/options/ws/public";
 const BOT_MARKETS=new Set(DIGIT_MARKETS.map(x=>x.symbol));
 const WORKER="senfxdemo_"+randomUUID().replaceAll("-","");
-const MAX_HISTORY=160;
+const MAX_HISTORY=300;
 const FRESH_MS=10_000;
 const RUN_POLL_MS=4_000;
 const MIN_DEMO_BUY_COOLDOWN_MS=10_000;
@@ -496,7 +496,7 @@ function startPublicFeed(){
   histories.set(tick.symbol,hist);
   confirmed.add(tick.symbol);
   if(!feedReady&&confirmed.size===MARKETS_NEEDED.size){feedReady=true;feedEstablishedAt=now;safeLog("All required public markets delivered verified ticks");}
-  if(!feedReady)return;
+  if(!feedReady||hist.length<MAX_HISTORY)return;
   if(recoveryState.armed){
    const recoveryBot=FIFTEEN_BOTS.find(b=>b.id===recoveryBotId);
    if(recoveryBot?.market===tick.symbol&&hist.length>=recoveryBot.minTicks){
@@ -507,7 +507,7 @@ function startPublicFeed(){
    if(!recoveryReady(recoveryState,now))return;
   }
   // A single outstanding contract is mandatory; cool down for the verified
-  // server-stored duration (never less than ten seconds).
+  // server-stored duration (never less than thirty seconds).
   const cooldownMs=Math.max(30000,MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
      now-lastBuyAt<cooldownMs||now-lastCandidateAt<cooldownMs)return;

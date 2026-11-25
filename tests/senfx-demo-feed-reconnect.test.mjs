@@ -23,7 +23,8 @@ test("reconnect invalidates tick history and suspends new buys until fresh subsc
  assert.match(start,/feedReady=false/);
  assert.ok(start.includes("confirmed.size===MARKETS_NEEDED.size"));
  assert.ok(start.includes("feedEstablishedAt=now"));
- assert.ok(start.includes("if(!feedReady)return;"));
+ assert.ok(start.includes("if(!feedReady||hist.length<MAX_HISTORY)return;"));
+ assert.match(source,/const MAX_HISTORY=300;/);
  assert.ok(start.includes("JSON.stringify({ping:1})"));
  assert.ok(source.includes("clearInterval(feedHeartbeat)"));
  assert.match(start,/feedReady=true/);
