@@ -1,0 +1,282 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createHash, timingSafeEqual, createCipheriv, randomBytes } from "node:crypto";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const CLEAR = {
+  httpOnly: true, secure: true, sameSite: "lax" as const,
+  path: "/api/auth/deriv", maxAge: 0
+};
+
+function finish(request: NextRequest, status: string, dashboard = false) {
+  const url = new URL(dashboard ? "/dashboard" : "/login", request.nextUrl.origin);
+  url.searchParams.set("deriv", status);
+  const response = NextResponse.redirect(url);
+  response.cookies.set("deriv_login_state", "", CLEAR);
+  response.cookies.set("deriv_login_verifier", "", CLEAR);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
+
+function sameSecret(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function verifiedIdentity(input: unknown): string {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("DERIV_IDENTITY_RESPONSE_MISSING");
+  }
+  const record = input as Record<string, unknown>;
+  if ("errors" in record &&
+      (!Array.isArray(record.errors) || record.errors.length > 0)) {
+    throw new Error("DERIV_IDENTITY_RESPONSE_ERRORS");
+  }
+  const data = record.data as Record<string, unknown> | undefined;
+  const id = data?.external_reference_id;
+  if (typeof id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error("DERIV_IDENTITY_REFERENCE_INVALID");
+  }
+  // Identity from the authenticated Deriv endpoint, never client input or a trading account ID.
+  return id.toLowerCase();
+}
+
+function aliasForIdentity(clientId: string, subject: string): string {
+  const domain = process.env.DERIV_LOGIN_ALIAS_DOMAIN;
+  // Dedicated administrator-controlled domain; never the customer's own email.
+  if (!domain || !/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(domain)) {
+    throw new Error("Deriv login alias domain has not been configured");
+  }
+  const digest = createHash("sha256")
+    .update("deriv:" + clientId + ":" + subject).digest("hex");
+  return "deriv-" + digest + "@" + domain;
+}
+
+async function storeVerifiedConnection(userId: string, token: Record<string, unknown>) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const encryptionKey = process.env.DERIV_TOKEN_ENCRYPTION_KEY;
+  const accessToken = token.access_token;
+  const expires = Number(token.expires_in);
+  if (!url || !serviceKey || !encryptionKey || !/^[a-f0-9]{64}$/i.test(encryptionKey) ||
+      typeof accessToken !== "string" || !accessToken || !Number.isFinite(expires) || expires <= 0) {
+    throw new Error("Deriv connection configuration invalid");
+  }
+  const accountsResponse = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+    headers: { Authorization: "Bearer " + accessToken, Accept: "application/json" },
+    cache: "no-store", signal: AbortSignal.timeout(10000)
+  });
+  if (!accountsResponse.ok) throw new Error("Deriv account lookup failed");
+  const accounts = await accountsResponse.json();
+  if (!Array.isArray(accounts?.data) || (Array.isArray(accounts.errors) && accounts.errors.length)) {
+    throw new Error("Deriv account response invalid");
+  }
+  const demo = accounts.data.find((account: Record<string, unknown>) =>
+    account && account.account_type === "demo" && account.status === "active" &&
+    typeof account.account_id === "string" && /^[A-Za-z0-9]+$/.test(account.account_id) &&
+    typeof account.balance === "number" && Number.isFinite(account.balance) &&
+    typeof account.currency === "string");
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", Buffer.from(encryptionKey, "hex"), iv);
+  const encrypted = Buffer.concat([cipher.update(accessToken, "utf8"), cipher.final()]);
+  const admin = createAdminClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error } = await admin.from("deriv_connections").upsert({
+    user_id: userId,
+    encrypted_token: encrypted.toString("base64"),
+    token_iv: iv.toString("base64"),
+    token_tag: cipher.getAuthTag().toString("base64"),
+    expires_at: new Date(Date.now() + expires * 1000).toISOString(),
+    connected_at: new Date().toISOString(),
+    status: "connected",
+    active_account_id: demo?.account_id ?? null,
+    active_account_type: demo ? "demo" : null
+  }, { onConflict: "user_id" });
+  if (error) throw new Error("Deriv connection storage failed");
+}
+
+async function issueVerifiedSupabaseSession(clientId: string, subject: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Supabase server auth is not configured");
+
+  const providerKey = "deriv:" + clientId + ":" + subject;
+  const alias = aliasForIdentity(clientId, subject);
+  const admin = createAdminClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+
+  // Isolate the new Deriv identity; never impersonate or auto-link an existing
+  // email/password customer based on a matching email address.
+  const created = await admin.auth.admin.createUser({
+    email: alias,
+    email_confirm: true,
+    app_metadata: { deriv_provider_key: providerKey }
+  });
+  if (created.error && created.error.status !== 422) {
+    throw new Error("Cannot create Deriv identity");
+  }
+
+  // Server-only magic link hash; never sent in a browser URL or logged.
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: alias
+  });
+  const user = link?.user;
+  const tokenHash = link?.properties?.hashed_token;
+  if (linkError || !user || !tokenHash ||
+      user.app_metadata?.deriv_provider_key !== providerKey ||
+      (created.data.user && created.data.user.id !== user.id)) {
+    throw new Error("Deriv identity is not exclusively bound to this user");
+  }
+
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "magiclink"
+  });
+  if (error || !data.user || data.user.id !== user.id) {
+    throw new Error("Supabase session verification failed");
+  }
+  return user.id;
+}
+
+export async function GET(request: NextRequest) {
+  const origin = request.nextUrl.origin;
+  const redirectUri = process.env.DERIV_LOGIN_REDIRECT_URI;
+  const clientId = process.env.DERIV_CLIENT_ID;
+  if (process.env.DERIV_FIRST_LOGIN_ENABLED !== "true" || !redirectUri || !clientId) {
+    return finish(request, "not_ready");
+  }
+
+  let callback: URL;
+  try { callback = new URL(redirectUri); }
+  catch { return finish(request, "not_ready"); }
+  if (origin !== callback.origin || callback.protocol !== "https:" ||
+      callback.pathname !== "/api/auth/deriv/callback" ||
+      callback.search || callback.hash) {
+    return finish(request, "not_ready");
+  }
+
+  const state = request.nextUrl.searchParams.get("state");
+  const code = request.nextUrl.searchParams.get("code");
+  const expected = request.cookies.get("deriv_login_state")?.value;
+  const verifier = request.cookies.get("deriv_login_verifier")?.value;
+  if (request.nextUrl.searchParams.has("error")) return finish(request, "cancelled");
+  if (!code || !state || !expected || !verifier ||
+      !sameSecret(state, expected) ||
+      !/^[A-Za-z0-9_-]{43,128}$/.test(verifier)) {
+    return finish(request, "invalid_callback");
+  }
+
+  let failureStage = "token_exchange";
+  let identityHttpStatus: number | undefined;
+  let identityShape: Record<string, unknown> | undefined;
+  try {
+    const exchange = await fetch("https://auth.deriv.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code, code_verifier: verifier, redirect_uri: redirectUri
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!exchange.ok) return finish(request, "token_exchange_failed");
+    failureStage = "token_response";
+    const token = await exchange.json() as Record<string, unknown>;
+    const accessToken = token.access_token;
+    if (typeof accessToken !== "string" || !accessToken) {
+      return finish(request, "token_exchange_failed");
+    }
+
+    failureStage = "identity_fetch";
+    const identityResponse = await fetch("https://api.derivws.com/account/v1/nickname", {
+      headers: { Authorization: "Bearer " + accessToken },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000)
+    });
+    identityHttpStatus = identityResponse.status;
+    if (!identityResponse.ok) {
+      console.warn("Deriv nickname lookup failed", { httpStatus: identityHttpStatus });
+      return finish(request, "identity_failed");
+    }
+    failureStage = "identity_response";
+    const identityPayload = await identityResponse.json() as unknown;
+    const top = identityPayload && typeof identityPayload === "object" &&
+      !Array.isArray(identityPayload) ? identityPayload as Record<string, unknown> : undefined;
+    const data = top?.data;
+    const dataRecord = data && typeof data === "object" && !Array.isArray(data)
+      ? data as Record<string, unknown> : undefined;
+    identityShape = {
+      payloadType: identityPayload === null ? "null" :
+        Array.isArray(identityPayload) ? "array" : typeof identityPayload,
+      topLevelKeys: top ? Object.keys(top).slice(0, 12) : [],
+      errorsType: !top || !("errors" in top) ? "missing" :
+        Array.isArray(top.errors) ? "array" : top.errors === null ? "null" : typeof top.errors,
+      errorsCount: Array.isArray(top?.errors) ? top.errors.length : undefined,
+      dataType: !top || !("data" in top) ? "missing" :
+        data === null ? "null" : Array.isArray(data) ? "array" : typeof data,
+      dataKeys: dataRecord ? Object.keys(dataRecord).slice(0, 12) : []
+    };
+    if (identityPayload && typeof identityPayload === "object" &&
+        !Array.isArray(identityPayload)) {
+      const rawErrors = (identityPayload as Record<string, unknown>).errors;
+      if (Array.isArray(rawErrors) && rawErrors.length > 0) {
+        const codes = rawErrors.flatMap((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          const code = (item as Record<string, unknown>).code;
+          return typeof code === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(code)
+            ? [code] : [];
+        });
+        console.warn("Deriv nickname lookup returned API errors", {
+          httpStatus: identityResponse.status,
+          errorCount: rawErrors.length,
+          codes
+        });
+        return finish(request, "identity_failed");
+      }
+    }
+    const subject = verifiedIdentity(identityPayload);
+
+    // Staging verifies actual Deriv identity without issuing a session until
+    // repeated-login stability and cross-customer isolation have been tested.
+    if (process.env.DERIV_FIRST_LOGIN_SESSION_ENABLED !== "true") {
+      return finish(request, "identity_verified");
+    }
+
+    failureStage = "session_issue";
+    const userId = await issueVerifiedSupabaseSession(clientId, subject);
+    if (process.env.DERIV_FIRST_LOGIN_CONNECT_ENABLED === "true") {
+      try {
+        await storeVerifiedConnection(userId, token);
+      } catch {
+        console.warn("Deriv unified connection unavailable");
+        return finish(request, "connection_failed", true);
+      }
+    }
+    return finish(request, "authenticated", true);
+  } catch (error) {
+    const safeIdentityReasons = new Set([
+      "DERIV_IDENTITY_RESPONSE_MISSING",
+      "DERIV_IDENTITY_RESPONSE_ERRORS",
+      "DERIV_IDENTITY_REFERENCE_INVALID"
+    ]);
+    const reason = error instanceof Error && safeIdentityReasons.has(error.message)
+      ? error.message : undefined;
+    console.error("Deriv-first callback rejected", {
+      stage: failureStage,
+      reason,
+      type: error instanceof Error ? error.name : "UnknownError",
+      httpStatus: failureStage === "identity_response" ? identityHttpStatus : undefined,
+      identityShape: failureStage === "identity_response" ? identityShape : undefined
+    });
+    return finish(request, "login_failed");
+  }
+}

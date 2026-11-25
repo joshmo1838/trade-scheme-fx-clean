@@ -1,0 +1,21 @@
+name: Deriv login identity guard
+on:
+  pull_request:
+    paths:
+      - 'lib/deriv/first-login-identity-guard.mjs'
+      - 'tests/deriv-first-login-identity-guard.test.mjs'
+      - 'package.json'
+      - '.github/workflows/deriv-login-guard.yml'
+  workflow_dispatch:
+jobs:
+  identity-guard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Deriv identity boundary
+        run: npm run test:deriv-login-guard
