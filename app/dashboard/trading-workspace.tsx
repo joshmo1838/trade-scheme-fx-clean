@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import MasterWorkspace from "./v4/workspace";
+import WorkspaceQuickSwitch from "@/app/components/WorkspaceQuickSwitch";
+import LiveCandleChart from "@/app/components/LiveCandleChart";
+import WorkspaceOperationsStatus from "@/app/components/WorkspaceOperationsStatus";
 
 type Props = {
   name: string;
@@ -181,5 +184,5 @@ function DerivBalanceMenu({ connectionStatus }: { connectionStatus: string }) {
 }
 
 export default function TradingWorkspace({derivStatus}: Props) {
- return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><MasterWorkspace /></main>;
+ return <main className="workspaceShell workspaceVideo"><header className="workspaceTopbar"><Link className="workspaceBrand" href="/">TRADE SCHEME <span>FX</span></Link><div className="workspaceTopActions"><WorkspaceQuickSwitch /><DerivBalanceMenu connectionStatus={derivStatus}/><form action="/auth/signout" method="post"><button className="workspaceSignout">Sign out</button></form></div></header><MasterWorkspace /><details style={{margin:"12px",padding:"12px"}}><summary>Market charts, risk and paper bot controls</summary><nav aria-label="Workspace tools" style={{display:"flex",gap:"16px",flexWrap:"wrap",padding:"12px 0"}}><Link href="/charts">Charts</Link><Link href="/risk-center">Risk center</Link><Link href="/bot-center">Bot center</Link><Link href="/bot-controls">Paper bot controls</Link></nav><LiveCandleChart embedded /><WorkspaceOperationsStatus derivStatus={derivStatus} /></details></main>;
 }
