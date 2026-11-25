@@ -4,8 +4,11 @@ import "./components/workspace-operations-deck.css";
 import GlobalTicker from "../components/GlobalTicker";
 
 export const metadata: Metadata = {
-  title: "Trade Scheme FX | Trading Workspace & Demo Learning",
-  description: "Explore the Trade Scheme FX trading workspace, market tools, educational charts and customer-controlled Deriv Demo account learning. Independent of Deriv.",
+  metadataBase: new URL("https://www.tradesche.com"),
+  title: "Trade Scheme FX - Free Deriv Bots, AI & Smart Trading Tools",
+  applicationName: "Trade Scheme FX",
+  openGraph: { siteName: "Trade Scheme FX", type: "website" },
+  description: "Explore 15 free Deriv bots, AI-powered market analysis, live charts, smart trading tools and virtual-money demo trading. Independent of Deriv.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
