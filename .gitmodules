@@ -1,0 +1,3 @@
+[submodule "vendor/deriv-trading-bot"]
+	path = vendor/deriv-trading-bot
+	url = https://github.com/deriv-com/trading-bot-template.git
