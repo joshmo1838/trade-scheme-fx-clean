@@ -425,7 +425,7 @@ async function executeSignal(bot,signal){
 // Invalidate every prior tick; recover only through fresh market subscriptions.
 function recoverTransientPublicFeed(reason){
  if(finishing||!feed)return;
- const healthyLongEnough=feedEstablishedAt>0&&Date.now()-feedEstablishedAt>60_000;
+ const healthyLongEnough=feedReady&&feedEstablishedAt>0&&Date.now()-feedEstablishedAt>60_000&&Date.now()-lastTickReceived<5000;
  stopFeed();
  lastTickReceived=0;
  feedEstablishedAt=0;
@@ -447,6 +447,7 @@ function startPublicFeed(){
  const ws=new WebSocket(PUBLIC_WS);
  feed=ws;
  const subscribed=new Set();
+ const confirmed=new Set();
  let gotDirectory=false;
  ws.addEventListener("open",()=>{
   if(finishing||feed!==ws)return;
@@ -458,7 +459,7 @@ function startPublicFeed(){
   let msg;
   try{msg=JSON.parse(String(event.data));}
   catch{void stopOwnedRun("Public tick payload malformed.");return;}
-  if(msg?.error){void stopOwnedRun("Public feed rejected a request.");return;}
+  if(msg?.error){const code=String(msg.error.code??"Unknown");safeLog("Public feed rejection",/^[A-Za-z0-9_]{1,80}$/.test(code)?code:"Unknown");void stopOwnedRun("Public feed rejected a request.");return;}
   if(msg.msg_type==="active_symbols"){
    gotDirectory=true;
    if(!Array.isArray(msg.active_symbols)){
@@ -473,11 +474,10 @@ function startPublicFeed(){
     try{ws.send(JSON.stringify({ticks:market,subscribe:1,req_id:1000+i}));}
     catch{void stopOwnedRun("Public market subscription failed.");return;}
    }
-   feedEstablishedAt=Date.now();
-   feedReady=true;safeLog("15 strategies subscribed to verified public Demo markets");
+   safeLog("Public market subscriptions requested; awaiting verified ticks");
    return;
   }
-  if(msg.msg_type!=="tick"||!feedReady||!gotDirectory)return;
+  if(msg.msg_type!=="tick"||!gotDirectory)return;
   const now=Date.now(),tick=parsePublicDigitTick(msg,now);
   if(!tick||!subscribed.has(tick.symbol)||!isFreshPublicTick(tick,now)){
    void stopOwnedRun("Public tick invalid, out of order or stale.");return;
@@ -488,6 +488,9 @@ function startPublicFeed(){
   lastTickReceived=now;
   const hist=[...(histories.get(tick.symbol)||[]),tick].slice(-MAX_HISTORY);
   histories.set(tick.symbol,hist);
+  confirmed.add(tick.symbol);
+  if(!feedReady&&confirmed.size===MARKETS_NEEDED.size){feedReady=true;feedEstablishedAt=now;safeLog("All required public markets delivered verified ticks");}
+  if(!feedReady)return;
   if(recoveryState.armed){
    const recoveryBot=FIFTEEN_BOTS.find(b=>b.id===recoveryBotId);
    if(recoveryBot?.market===tick.symbol&&hist.length>=recoveryBot.minTicks){
