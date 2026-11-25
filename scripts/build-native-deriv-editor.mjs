@@ -78,11 +78,13 @@ const safetyShim = `<script>
   const apply = () => {
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
-      run.disabled = true;
-      run.setAttribute("aria-label", "Run is disabled until SENFX strategy mapping is validated");
-      run.title = "Editing preview only. Use the existing SENFX Demo controls after strategy validation.";
+      const runLabel = "Run is disabled until SENFX strategy mapping is validated";
+      const runTitle = "Editing preview only. Use the existing SENFX Demo controls after strategy validation.";
+      if (!run.disabled) run.disabled = true;
+      if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
+      if (run.title !== runTitle) run.title = runTitle;
       const text = run.querySelector("span");
-      if (text) text.textContent = "Run disabled";
+      if (text && text.textContent !== "Run disabled") text.textContent = "Run disabled";
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
       link.addEventListener("click", event => event.preventDefault(), { once: true });
