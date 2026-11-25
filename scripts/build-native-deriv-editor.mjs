@@ -88,6 +88,13 @@ const rewriteReferences = async directory => {
       const input = await readFile(target, "utf8");
       let output = input.replaceAll("/assets/", "/native-deriv/assets/")
         .replaceAll("/static/", "/native-deriv/static/");
+      // The root-mounted editor still emits lazy chunk URLs relative to `/`.
+      // Point webpack's runtime base back at the vendored bundle so its async
+      // CSS and JS chunks resolve under /native-deriv/ when the app is served
+      // through the root route rewrite.
+      if (entry.name === "index.js" && target.includes(`${path.sep}static${path.sep}js${path.sep}`)) {
+        output = output.replace('__webpack_require__.p = "/";', '__webpack_require__.p = "/native-deriv/";');
+      }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
           .replace("</body>", `${safetyShim}${strategyBootstrap}</body>`)
