@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {existsSync} from "node:fs";
+import {readFileSync} from "node:fs";
 import {join} from "node:path";
 import {modules,moduleTargets,nativeDerivSource,executionPolicy} from "../app/dashboard/v4/registry.ts";
 
@@ -31,4 +32,19 @@ test("workspace exposes Demo and paper modes while keeping Real trading disabled
 
 test("Copy Trader is explicitly marked as a prototype rather than a live integration",()=>{
   assert.equal(moduleTargets["Copy Trader"].state,"prototype");
+});
+
+test("the complete Deriv DBot surface is the default screen and all workspace tools remain reachable",()=>{
+  const workspace=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.tsx"),"utf8");
+  assert.match(workspace,/useState<WorkspaceModule>\('Bot Builder'\)/);
+  assert.match(workspace,/All 17 tools/);
+  assert.match(workspace,/\/native-deriv\/index\.html#bot_builder/);
+  assert.match(workspace,/DEMO ONLY/);
+  assert.match(workspace,/REAL-MONEY TRADING DISABLED/);
+});
+
+test("the workspace account chooser exposes Demo accounts only",()=>{
+  const workspace=readFileSync(join(process.cwd(),"app/dashboard/trading-workspace.tsx"),"utf8");
+  assert.match(workspace,/filter\(account => account\.account_type === "demo"\)/);
+  assert.match(workspace,/account\.account_type !== "demo"/);
 });
