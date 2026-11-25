@@ -14,7 +14,7 @@ const run = (command, args) => {
   const result = spawnSync(command, args, {
     cwd: source,
     stdio: "inherit",
-    env: { ...process.env, NODE_ENV: "development", HUSKY: "0" },
+    env: { ...process.env, NODE_ENV: "production", HUSKY: "0" },
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);
@@ -27,11 +27,24 @@ try {
   throw new Error("Pinned Deriv Bot source is missing. Initialize vendor/deriv-trading-bot before building.");
 }
 
+let rebuild = false;
 try {
   await readFile(path.join(dist, "index.html"));
+  const jsDirectory = path.join(dist, "static/js");
+  const entryName = (await readdir(jsDirectory)).find(name => /^index(?:\.[\w-]+)?\.js$/.test(name));
+  if (!entryName) throw new Error("Deriv entry bundle is missing");
+  const entry = await readFile(path.join(jsDirectory, entryName), "utf8");
+  // Never ship the vendor's development bundle: it injects React Refresh and
+  // HMR clients that cannot run in the isolated production iframe.
+  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot");
 } catch {
+  rebuild = true;
+}
+
+if (rebuild) {
   run("npm", ["ci", "--include=dev", "--ignore-scripts"]);
   run("npm", ["run", "generate:brand-css"]);
+  await rm(dist, { recursive: true, force: true });
   run("npm", ["run", "build"]);
 }
 
@@ -88,12 +101,17 @@ const rewriteReferences = async directory => {
       const input = await readFile(target, "utf8");
       let output = input.replaceAll("/assets/", "/native-deriv/assets/")
         .replaceAll("/static/", "/native-deriv/static/");
+      if (target === path.join(destination, "index.html")) {
+        output = output.replace(/<script defer src="([^"]+)"><\/script>/g, '<script defer crossorigin="anonymous" src="$1"></script>');
+      }
       // The root-mounted editor still emits lazy chunk URLs relative to `/`.
       // Point webpack's runtime base back at the vendored bundle so its async
       // CSS and JS chunks resolve under /native-deriv/ when the app is served
       // through the root route rewrite.
-      if (entry.name === "index.js" && target.includes(`${path.sep}static${path.sep}js${path.sep}`)) {
-        output = output.replace('__webpack_require__.p = "/";', '__webpack_require__.p = "/native-deriv/";');
+      if (target.includes(`${path.sep}static${path.sep}js${path.sep}`)) {
+        output = output
+          .replace('__webpack_require__.p = "/";', '__webpack_require__.p = "/native-deriv/";')
+          .replace(/([A-Za-z_$][\w$]*)\.p="\/"/g, '$1.p="/native-deriv/"');
       }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)

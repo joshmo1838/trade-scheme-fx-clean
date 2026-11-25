@@ -44,6 +44,7 @@ test("the animated outer workspace stays intact and Deriv DBot opens as its own 
   assert.match(shellCss,/\.hero/);
   assert.match(shellCss,/@keyframes drift/);
   assert.match(bot,/position: "fixed", inset: 0/);
-  assert.match(bot,/\/native-deriv\/index\.html#bot_builder/);
+  assert.match(bot,/\/?native_deriv=1#bot_builder/);
+  assert.match(bot,/strategyId/);
   assert.match(bot,/sandbox="allow-scripts allow-downloads"/);
 });

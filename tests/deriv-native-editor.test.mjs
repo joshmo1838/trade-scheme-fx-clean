@@ -24,7 +24,11 @@ test("native editor frame denies broker networking and form submissions", async 
   assert.match(config, /source: "\/native-deriv\/:path\*"/);
   assert.match(config, /source: "\/"[\s\S]*key: "native_deriv"[\s\S]*key: "Content-Security-Policy"/);
   assert.match(config, /script-src 'self' 'unsafe-inline' 'unsafe-eval'/);
-  assert.match(config, /connect-src 'none'/);
+  assert.match(config, /connect-src wss:\/\/api\.derivws\.com\/trading\/v1\/options\/ws\/public wss:\/\/staging-api\.derivws\.com\/trading\/v1\/options\/ws\/public/);
+  assert.match(config, /fonts\.googleapis\.com/);
+  assert.match(config, /fonts\.gstatic\.com/);
+  assert.match(config, /https:\/\/\*\.vercel\.app/);
+  assert.match(config, /https:\/\/www\.tradesche\.com/);
   assert.match(config, /form-action 'none'/);
   assert.match(config, /frame-src 'none'/);
 });
@@ -34,6 +38,9 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /\/assets\/.*native-deriv/s);
   assert.match(script, /\/static\/.*native-deriv/s);
   assert.match(script, /__webpack_require__\.p = .*native-deriv/);
+  assert.match(script, /reactRefreshEntry/);
+  assert.match(script, /NODE_ENV: "production"/);
+  assert.match(script, /crossorigin="anonymous"/);
   assert.match(script, /run\.disabled = true/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
 });
