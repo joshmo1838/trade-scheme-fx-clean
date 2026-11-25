@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual, createCipheriv, randomBytes } from "node:crypto";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 
@@ -57,6 +57,32 @@ function aliasForIdentity(clientId: string, subject: string): string {
   return "deriv-" + digest + "@" + domain;
 }
 
+async function storeVerifiedConnection(userId: string, token: Record<string, unknown>) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const encryptionKey = process.env.DERIV_TOKEN_ENCRYPTION_KEY;
+  const accessToken = token.access_token;
+  const expires = Number(token.expires_in);
+  if (!url || !serviceKey || !encryptionKey || !/^[a-f0-9]{64}$/i.test(encryptionKey) ||
+      typeof accessToken !== "string" || !accessToken || !Number.isFinite(expires) || expires <= 0) {
+    throw new Error("Deriv connection configuration invalid");
+  }
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", Buffer.from(encryptionKey, "hex"), iv);
+  const encrypted = Buffer.concat([cipher.update(accessToken, "utf8"), cipher.final()]);
+  const admin = createAdminClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error } = await admin.from("deriv_connections").upsert({
+    user_id: userId,
+    encrypted_token: encrypted.toString("base64"),
+    token_iv: iv.toString("base64"),
+    token_tag: cipher.getAuthTag().toString("base64"),
+    expires_at: new Date(Date.now() + expires * 1000).toISOString(),
+    connected_at: new Date().toISOString(),
+    status: "connected"
+  }, { onConflict: "user_id" });
+  if (error) throw new Error("Deriv connection storage failed");
+}
+
 async function issueVerifiedSupabaseSession(clientId: string, subject: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -100,6 +126,7 @@ async function issueVerifiedSupabaseSession(clientId: string, subject: string) {
   if (error || !data.user || data.user.id !== user.id) {
     throw new Error("Supabase session verification failed");
   }
+  return user.id;
 }
 
 export async function GET(request: NextRequest) {
@@ -209,7 +236,15 @@ export async function GET(request: NextRequest) {
     }
 
     failureStage = "session_issue";
-    await issueVerifiedSupabaseSession(clientId, subject);
+    const userId = await issueVerifiedSupabaseSession(clientId, subject);
+    if (process.env.DERIV_FIRST_LOGIN_CONNECT_ENABLED === "true") {
+      try {
+        await storeVerifiedConnection(userId, token);
+      } catch {
+        console.warn("Deriv unified connection unavailable");
+        return finish(request, "connection_failed", true);
+      }
+    }
     return finish(request, "authenticated", true);
   } catch (error) {
     const safeIdentityReasons = new Set([
