@@ -52,6 +52,7 @@ const MARKETS_NEEDED=new Set(FIFTEEN_BOTS.map(x=>x.market));
 const histories=new Map();
 const previousEpoch=new Map();
 let feed=null;
+let feedHeartbeat=null;
 let activeVersion=null;
 let controlRow=null;
 let feedReady=false;
@@ -77,6 +78,7 @@ function safeLog(label,extra=""){
 }
 function stopFeed(){
  const old=feed;feed=null;feedReady=false;
+ if(feedHeartbeat!==null){clearInterval(feedHeartbeat);feedHeartbeat=null;}
  if(old){old.onopen=null;old.onmessage=null;old.onerror=null;old.onclose=null;
   try{old.close();}catch{}}
  histories.clear();previousEpoch.clear();
@@ -451,6 +453,10 @@ function startPublicFeed(){
  let gotDirectory=false;
  ws.addEventListener("open",()=>{
   if(finishing||feed!==ws)return;
+  feedHeartbeat=setInterval(()=>{
+   if(feed!==ws||finishing||ws.readyState!==1)return;
+   try{ws.send(JSON.stringify({ping:1}));}catch{recoverTransientPublicFeed("heartbeat send failed");}
+  },30000);
   try{ws.send(JSON.stringify({active_symbols:"brief",req_id:101}));}
   catch{void stopOwnedRun("Cannot request public market directory.");}
  });
@@ -502,7 +508,7 @@ function startPublicFeed(){
   }
   // A single outstanding contract is mandatory; cool down for the verified
   // server-stored duration (never less than ten seconds).
-  const cooldownMs=Math.max(MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
+  const cooldownMs=Math.max(30000,MIN_DEMO_BUY_COOLDOWN_MS,Number(controlRow?.cooldown_seconds||30)*1000);
   if(busy||finishing||!Number.isSafeInteger(activeVersion)||
      now-lastBuyAt<cooldownMs||now-lastCandidateAt<cooldownMs)return;
   // Each strategy evaluates genuine prior public ticks, not paper payouts.
@@ -521,8 +527,8 @@ function startPublicFeed(){
  ws.addEventListener("error",()=>{
   if(feed===ws&&!finishing)recoverTransientPublicFeed("socket error");
  });
- ws.addEventListener("close",()=>{
-  if(feed===ws&&!finishing)recoverTransientPublicFeed("socket closed");
+ ws.addEventListener("close",event=>{
+  if(feed===ws&&!finishing){safeLog("Public socket close code",String(Number(event.code)||0));recoverTransientPublicFeed("socket closed");}
  });
 }
 async function poll(){
