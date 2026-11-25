@@ -74,28 +74,6 @@ const localStorageShim = `<script>
 
 const safetyShim = `<script>
 (() => {
-  const debug = new URLSearchParams(window.location.search).has("native_debug");
-  let diagnostic;
-  const report = message => {
-    if (!debug) return;
-    if (!diagnostic) {
-      diagnostic = document.createElement("pre");
-      diagnostic.style.cssText = "position:fixed;z-index:2147483647;left:8px;right:8px;bottom:8px;max-height:40vh;overflow:auto;margin:0;padding:12px;background:#450a0a;color:#fff;font:12px/1.4 monospace;white-space:pre-wrap";
-      document.body.appendChild(diagnostic);
-    }
-    diagnostic.textContent = String(message);
-  };
-  if (debug) {
-    window.addEventListener("error", event => {
-      const target = event.target;
-      report("Runtime error: " + (event.message || event.error?.message || event.type) + "\\n" + (event.filename || target?.src || target?.href || target?.tagName || "unknown source") + ":" + event.lineno + ":" + event.colno);
-    }, true);
-    window.addEventListener("unhandledrejection", event => report("Unhandled rejection: " + (event.reason?.stack || event.reason)));
-    document.addEventListener("securitypolicyviolation", event => report("CSP blocked " + event.violatedDirective + ": " + event.blockedURI + "\\n" + event.originalPolicy));
-    setTimeout(() => {
-      if (!document.querySelector("#root")?.childElementCount) report("No React UI mounted in #root after 8 seconds. Check browser errors and asset/CSP failures.");
-    }, 8000);
-  }
   const apply = () => {
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
