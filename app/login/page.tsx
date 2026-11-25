@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [derivStatus, setDerivStatus] = useState("");
+  const [opening, setOpening] = useState(true);
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get("deriv");
@@ -26,7 +27,8 @@ export default function LoginPage() {
       login_failed: "Deriv sign-in could not be completed. No customer account was accessed.",
       cancelled: "Deriv authorization was cancelled."
     };
-    setDerivStatus(status ? messages[status] ?? "" : "");
+    setDerivStatus(messages[status] ?? "Unable to complete Deriv sign-in. Please retry.");
+    setOpening(false);
   }, []);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -39,6 +41,14 @@ export default function LoginPage() {
     } catch (err) { setMessage(err instanceof Error ? err.message : "Unable to sign in."); }
     finally { setBusy(false); }
   }
+
+  if (opening) return <main className="authPage videoAuthPage"><div className="authCard" role="status" aria-live="polite" aria-busy="true" style={{textAlign:"center"}}>
+    <style>{`@keyframes derivOrbit { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { .derivOrbit { animation: none !important; } }`}</style>
+    <p className="eyebrow">TRADE SCHEME FX 3.0</p>
+    <div className="derivOrbit" aria-hidden="true" style={{width:76,height:76,margin:"24px auto",border:"3px solid #164e63",borderTopColor:"#67e8f9",borderRadius:"50%",animation:"derivOrbit 1.2s linear infinite"}} />
+    <h1>Getting ready...</h1><p className="muted">Opening secure Deriv authentication.</p>
+    <a href="/api/auth/deriv/start">Continue with Deriv if not redirected</a>
+  </div></main>;
 
   return <main className="authPage videoAuthPage"><div className="authCard">
     <Link className="brand" href="/">TRADE SCHEME <span>FX</span></Link>
