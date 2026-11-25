@@ -21,6 +21,7 @@ test("builder route mounts the pinned official Blockly bundle in a sandbox", asy
 test("native editor frame denies broker networking and form submissions", async () => {
   const config = await read("../next.config.ts");
   assert.match(config, /source: "\/native-deriv\/:path\*"/);
+  assert.match(config, /script-src 'self' 'unsafe-inline' 'unsafe-eval'/);
   assert.match(config, /connect-src 'none'/);
   assert.match(config, /form-action 'none'/);
   assert.match(config, /frame-src 'none'/);
