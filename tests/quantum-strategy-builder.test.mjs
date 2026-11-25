@@ -37,6 +37,8 @@ test('Nexus opens the native Deriv workspace and keeps its rule visible as a Blo
   assert.match(source,/window\.Blockly\.Xml\.domToWorkspace/);
   assert.match(source,/Nexus Flow — research strategy/);
   assert.match(source,/setCommentText/);
+  assert.match(source,/getIcon\('comment'\)\?\.setBubbleVisible\(true\)/);
+  assert.doesNotMatch(source,/getComment/);
   assert.doesNotMatch(source,/authorize|token/i);
   let importedXml='';
   let moved=0;
@@ -46,7 +48,7 @@ test('Nexus opens the native Deriv workspace and keeps its rule visible as a Blo
   const tradeParameters={
     type:'trade_definition',
     setCommentText:value=>{comment=value;},
-    getComment:()=>({setVisible:value=>{commentVisible=value;}}),
+    getIcon:type=>type==='comment'?{setBubbleVisible:value=>{commentVisible=value;}}:null,
   };
   const workspace={
     __senfxStrategyReference:null,
