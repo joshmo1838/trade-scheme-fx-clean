@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/build-native-deriv-editor.mjs",
     "build": "next build",
     "start": "next start",
     "worker:forward": "node worker/senfx-forward-worker.mjs",
     "typecheck": "tsc --noEmit",
     "test:routes": "node scripts/check-workspace-routes.mjs",
+    "test:native-editor": "node --test tests/deriv-native-editor.test.mjs",
     "test:workspace": "node --experimental-strip-types --test tests/workspace-command-palette.test.mjs",
     "test:integration": "node --test tests/workspace-integration.test.mjs",
     "test:operations": "node --experimental-strip-types --test tests/workspace-paper-operations.test.mjs",
