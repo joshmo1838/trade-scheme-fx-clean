@@ -123,6 +123,9 @@ const rewriteReferences = async directory => {
       const input = await readFile(target, "utf8");
       let output = input.replaceAll("/assets/", "/native-deriv/assets/")
         .replaceAll("/static/", "/native-deriv/static/");
+      if (target === path.join(destination, "index.html")) {
+        output = output.replace(/<script defer src="([^"]+)"><\/script>/g, '<script defer crossorigin="anonymous" src="$1"></script>');
+      }
       // The root-mounted editor still emits lazy chunk URLs relative to `/`.
       // Point webpack's runtime base back at the vendored bundle so its async
       // CSS and JS chunks resolve under /native-deriv/ when the app is served
