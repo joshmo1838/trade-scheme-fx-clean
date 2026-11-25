@@ -112,6 +112,18 @@ const rewriteReferences = async directory => {
         output = output
           .replace('__webpack_require__.p = "/";', '__webpack_require__.p = "/native-deriv/";')
           .replace(/([A-Za-z_$][\w$]*)\.p="\/"/g, '$1.p="/native-deriv/"');
+
+        // The upstream brand config contains HTTPS API base URLs, but this
+        // editor passes the public endpoint directly to `new WebSocket`.
+        // Use the matching secure WebSocket scheme and recognize Trade Scheme's
+        // actual production hostname so production selects Deriv's production feed.
+        output = output
+          .replaceAll('bot.yourbrand.com', 'www.tradesche.com')
+          .replace(
+            /(STAGING:`\$\{)([^}]+)(\}options\/ws\/public`,PRODUCTION:`\$\{)([^}]+)(\}options\/ws\/public`)/,
+            (_, stagingPrefix, stagingBase, productionPrefix, productionBase, suffix) =>
+              `${stagingPrefix}${stagingBase}.replace(/^https:/,"wss:")${productionPrefix}${productionBase}.replace(/^https:/,"wss:")${suffix}`,
+          );
       }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
