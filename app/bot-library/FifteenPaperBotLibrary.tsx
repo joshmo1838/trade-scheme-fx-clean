@@ -226,6 +226,10 @@ export default function FifteenPaperBotLibrary(){
    <p className={styles.warning}>Only authenticated, explicitly authorized Deriv virtual-money
     Demo orders can be purchased. Real-money trading is disabled. The public market preview
     does not place orders and does not guarantee a profit.</p>
+   <p><Link href="/demo-payouts" style={{display:"inline-block",padding:"12px 16px",
+     borderRadius:10,background:"#1b6bda",color:"#fff",fontWeight:800,
+     textDecoration:"none",margin:"8px 0"}}>
+     Compare $500 Deriv Demo Payouts — Open Directly</Link></p>
    <div className={styles.feedActions}>
     <span role="status">{feedStatus}</span>
     <button onClick={()=>setEnabled(x=>!x)}>
@@ -268,7 +272,7 @@ export default function FifteenPaperBotLibrary(){
     </div>
    </div>
   </section>
-  <details className={styles.panel} style={{margin:"16px 0"}}>
+  <details open id="senfx-payout-comparison" className={styles.panel} style={{margin:"16px 0"}}>
    <summary style={{cursor:"pointer",fontWeight:800}}>
     Compare current broker payouts for the existing 15 bots (read only)
    </summary>
