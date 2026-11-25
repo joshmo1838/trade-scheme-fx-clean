@@ -67,6 +67,20 @@ async function storeVerifiedConnection(userId: string, token: Record<string, unk
       typeof accessToken !== "string" || !accessToken || !Number.isFinite(expires) || expires <= 0) {
     throw new Error("Deriv connection configuration invalid");
   }
+  const accountsResponse = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+    headers: { Authorization: "Bearer " + accessToken, Accept: "application/json" },
+    cache: "no-store", signal: AbortSignal.timeout(10000)
+  });
+  if (!accountsResponse.ok) throw new Error("Deriv account lookup failed");
+  const accounts = await accountsResponse.json();
+  if (!Array.isArray(accounts?.data) || (Array.isArray(accounts.errors) && accounts.errors.length)) {
+    throw new Error("Deriv account response invalid");
+  }
+  const demo = accounts.data.find((account: Record<string, unknown>) =>
+    account && account.account_type === "demo" && account.status === "active" &&
+    typeof account.account_id === "string" && /^[A-Za-z0-9]+$/.test(account.account_id) &&
+    typeof account.balance === "number" && Number.isFinite(account.balance) &&
+    typeof account.currency === "string");
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", Buffer.from(encryptionKey, "hex"), iv);
   const encrypted = Buffer.concat([cipher.update(accessToken, "utf8"), cipher.final()]);
@@ -78,7 +92,9 @@ async function storeVerifiedConnection(userId: string, token: Record<string, unk
     token_tag: cipher.getAuthTag().toString("base64"),
     expires_at: new Date(Date.now() + expires * 1000).toISOString(),
     connected_at: new Date().toISOString(),
-    status: "connected"
+    status: "connected",
+    active_account_id: demo?.account_id ?? null,
+    active_account_type: demo ? "demo" : null
   }, { onConflict: "user_id" });
   if (error) throw new Error("Deriv connection storage failed");
 }
