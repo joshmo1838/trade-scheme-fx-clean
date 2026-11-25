@@ -1,7 +1,4 @@
-import type {Metadata} from "next";
-import FifteenPaperBotLibrary from "./FifteenPaperBotLibrary";
-export const metadata:Metadata={
- title:"Bulk Bots | 15 SENFX Strategies & Deriv Demo Readiness | Trade Scheme FX",
- description:"Explore 15 SENFX research bots and verify their genuine Deriv Demo contract availability. Paper studies and read-only broker checks place no orders.",
-};
-export default function Page(){return <FifteenPaperBotLibrary/>;}
+import type { Metadata } from "next";
+import Link from "next/link";
+export const metadata: Metadata = { title: "Bot Workspace | Trade Scheme FX" };
+export default function Page() { return <main style={{maxWidth:960,margin:"auto",padding:"48px 24px"}}><h1>Bot workspace</h1><p>No bots available. New strategies are in development.</p><Link href="/dashboard">Return to dashboard</Link></main>; }
