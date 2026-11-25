@@ -25,7 +25,7 @@ export default function Home() {
           </nav>
 
           <div className="senfxLandingAuth">
-            <Link className="senfxOutlineButton" href="/api/auth/deriv/start">Log in</Link>
+            <Link className="senfxOutlineButton" href="/login">Log in</Link>
             <Link className="senfxTopButton" href="/signup">Get started <span aria-hidden="true">↗</span></Link>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function Home() {
           <p className="senfxHeroTag"><span className="senfxHeroTagDot" aria-hidden="true"/> FREE WORKSPACE · MARKET TOOLS · DEMO LEARNING</p>
           <LandingHeadlines />
           <div className="senfxHeroActions">
-            <Link href="/api/auth/deriv/start" className="senfxHeroPrimary">
+            <Link href="/login" className="senfxHeroPrimary">
               <span aria-hidden="true">↗</span> Log in with Deriv <span aria-hidden="true">›</span>
             </Link>
             <Link href="/bot-library" className="senfxHeroSecondary">
