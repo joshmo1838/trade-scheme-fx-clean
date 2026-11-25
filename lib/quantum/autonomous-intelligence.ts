@@ -1,0 +1,2 @@
+// Shared read interface; call from each bot's research controller, never its order path.
+export async function readAutonomousIntelligence(db:{from:(table:string)=>any},symbol:string){const {data,error}=await db.from('quantum_ai_latest').select('updated_at,payload').eq('symbol',symbol).maybeSingle();if(error)throw Error(error.message);if(!data||Date.now()-Date.parse(data.updated_at)>90000||!data.payload?.feedFresh||data.payload?.workerStopped)return null;return {...data.payload,executionAuthorized:false};}
