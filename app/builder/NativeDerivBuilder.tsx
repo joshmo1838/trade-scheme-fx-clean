@@ -8,7 +8,7 @@ export default function NativeDerivBuilder() {
   useEffect(()=>{
     const selected=new URL(window.location.href).searchParams.get("strategyId");
     if(STRATEGIES.some(strategy=>strategy.id===selected))
-      setSrc(`/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected!)}&native_debug=1#bot_builder`);
+      setSrc(`/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected!)}#bot_builder`);
   },[]);
   return (
     <main style={{ position: "fixed", inset: 0, width: "100vw", height: "100dvh", overflow: "hidden", background: "#fff" }}>
