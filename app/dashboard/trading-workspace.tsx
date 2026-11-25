@@ -217,6 +217,16 @@ export default function TradingWorkspace({
   derivStatus,
   derivError,
 }: Props) {
+  const [welcome, setWelcome] = useState(false);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("deriv") !== "authenticated") return;
+    setWelcome(true);
+    url.searchParams.delete("deriv");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    const timer = window.setTimeout(() => setWelcome(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [openPanel, setOpenPanel] = useState<"load" | "bots" | null>(null);
   const [publishedBots, setPublishedBots] = useState<PublishedBot[]>([]);
   const [botsBusy, setBotsBusy] = useState(false);
@@ -243,6 +253,17 @@ export default function TradingWorkspace({
 
   return (
     <main className="workspaceShell workspaceVideo">
+      {welcome && <section role="status" aria-live="polite" style={{position:"fixed",inset:0,zIndex:9999,display:"grid",placeItems:"center",background:"#071525",color:"#e0f2fe",textAlign:"center",padding:24}}>
+        <style>{`@keyframes senfxWelcomeOrbit { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { .senfxWelcomeOrb { animation: none !important; } }`}</style>
+        <div>
+          <p>TRADE SCHEME FX 3.0</p>
+          <div className="senfxWelcomeOrb" aria-hidden="true" style={{width:100,height:100,borderRadius:"50%",margin:"24px auto",border:"4px solid #164e63",borderTopColor:"#67e8f9",boxShadow:"0 0 40px #0891b2",animation:"senfxWelcomeOrbit 1.2s linear infinite"}} />
+          <h1>Welcome to your trading workspace</h1>
+          <p>Sign-in verified. {derivStatus === "Connected" ? "Deriv connection verified." : "Deriv connection: " + derivStatus + "."}</p>
+          <p>Opening your dashboard. Account balances load in the workspace.</p>
+          <button type="button" onClick={() => setWelcome(false)} style={{padding:"10px 20px",borderRadius:8}}>Continue now</button>
+        </div>
+      </section>}
       <header className="workspaceTopbar">
         <Link className="workspaceBrand" href="/">
           TRADE SCHEME <span>FX</span>
