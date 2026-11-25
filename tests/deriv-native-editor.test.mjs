@@ -24,7 +24,9 @@ test("native editor frame denies broker networking and form submissions", async 
   assert.match(config, /source: "\/native-deriv\/:path\*"/);
   assert.match(config, /source: "\/"[\s\S]*key: "native_deriv"[\s\S]*key: "Content-Security-Policy"/);
   assert.match(config, /script-src 'self' 'unsafe-inline' 'unsafe-eval'/);
-  assert.match(config, /connect-src 'none'/);
+  assert.match(config, /connect-src wss:\/\/api\.derivws\.com\/trading\/v1\/options\/ws\/public wss:\/\/staging-api\.derivws\.com\/trading\/v1\/options\/ws\/public/);
+  assert.match(config, /fonts\.googleapis\.com/);
+  assert.match(config, /fonts\.gstatic\.com/);
   assert.match(config, /form-action 'none'/);
   assert.match(config, /frame-src 'none'/);
 });
