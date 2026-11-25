@@ -1,4 +1,5 @@
-import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,4 +137,22 @@ const rewriteReferences = async directory => {
 };
 
 await rewriteReferences(destination);
+
+// The vendor's index filename is hashed before the Trade Scheme rewrites are
+// applied. If we keep that upstream filename, a CDN can serve the earlier,
+// unmodified bytes under the same immutable asset URL. Give the final emitted
+// entry bundle a digest based on its actual rewritten contents and update the
+// HTML entrypoint to force clients and edge caches onto the corrected bundle.
+const htmlPath = path.join(destination, "index.html");
+let html = await readFile(htmlPath, "utf8");
+const entryMatch = html.match(/src="([^\"]*\/static\/js\/(index(?:\.[\w-]+)?\.js))"/);
+if (!entryMatch) throw new Error("Deriv editor entry script is missing from index.html");
+const oldEntryPath = path.join(destination, "static/js", entryMatch[2]);
+const entryContents = await readFile(oldEntryPath);
+const digest = createHash("sha256").update(entryContents).digest("hex").slice(0, 12);
+const newEntryName = `index.${digest}.js`;
+const newEntryPath = path.join(path.dirname(oldEntryPath), newEntryName);
+await rename(oldEntryPath, newEntryPath);
+html = html.replaceAll(entryMatch[2], newEntryName);
+await writeFile(htmlPath, html);
 console.log("Prepared the pinned Deriv Blockly editor in public/native-deriv with broker networking disabled by frame policy.");
