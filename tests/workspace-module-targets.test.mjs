@@ -34,17 +34,16 @@ test("Copy Trader is explicitly marked as a prototype rather than a live integra
   assert.equal(moduleTargets["Copy Trader"].state,"prototype");
 });
 
-test("the complete Deriv DBot surface is the default screen and all workspace tools remain reachable",()=>{
+test("the animated outer workspace stays intact and Deriv DBot opens as its own full-screen view",()=>{
   const workspace=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.tsx"),"utf8");
-  assert.match(workspace,/useState<WorkspaceModule>\('Bot Builder'\)/);
-  assert.match(workspace,/All 17 tools/);
-  assert.match(workspace,/\/native-deriv\/index\.html#bot_builder/);
-  assert.match(workspace,/DEMO ONLY/);
-  assert.match(workspace,/REAL-MONEY TRADING DISABLED/);
-});
-
-test("the workspace account chooser exposes Demo accounts only",()=>{
-  const workspace=readFileSync(join(process.cwd(),"app/dashboard/trading-workspace.tsx"),"utf8");
-  assert.match(workspace,/filter\(account => account\.account_type === "demo"\)/);
-  assert.match(workspace,/account\.account_type !== "demo"/);
+  const shellCss=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.module.css"),"utf8");
+  const bot=readFileSync(join(process.cwd(),"app/builder/NativeDerivBuilder.tsx"),"utf8");
+  assert.match(workspace,/useState<WorkspaceModule>\('Dashboard'\)/);
+  assert.match(workspace,/window\.location\.assign\('\/builder'\)/);
+  assert.match(workspace,/styles\.waveTwo/);
+  assert.match(shellCss,/\.hero/);
+  assert.match(shellCss,/@keyframes drift/);
+  assert.match(bot,/position: "fixed", inset: 0/);
+  assert.match(bot,/\/native-deriv\/index\.html#bot_builder/);
+  assert.match(bot,/sandbox="allow-scripts allow-downloads"/);
 });
