@@ -1,0 +1,33 @@
+name: Native Deriv source validation
+on:
+  pull_request:
+    paths:
+      - 'vendor/deriv-trading-bot'
+      - '.gitmodules'
+      - '.github/workflows/deriv-native-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upstream-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vendor/deriv-trading-bot
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify pinned upstream revision
+        run: test "$(git rev-parse HEAD)" = da24196175b5a11088d8b982dd4abe83a13a198c
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Generate brand styles
+        run: npm run generate:brand-css
+      - name: Compile official template (no credentials or deployment)
+        run: npm run build
