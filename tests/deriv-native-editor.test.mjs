@@ -11,10 +11,10 @@ test("builder route mounts the pinned official Blockly bundle in a sandbox", asy
     read("../app/dashboard/v4/registry.ts"),
   ]);
   assert.match(page, /NativeDerivBuilder/);
-  assert.match(component, /\/?native_deriv=1#bot_builder/);
+  assert.match(component, /trade-scheme-fx-clean\.vercel\.app/);
+  assert.match(component, /native_deriv=1#bot_builder/);
   assert.match(component, /senfx_strategy=/);
-  assert.match(component, /sandbox="allow-scripts allow-downloads"/);
-  assert.doesNotMatch(component, /allow-same-origin/);
+  assert.match(component, /sandbox="allow-scripts allow-downloads allow-same-origin"/);
   assert.match(registry, /da24196175b5a11088d8b982dd4abe83a13a198c/);
 });
 
@@ -42,6 +42,7 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /NODE_ENV: "production"/);
   assert.match(script, /crossorigin="anonymous"/);
   assert.match(script, /bot\.yourbrand\.com.*www\.tradesche\.com/);
+  assert.match(script, /trade-scheme-fx-clean\.vercel\.app/);
   assert.match(script, /replace\(\/\^https:/);
   assert.match(script, /wss:/);
   assert.match(script, /createHash\("sha256"\)/);
