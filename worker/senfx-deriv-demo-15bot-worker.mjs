@@ -23,7 +23,8 @@ const ACTIVE=["SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED",
  "SENFX_DEMO_15BOT_CONTROL_ENABLED",
  "DERIV_DEMO_BROKER_BUY_ENABLED",
  "DERIV_DEMO_TRADING_ENABLED"].every(k=>process.env[k]==="true");
-if(!ACTIVE){
+const MONITOR_ONLY=process.env.SENFX_DEMO_FEED_MONITOR_ONLY==="true" && ["SENFX_DEMO_15BOT_BROKER_EXECUTION_ENABLED","SENFX_DEMO_15BOT_CONTROL_ENABLED","DERIV_DEMO_BROKER_BUY_ENABLED","DERIV_DEMO_TRADING_ENABLED"].every(k=>process.env[k]==="false");
+if(!ACTIVE&&!MONITOR_ONLY){
  console.log("[senfx-demo-15] Disabled. No Deriv account connection or broker orders.");
  process.exit(0);
 }
@@ -50,6 +51,7 @@ const SETTLEMENT_TIMEOUT_MS=8*60_000;
 const MAX_WAIT_FOR_MARKET_MS=35_000;
 const MARKETS_NEEDED=new Set(FIFTEEN_BOTS.map(x=>x.market));
 const histories=new Map();
+const monitorConfirmed=new Set();
 const previousEpoch=new Map();
 let feed=null;
 let feedHeartbeat=null;
@@ -81,7 +83,7 @@ function stopFeed(){
  if(feedHeartbeat!==null){clearInterval(feedHeartbeat);feedHeartbeat=null;}
  if(old){old.onopen=null;old.onmessage=null;old.onerror=null;old.onclose=null;
   try{old.close();}catch{}}
- histories.clear();previousEpoch.clear();
+ histories.clear();previousEpoch.clear();monitorConfirmed.clear();
  // Reconnecting invalidates the recovery sample and its confirmations:
  // pre-disconnect observations cannot make a new entry look clean.
  if(recoveryState?.armed){
@@ -496,6 +498,10 @@ function startPublicFeed(){
   histories.set(tick.symbol,hist);
   confirmed.add(tick.symbol);
   if(!feedReady&&confirmed.size===MARKETS_NEEDED.size){feedReady=true;feedEstablishedAt=now;safeLog("All required public markets delivered verified ticks");}
+  if(MONITOR_ONLY){
+   if(hist.length===MAX_HISTORY&&!monitorConfirmed.has(tick.symbol)){monitorConfirmed.add(tick.symbol);safeLog("300 fresh ticks collected",tick.symbol);}
+   return;
+  }
   if(!feedReady||hist.length<MAX_HISTORY)return;
   if(recoveryState.armed){
    const recoveryBot=FIFTEEN_BOTS.find(b=>b.id===recoveryBotId);
@@ -535,6 +541,11 @@ async function poll(){
  if(finishing||pollBusy)return;
  pollBusy=true;
  try{
+  if(MONITOR_ONLY){
+   if(!feed&&Date.now()>=feedReconnectAt)startPublicFeed();
+   if(feed&&Date.now()-Math.max(lastTickReceived,feedStartedAt)>MAX_WAIT_FOR_MARKET_MS)recoverTransientPublicFeed("no fresh public ticks");
+   return;
+  }
   const {data,error}=await db.from("senfx_demo_bot_control")
    .select("user_id,account_id,stake_amount,cooldown_seconds,mode,control_version,worker_id,lease_expires_at,selected_bot_id,target_trades")
    .eq("user_id",ADMIN).maybeSingle();
