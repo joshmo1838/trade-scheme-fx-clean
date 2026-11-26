@@ -97,7 +97,8 @@ test('the 4.0 bot gallery and native editor route point at the same strategy IDs
   assert.match(gallery,/STRATEGIES\.map/);
   assert.match(gallery,/strategyId=/);
   assert.match(builder,/senfx_strategy=/);
-  assert.match(builder,/FIFTEEN_BOTS\.some/);
+  assert.match(builder,/STRATEGIES\.some\(strategy=>strategy\.id===selected\)/);
+  assert.doesNotMatch(builder,/FIFTEEN_BOTS/);
   assert.match(originalCatalog,/FIFTEEN_BOTS\.map/);
   assert.match(originalCatalog,/strategyId=/);
   assert.match(build,/createStrategyBootstrap\(\[\.\.\.STRATEGIES,\.\.\.FIFTEEN_DBOT_REFERENCES\]\)/);
