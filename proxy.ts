@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   // Clean workspace: deny legacy API access until explicitly reintroduced.
-  if (path.startsWith("/api/") && !/^\/api\/(?:auth(?:\/|$)|deriv\/(?:account|select-account|connect|disconnect|callback|ticks|markets|symbols|demo\/(?:account-balance|bots\/(?:capabilities(?:\/all)?|control|payout-preview|proposal)|orders|readiness))(?:\/|$))/.test(path)) {
+  if (path.startsWith("/api/") && !/^\/api\/(?:auth(?:\/|$)|deriv\/(?:account|select-account|connect|disconnect|callback|ticks|markets|symbols|demo\/(?:account-balance|bots\/(?:capabilities(?:\/all)?|control|payout-preview|proposal)|orders|readiness|v4\/bots\/control))(?:\/|$))/.test(path)) {
     return NextResponse.json({ error: "Endpoint unavailable during workspace reset" }, { status: 410 });
   }
   let response = NextResponse.next({ request });
