@@ -63,6 +63,7 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /text\.textContent !== "Run disabled"/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
   assert.match(script, /data-tsfx-editor-guidance/);
+  assert.match(script, /\.app-header \.auth-actions\{display:none!important;visibility:hidden!important\}/);
   assert.match(script, /Preview only.*Demo controls are in Trade Scheme FX/);
 });
 
