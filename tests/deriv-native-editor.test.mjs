@@ -24,6 +24,9 @@ test("selected bot workspace opens the server-verified RUN AI BOT controls", asy
     read("../app/dashboard/v4/QuantumDemoRunControl.tsx"),
   ]);
   assert.match(builder, /aria-label={`RUN AI BOT for \$\{strategy\.name\}`}/);
+  assert.match(builder, /inset:"44px 0 0"/);
+  assert.match(builder, /height:"calc\(100dvh - 44px\)"/);
+  assert.match(builder, /inset:"92px 0 0"/);
   assert.match(builder, /setControlsOpen\(true\)/);
   assert.match(controls, /aria-label={`RUN AI BOT for \$\{botName\}`}/);
   assert.match(controls, /disabled=\{!canRun\}/);
