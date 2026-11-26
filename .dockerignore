@@ -1,4 +1,4 @@
-# Keep the Railway worker image context small: only the paper worker's files.
+# Keep Railway worker images minimal; allow each explicitly pinned research-worker input.
 **
 !worker/
 !worker/Dockerfile
@@ -8,3 +8,13 @@
 !lib/bots/
 !lib/bots/paper-strategy.ts
 !lib/bots/paper-reconcile.ts
+
+# Isolated Quantum 4.0 public-tick research worker (no broker code).
+!Dockerfile.quantum-ai
+!worker/quantum-ai/
+!worker/quantum-ai/**
+!lib/quantum/
+!lib/quantum/strategy-catalog.mjs
+!tests/
+!tests/quantum-ai5.mjs
+!tests/live-4bot-feed.test.mjs
