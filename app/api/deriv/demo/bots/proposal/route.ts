@@ -2,6 +2,8 @@ import {NextRequest, NextResponse} from "next/server";
 import {getDerivDemoContext,openDerivDemoSession,safeDemoError} from "@/lib/deriv/demo-server";
 import {deriveDemoProposal,getDemoBotTemplate,brokerSupportsTemplate} from "@/lib/deriv/demo-bot-contracts.mjs";
 
+import {mapQuantumDemoSignal,quantumDemoContracts} from "@/lib/quantum/demo-contracts.mjs";
+
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
 export const maxDuration=25;
@@ -30,12 +32,21 @@ export async function POST(request:NextRequest){
      typeof body.botId!=="string"||typeof body.prediction!=="string"||
    typeof body.stake!=="number")
    return NextResponse.json({success:false,code:"INVALID_CONTRACT_SELECTION"},{status:400,headers:noStore});
-  const proposal=deriveDemoProposal(
-   body.botId,body.prediction,
-   typeof body.barrier==="string"||typeof body.barrier==="number"?body.barrier:undefined,
-   body.stake);
-  const bot=getDemoBotTemplate(body.botId);
-  if(!bot||!proposal)
+  const {botId, prediction, barrier, stake} = body;
+  const quantum = Object.hasOwn(quantumDemoContracts, botId);
+  const legacy = quantum ? null : getDemoBotTemplate(botId);
+  const symbol = quantum ? "R_100" : legacy?.symbol;
+  const cents = Math.round(stake * 100);
+  if (!Number.isSafeInteger(cents) || cents <= 0 || Math.abs(stake * 100 - cents) > 0.000001)
+   return NextResponse.json({success:false,code:"INVALID_VIRTUAL_STAKE"},{status:400,headers:noStore});
+  const contract = quantum ? mapQuantumDemoSignal(botId, {
+   kind: prediction,
+   barrier: typeof barrier === "string" && /^[0-9]$/.test(barrier) ? Number(barrier) : barrier,
+  }) : null;
+  const proposal = quantum
+   ? contract && {proposal:1, amount:stake, basis:"stake", currency:"USD", underlying_symbol:symbol, ...contract}
+   : deriveDemoProposal(botId,prediction,typeof barrier==="string"||typeof barrier==="number"?barrier:undefined,stake);
+  if (!symbol || !proposal)
    return NextResponse.json({success:false,code:"UNSUPPORTED_DEMO_BOT_CONTRACT"},{status:400,headers:noStore});
   const context=await getDerivDemoContext();
   if(context.account.account_type!=="demo"||context.account.currency!=="USD")
@@ -44,8 +55,14 @@ export async function POST(request:NextRequest){
   if(!Number.isFinite(virtualBalance)||virtualBalance<body.stake)
    return NextResponse.json({success:false,code:"INSUFFICIENT_VIRTUAL_BALANCE"},{status:409,headers:noStore});
   session=await openDerivDemoSession(context); // server verifies wss ... /ws/demo via OTP.
-  const availability=await session.request<any>("contracts_for",{contracts_for:bot.symbol},8000);
-  if(!brokerSupportsTemplate(bot,availability?.contracts_for?.available))
+  const availability=await session.request<any>("contracts_for",{contracts_for:symbol},8000);
+  const available = availability?.contracts_for?.available;
+  const requestedContractAvailable = legacy
+   ? brokerSupportsTemplate(legacy, available)
+   : Array.isArray(available) && available.some(
+     (item: { contract_type?: string } | null) => item?.contract_type === proposal.contract_type,
+    );
+  if(!requestedContractAvailable)
    return NextResponse.json({success:false,code:"BROKER_CONTRACT_NOT_AVAILABLE"},{status:409,headers:noStore});
   const price=await session.request<any>("proposal",proposal,8000);
   const quote=price?.proposal;
@@ -58,7 +75,7 @@ export async function POST(request:NextRequest){
    return NextResponse.json({success:false,code:"INVALID_DERIV_DEMO_PROPOSAL"},{status:502,headers:noStore});
   return NextResponse.json({
    success:true,accountType:"demo",mode:"verified-broker-proposal-no-buy",
-   botId:bot.id,symbol:bot.symbol,
+   botId,symbol,
    contractType:proposal.contract_type,
    duration:proposal.duration,durationUnit:proposal.duration_unit,
    barrier:"barrier" in proposal?proposal.barrier:null,
