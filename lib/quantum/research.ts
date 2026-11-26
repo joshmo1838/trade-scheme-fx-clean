@@ -1,5 +1,5 @@
-import {ema,mean,standardDeviation,lastDigit,expectedValue,type MarketTick} from './intelligence-engine';
-import {STRATEGIES} from './strategies';
+import {ema,mean,standardDeviation,lastDigit,expectedValue,type MarketTick} from './intelligence-engine.ts';
+import {STRATEGIES} from './strategies.ts';
 export type Signal={bot:string;kind:'RISE'|'FALL'|'EVEN'|'ODD'|'MATCH'|'DIFFER'|'SKIP';barrier?:number};
 export function signals(t:MarketTick[]):Signal[]{
  const skip=()=>STRATEGIES.map(s=>({bot:s.name,kind:'SKIP' as const}));
