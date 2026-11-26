@@ -93,6 +93,12 @@ const safetyShim = `<script>
     header.appendChild(note);
   };
   const apply = () => {
+    if (!document.getElementById("tsfx-preview-auth-style")) {
+      const style = document.createElement("style");
+      style.id = "tsfx-preview-auth-style";
+      style.textContent = ".app-header .auth-actions{display:none!important;visibility:hidden!important}";
+      (document.head || document.documentElement).appendChild(style);
+    }
     syncWorkspaceGuidance();
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
