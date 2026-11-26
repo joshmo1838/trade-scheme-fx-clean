@@ -18,6 +18,17 @@ test("builder route mounts the pinned official Blockly bundle in a sandbox", asy
   assert.match(registry, /da24196175b5a11088d8b982dd4abe83a13a198c/);
 });
 
+test("selected bot workspace opens the server-verified RUN AI BOT controls", async () => {
+  const [builder,controls] = await Promise.all([
+    read("../app/builder/NativeDerivBuilder.tsx"),
+    read("../app/dashboard/v4/QuantumDemoRunControl.tsx"),
+  ]);
+  assert.match(builder, /aria-label={`RUN AI BOT for \$\{strategy\.name\}`}/);
+  assert.match(builder, /setControlsOpen\(true\)/);
+  assert.match(controls, /aria-label={`RUN AI BOT for \$\{botName\}`}/);
+  assert.match(controls, /disabled=\{!canRun\}/);
+});
+
 test("native editor frame denies broker networking and form submissions", async () => {
   const config = await read("../next.config.ts");
   assert.match(config, /source: "\/"[\s\S]*key: "native_deriv"[\s\S]*destination: "\/native-deriv\/index\.html"/);
