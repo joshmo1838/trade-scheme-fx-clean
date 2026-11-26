@@ -1,0 +1,36 @@
+name: Live 16-bot research feed safety
+on:
+  pull_request:
+    branches:
+      - feature/quantum-single-research-digit
+    paths:
+      - "worker/quantum-ai/**"
+      - "lib/quantum/strategy-catalog.mjs"
+      - "tests/live-4bot-feed.test.mjs"
+      - "Dockerfile.quantum-ai"
+      - ".github/workflows/quantum-live-distribution.yml"
+  push:
+    branches:
+      - feature/quantum-16-per-tick-research-20261126
+permissions:
+  contents: read
+jobs:
+  research-feed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify original 16 rules and per-tick independent evaluation
+        run: node --test tests/live-4bot-feed.test.mjs
+      - name: Verify existing Digit AI and Deep Scan
+        run: node tests/quantum-ai5.mjs
+      - name: Verify research worker syntax
+        run: |
+          node --check worker/quantum-ai/run.mjs
+          node --check worker/quantum-ai/live-4bot-feed.mjs
+      - name: Compile isolated research worker without any broker access
+        run: docker build -f Dockerfile.quantum-ai -t tsfx-16bot-feed:ci .
