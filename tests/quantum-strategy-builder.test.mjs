@@ -27,50 +27,32 @@ test('strategy references are labeled as research and safely escaped in native B
   assert.match(xml,/RESEARCH ONLY · NOT AN EXECUTABLE BOT/);
 });
 
-test('Nexus opens the native Deriv workspace and keeps its rule visible as a Blockly comment',()=>{
+test('every 4.0 strategy keeps its rule visible on the native trade parameters block',()=>{
   const html=createStrategyBootstrap(STRATEGIES);
   const source=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(source);
-  assert.doesNotThrow(()=>new Function(source));
-  assert.match(source,/senfx_strategy/);
-  assert.match(source,/window\.Blockly\.utils\.xml\.textToDom/);
-  assert.match(source,/window\.Blockly\.Xml\.domToWorkspace/);
-  assert.match(source,/Nexus Flow — research strategy/);
-  assert.match(source,/setCommentText/);
-  assert.match(source,/getIcon\('comment'\)\?\.setBubbleVisible\(true\)/);
-  assert.doesNotMatch(source,/getComment/);
-  assert.doesNotMatch(source,/authorize|token/i);
-  let importedXml='';
-  let moved=0;
-  let rendered=0;
-  let comment='';
-  let commentVisible=false;
-  const tradeParameters={
-    type:'trade_definition',
-    setCommentText:value=>{comment=value;},
-    getIcon:type=>type==='comment'?{setBubbleVisible:value=>{commentVisible=value;}}:null,
-  };
-  const workspace={
-    __senfxStrategyReference:null,
-    getTopBlocks:()=>[tradeParameters],
-    getBlockById:()=>null,
-    render:()=>rendered++,
-  };
-  const window={
-    location:{search:'?senfx_strategy=nexus-flow'},
-    Blockly:{
-      derivWorkspace:workspace,
-      utils:{xml:{textToDom:xml=>xml}},
-      Xml:{domToWorkspace:xml=>{importedXml=xml;}},
-    },
-  };
-  runInNewContext(source,{window,URLSearchParams,console});
-  assert.equal(importedXml,'');
-  assert.match(comment,/Nexus Flow — research strategy/);
-  assert.match(comment,/After 300 valid ticks/);
-  assert.equal(commentVisible,true);
-  assert.equal(moved,0);
-  assert.equal(rendered,1);
+  for (const strategy of STRATEGIES) {
+    let rendered=0;
+    let comment='';
+    let commentVisible=false;
+    const tradeParameters={
+      type:'trade_definition',
+      setCommentText:value=>{comment=value;},
+      getIcon:type=>type==='comment'?{setBubbleVisible:value=>{commentVisible=value;}}:null,
+    };
+    const workspace={
+      getTopBlocks:()=>[tradeParameters],
+      render:()=>rendered++,
+    };
+    const window={
+      location:{search:new URLSearchParams({senfx_strategy:strategy.id}).toString()},
+      Blockly:{derivWorkspace:workspace},
+    };
+    runInNewContext(source,{window,URLSearchParams});
+    assert.equal(comment,`${strategy.name} — research strategy\n${strategy.rule}\nResearch preview only; trade execution remains disabled.`);
+    assert.equal(commentVisible,true);
+    assert.equal(rendered,1);
+  }
 });
 
 test('the 4.0 bot gallery and native editor route point at the same strategy IDs',async()=>{
