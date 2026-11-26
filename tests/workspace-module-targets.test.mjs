@@ -38,6 +38,9 @@ test("the animated outer workspace stays intact and Deriv DBot opens as its own 
   const workspace=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.tsx"),"utf8");
   const shellCss=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.module.css"),"utf8");
   const bot=readFileSync(join(process.cwd(),"app/builder/NativeDerivBuilder.tsx"),"utf8");
+  const catalog=readFileSync(join(process.cwd(),"app/dashboard/v4/QuantumBotCatalog.tsx"),"utf8");
+  const library=readFileSync(join(process.cwd(),"app/bot-library/page.tsx"),"utf8");
+  const currentLibrary=readFileSync(join(process.cwd(),"app/bot-library/CurrentBotLibrary.tsx"),"utf8");
   assert.match(workspace,/useState<WorkspaceModule>\('Dashboard'\)/);
   assert.match(workspace,/window\.location\.assign\('\/builder'\)/);
   assert.match(workspace,/styles\.waveTwo/);
@@ -48,4 +51,11 @@ test("the animated outer workspace stays intact and Deriv DBot opens as its own 
   assert.match(bot,/native_deriv=1#bot_builder/);
   assert.match(bot,/strategyId/);
   assert.match(bot,/sandbox="allow-scripts allow-downloads allow-same-origin"/);
+  assert.match(workspace,/<QuantumBotCatalog\s*\/>/);
+  assert.match(library,/<CurrentBotLibrary\s*\/>/);
+  assert.match(currentLibrary,/<QuantumBotCatalog\s*\/>/);
+  assert.match(catalog,/STRATEGIES\.map\(/);
+  assert.match(catalog,/strategyId=\$\{encodeURIComponent\(strategy\.id\)\}/);
+  assert.match(catalog,/RUN DISABLED/);
+  for(const source of [workspace,library,currentLibrary,catalog]) assert.doesNotMatch(source,/FifteenOriginalBotCatalog|FIFTEEN_BOTS/);
 });

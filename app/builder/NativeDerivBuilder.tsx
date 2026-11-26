@@ -2,15 +2,19 @@
 
 import {useEffect,useState} from "react";
 import {STRATEGIES} from "@/lib/quantum/strategies";
+import NativeDerivTradeSettings from "./NativeDerivTradeSettings";
 
 const editorOrigin="https://trade-scheme-fx-clean.vercel.app";
 
 export default function NativeDerivBuilder() {
   const [src,setSrc]=useState(`${editorOrigin}/?native_deriv=1#bot_builder`);
+  const [selectedBot,setSelectedBot]=useState<string|null>(null);
   useEffect(()=>{
     const selected=new URL(window.location.href).searchParams.get("strategyId");
-    if(STRATEGIES.some(strategy=>strategy.id===selected))
+    if(STRATEGIES.some(strategy=>strategy.id===selected)) {
+      setSelectedBot(selected);
       setSrc(`${editorOrigin}/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected!)}#bot_builder`);
+    }
   },[]);
   return (
     <main style={{ position: "fixed", inset: 0, width: "100vw", height: "100dvh", overflow: "hidden", background: "#fff" }}>
@@ -21,6 +25,7 @@ export default function NativeDerivBuilder() {
         referrerPolicy="no-referrer"
         style={{ display: "block", width: "100%", height: "100%", border: 0, background: "#fff" }}
       />
+      <NativeDerivTradeSettings botId={selectedBot}/>
     </main>
   );
 }

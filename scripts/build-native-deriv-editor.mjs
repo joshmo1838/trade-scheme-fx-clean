@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {STRATEGIES} from "../lib/quantum/strategy-catalog.mjs";
 import {createStrategyBootstrap} from "../lib/quantum/strategy-builder-reference.mjs";
+import {FIFTEEN_DBOT_REFERENCES} from "../lib/bots/deriv-dbot-references.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "vendor/deriv-trading-bot");
@@ -94,7 +95,7 @@ const safetyShim = `<script>
   document.addEventListener("DOMContentLoaded", apply, { once: true });
 })();
 </script>`;
-const strategyBootstrap = createStrategyBootstrap(STRATEGIES);
+const strategyBootstrap = createStrategyBootstrap([...STRATEGIES,...FIFTEEN_DBOT_REFERENCES]);
 
 const rewriteReferences = async directory => {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
