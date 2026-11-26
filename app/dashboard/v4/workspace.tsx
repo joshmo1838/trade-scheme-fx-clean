@@ -55,10 +55,12 @@ function ToolLaunch({module}:{module:Exclude<WorkspaceModule,'Dashboard'|'Automa
 export default function MasterWorkspace(){
   const [tab,setTab]=useState<WorkspaceModule>('Dashboard');
   const [orb,setOrb]=useState(false);
+  const [premiumWorkspaceOpen,setPremiumWorkspaceOpen]=useState(false);
   const theme=themes[tab]||themes['Volt AI'];
   return <div className={styles.shell}>
     <nav className={styles.nav} aria-label="Trading tools">
       {modules.map(module=><button key={module} aria-pressed={tab===module} onClick={()=>{
+        setPremiumWorkspaceOpen(false);
         if(module==='Bot Builder'){
           window.location.assign('/builder');
           return;
@@ -66,7 +68,7 @@ export default function MasterWorkspace(){
         setTab(module);
       }}>{module}</button>)}
     </nav>
-    <div className={styles.layout}>
+    <div className={premiumWorkspaceOpen?styles.layout+' '+styles.premiumLayout:styles.layout}>
       <section className={styles.main} key={tab}>
         <header><small>TRADE SCHEME FX / 4.0 WORKSPACE</small><h1>{tab}</h1></header>
         {tab!=='Dashboard'&&tab!=='Bot Builder'&&<div className={styles.moduleHeader} style={{'--module-accent':theme.color} as CSSProperties}>
@@ -98,7 +100,8 @@ export default function MasterWorkspace(){
           <iframe title="Official Deriv Blockly Bot Builder" src="/native-deriv/index.html#bot_builder" sandbox="allow-scripts allow-downloads" referrerPolicy="no-referrer" className={styles.builderFrame}/>
         </>}
 
-        {(tab==='Premium AI Bots'||tab==='Free Bots')&&<QuantumBotCatalog/>}
+        {tab==='Premium AI Bots'&&<QuantumBotCatalog premium onWorkspaceChange={setPremiumWorkspaceOpen}/>}
+        {tab==='Free Bots'&&<QuantumBotCatalog/>}
 
         {tab==='Automated'&&<><QuantumBotCatalog/><QuantumLiveCharts/></>}
         {tab==='Charts'&&<><div className={styles.chartFrame}><LiveCandleChart embedded/></div><QuantumLiveCharts/></>}
