@@ -2,7 +2,6 @@
 
 import {useEffect,useState} from "react";
 import {STRATEGIES} from "@/lib/quantum/strategies";
-import {FIFTEEN_BOTS} from "@/lib/bots/fifteen-paper-bots";
 import NativeDerivTradeSettings from "./NativeDerivTradeSettings";
 
 const editorOrigin="https://trade-scheme-fx-clean.vercel.app";
@@ -12,7 +11,7 @@ export default function NativeDerivBuilder() {
   const [selectedBot,setSelectedBot]=useState<string|null>(null);
   useEffect(()=>{
     const selected=new URL(window.location.href).searchParams.get("strategyId");
-    if(STRATEGIES.some(strategy=>strategy.id===selected)||FIFTEEN_BOTS.some(bot=>bot.id===selected)) {
+    if(STRATEGIES.some(strategy=>strategy.id===selected)) {
       setSelectedBot(selected);
       setSrc(`${editorOrigin}/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected!)}#bot_builder`);
     }
