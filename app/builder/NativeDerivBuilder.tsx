@@ -20,7 +20,7 @@ export default function NativeDerivBuilder() {
   },[]);
 
   return (
-    <main style={{position:"fixed",inset:0,width:"100vw",height:"100dvh",overflow:"hidden",background:"#fff",display:"grid",gridTemplateRows:"48px minmax(0,1fr)"}}>
+    <main style={{position:"fixed",inset:"44px 0 0",width:"100vw",height:"calc(100dvh - 44px)",overflow:"hidden",background:"#fff",display:"grid",gridTemplateRows:"48px minmax(0,1fr)"}}>
       <header style={{display:"flex",alignItems:"center",gap:16,padding:"0 14px",background:"#081525",color:"#eaf2ff",borderBottom:"1px solid #263b54",fontFamily:"system-ui,sans-serif",zIndex:20}}>
         <a href="/dashboard" style={{color:"#8deaff",textDecoration:"none",fontSize:13,fontWeight:700}}>← Workspace</a>
         <strong style={{fontSize:14}}>{strategy?strategy.name+" · Deriv DBot":"Deriv DBot Builder"}</strong>
@@ -34,7 +34,7 @@ export default function NativeDerivBuilder() {
           referrerPolicy="no-referrer"
           style={{display:"block",width:"100%",height:"100%",minHeight:0,border:0,background:"#fff"}}
         />
-        {strategy&&controlsOpen&&<div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setControlsOpen(false);}} style={{position:"fixed",inset:"48px 0 0",zIndex:30,display:"grid",placeItems:"center",padding:14,background:"rgba(1,8,20,.58)"}}>
+        {strategy&&controlsOpen&&<div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setControlsOpen(false);}} style={{position:"fixed",inset:"92px 0 0",zIndex:30,display:"grid",placeItems:"center",padding:14,background:"rgba(1,8,20,.58)"}}>
           <section role="dialog" aria-modal="true" aria-label={strategy.name+" virtual Demo controls"} style={{width:"min(100%, 980px)",maxHeight:"100%",overflowY:"auto",border:"1px solid #38506c",borderRadius:14,background:"#07111f",boxShadow:"0 24px 80px rgba(0,0,0,.45)"}}>
             <div style={{display:"flex",justifyContent:"flex-end",padding:"10px 12px 0"}}>
               <button type="button" onClick={()=>setControlsOpen(false)} style={{border:0,background:"transparent",color:"#dbeafe",fontSize:13,cursor:"pointer"}}>Close</button>
