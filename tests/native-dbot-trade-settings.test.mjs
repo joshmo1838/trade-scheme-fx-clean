@@ -10,7 +10,7 @@ test('selected DBot renders per-bot trade settings without replacing native edit
   assert.match(native, /NativeDerivTradeSettings botId=\{selectedBot\}/);
   assert.match(native, /<iframe/);
   assert.match(native, /STRATEGIES\.some/);
-  assert.match(native, /FIFTEEN_BOTS\.some/);
+  assert.doesNotMatch(native, /FIFTEEN_BOTS/);
 });
 
 test('draft fields are per-bot, and cannot be mistaken for executed risk limits', () => {
