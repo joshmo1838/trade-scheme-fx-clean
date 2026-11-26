@@ -1,0 +1,19 @@
+# Isolated Deriv virtual-Demo execution worker for the 16 current 4.0 strategies.
+# No Vercel secrets are copied into the image; broker buys default off.
+FROM node:22-alpine
+ENV NODE_ENV=production
+WORKDIR /opt/senfx
+COPY worker/package.json ./worker/package.json
+RUN cd worker && npm install --omit=dev --ignore-scripts --no-audit --no-fund
+COPY worker/quantum-ai/demo-broker-worker.mjs ./worker/quantum-ai/demo-broker-worker.mjs
+COPY lib/quantum/strategy-catalog.mjs ./lib/quantum/strategy-catalog.mjs
+COPY lib/quantum/research.ts ./lib/quantum/research.ts
+COPY lib/quantum/strategies.ts ./lib/quantum/strategies.ts
+COPY lib/quantum/intelligence-engine.ts ./lib/quantum/intelligence-engine.ts
+COPY lib/quantum/demo-contracts.mjs ./lib/quantum/demo-contracts.mjs
+COPY lib/quantum/contract-availability.mjs ./lib/quantum/contract-availability.mjs
+COPY lib/quantum/demo-ten-x-checks.mjs ./lib/quantum/demo-ten-x-checks.mjs
+COPY lib/quantum/demo-worker-safety.mjs ./lib/quantum/demo-worker-safety.mjs
+USER node
+WORKDIR /opt/senfx/worker
+CMD ["node", "--experimental-strip-types", "quantum-ai/demo-broker-worker.mjs"]

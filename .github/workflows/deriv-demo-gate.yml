@@ -26,6 +26,7 @@ on:
       - 'supabase/senfx-deriv-demo-safe-reservation.sql'
       - 'app/api/deriv/demo/orders/route.ts'
       - 'app/api/deriv/demo/bots/control/route.ts'
+      - 'app/api/deriv/demo/v4/bots/control/route.ts'
       - 'app/bot-library/FifteenDemoIndividualControl.tsx'
       - 'app/bot-library/FifteenPaperBotLibrary.tsx'
       - 'supabase/senfx-deriv-demo-individual-controls-20261121.sql'
@@ -46,6 +47,15 @@ on:
       - 'tests/senfx-golden-rule-research.test.mjs'
       - 'tests/senfx-golden-rule-1000-rollback.test.mjs'
       - 'app/api/deriv/demo/bots/payout-preview/route.ts'
+      - 'app/api/deriv/demo/bots/control/route.ts'
+      - 'app/dashboard/v4/**'
+      - 'lib/quantum/**'
+      - 'worker/quantum-ai/demo-broker-worker.mjs'
+      - 'worker/Dockerfile.quantum-demo'
+      - 'supabase/senfx-quantum-demo-4-0.sql'
+      - 'supabase/senfx-quantum-demo-4-0-rollback.sql'
+      - 'tests/quantum-demo-*.test.mjs'
+      - 'tests/quantum-demo-postgres.sql'
       - 'app/bot-library/FifteenDemoPayoutComparison.tsx'
       - 'app/bot-library/fifteen.module.css'
       - 'app/components/DemoTradingConsole.tsx'
@@ -104,6 +114,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-one-dollar-postgres.sql
       - name: Verify separately authorized second one-shot phase without rewriting trade history
         run: psql -X -v ON_ERROR_STOP=1 -f tests/deriv-demo-auto-phase2-postgres.sql
+      - name: Apply and test the additive current 4.0 Demo control and order ledger
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/quantum-demo-postgres.sql
       - name: Two concurrent same-user orders cannot both reserve virtual risk
         shell: bash
         run: |

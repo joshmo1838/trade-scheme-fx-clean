@@ -49,6 +49,8 @@ jobs:
         run: node --experimental-strip-types --test tests/fifteen-paper-bots.test.mjs
       - name: Verify Quantum original 15 research distribution and 30-second minimum
         run: node --experimental-strip-types --test tests/quantum-original15-distributor.test.mjs
+      - name: Verify current 4.0 Demo contract mapping and fail-closed execution gates
+        run: node --experimental-strip-types --test tests/quantum-demo-contracts.test.mjs tests/quantum-demo-candidate.test.mjs tests/quantum-demo-run.test.mjs tests/quantum-demo-production-readiness.test.mjs
       - name: Check Quantum worker syntax
         run: node --check worker/quantum-ai/run.mjs
       - name: Run deterministic bot strategy tests
@@ -67,6 +69,13 @@ jobs:
         run: bash -n scripts/senfx-backup-production.sh
       - name: Check worker Node syntax
         run: node --check worker/senfx-customer-paper-worker.mjs
+      - name: Check current 4.0 Demo worker syntax
+        run: node --check worker/quantum-ai/demo-broker-worker.mjs
+      - name: Build current 4.0 Demo worker image and verify it defaults off
+        run: |
+          docker build --file worker/Dockerfile.quantum-demo --tag senfx-quantum-demo-worker:ci .
+          docker run --rm -e DERIV_DEMO_TRADING_ENABLED=false senfx-quantum-demo-worker:ci 2>&1 | tee /tmp/quantum-demo-worker.log
+          grep -q "Disabled; all broker execution flags default off" /tmp/quantum-demo-worker.log
       - name: Run TypeScript checks
         run: npm run typecheck
       - name: Build production application

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { STRATEGIES } from '../lib/quantum/strategy-catalog.mjs';
+import { signals } from '../lib/quantum/research.ts';
 import { runQuantumDemoAttempt } from '../worker/quantum-ai/demo-run.mjs';
 
 const ticks = Array.from({ length: 300 }, (_, index) => ({
@@ -8,7 +9,7 @@ const ticks = Array.from({ length: 300 }, (_, index) => ({
 }));
 const now = ticks.at(-1).epoch * 1000;
 
-function fixture(botId = 'nexus-flow') {
+function fixture(botId = 'nexus-flow', marketTicks = ticks) {
   const state = { buys: 0, armed: false, active: true, supported: true, timeout: false, pnl: 0 };
   const run = { botId, currency: 'USD', accountType: 'demo', accountId: 'mock-demo', stake: 1, version: 1 };
   const ledger = {
@@ -31,15 +32,28 @@ function fixture(botId = 'nexus-flow') {
       return { id: 'mock-contract' };
     },
   };
-  return { state, args: { run, ticks, now, ledger, broker, validateEntry: async () => true } };
+  return { state, args: { run, ticks: marketTicks, now: marketTicks.at(-1).epoch * 1000, ledger, broker, validateEntry: async () => true } };
 }
 
-test('the worker evaluates every current bot and buys only for an eligible signal', async () => {
+function signalTicks(seed) {
+  let value = seed;
+  let price = 100;
+  return Array.from({ length: 300 }, (_, index) => {
+    value = (value * 48271) % 2147483647;
+    price = Math.max(1, price + (value % 2000 - 1000) / 100000);
+    return { symbol: 'R_100', epoch: 1_800_000_000 + index * 2, quote: price, pip_size: 2 };
+  });
+}
+
+test('all 16 current bot IDs complete the mocked signal-to-settlement flow', async () => {
   for (const { id } of STRATEGIES) {
-    const { state, args } = fixture(id);
+    const marketTicks = Array.from({ length: 1000 }, (_, seed) => signalTicks(seed + 1))
+      .find(sample => signals(sample)[STRATEGIES.findIndex(strategy => strategy.id === id)].kind !== 'SKIP');
+    assert.ok(marketTicks, `test sample should produce an eligible signal for ${id}`);
+    const { state, args } = fixture(id, marketTicks);
     const result = await runQuantumDemoAttempt(args);
-    assert.ok(['NO_FRESH_SIGNAL', 'SETTLED'].includes(result), id);
-    assert.equal(state.buys, result === 'SETTLED' ? 1 : 0, id);
+    assert.equal(result, 'SETTLED', id);
+    assert.equal(state.buys, 1, id);
   }
 });
 
