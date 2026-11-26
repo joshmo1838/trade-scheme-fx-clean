@@ -24,7 +24,7 @@ export default function NativeDerivBuilder() {
       <header style={{display:"flex",alignItems:"center",gap:16,padding:"0 14px",background:"#081525",color:"#eaf2ff",borderBottom:"1px solid #263b54",fontFamily:"system-ui,sans-serif",zIndex:20}}>
         <a href="/dashboard" style={{color:"#8deaff",textDecoration:"none",fontSize:13,fontWeight:700}}>← Workspace</a>
         <strong style={{fontSize:14}}>{strategy?strategy.name+" · Deriv DBot":"Deriv DBot Builder"}</strong>
-        {strategy&&<button type="button" onClick={()=>setControlsOpen(true)} style={{marginLeft:"auto",border:"1px solid #3d647a",borderRadius:8,padding:"7px 11px",background:"transparent",color:"#8deaff",fontSize:11,fontWeight:700,cursor:"pointer"}}>DEMO CONTROLS</button>}
+        {strategy&&<button type="button" aria-label={`RUN AI BOT for ${strategy.name}`} onClick={()=>setControlsOpen(true)} style={{marginLeft:"auto",border:"1px solid #3d647a",borderRadius:8,padding:"7px 11px",background:"#22d3ee",color:"#081525",fontSize:11,fontWeight:800,cursor:"pointer"}}>RUN AI BOT</button>}
       </header>
       <div style={{minHeight:0,position:"relative"}}>
         <iframe
