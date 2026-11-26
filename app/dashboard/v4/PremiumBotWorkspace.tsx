@@ -114,7 +114,7 @@ export default function PremiumBotWorkspace({strategy,onBack}:{strategy:Strategy
 
         <div className={styles.contractNote}><strong>Contract duration</strong><span>1 tick · server-validated for Demo</span></div>
         <div className={styles.demoHeading}><span>DERIV DEMO CONTROLS</span><small>Virtual USD only</small></div>
-        <QuantumDemoRunControl botId={strategy.id} botName={strategy.name}/>
+        <div className={styles.demoControls}><QuantumDemoRunControl botId={strategy.id} botName={strategy.name}/></div>
       </section>
 
       <section className={styles.scanner} aria-label="Live market scan">
