@@ -9,3 +9,5 @@
 !lib/
 !lib/quantum/
 !lib/quantum/strategy-catalog.mjs
+
+!Dockerfile.quantum-ai
