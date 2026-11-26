@@ -38,6 +38,7 @@ test("the animated outer workspace stays intact and Deriv DBot opens as its own 
   const workspace=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.tsx"),"utf8");
   const shellCss=readFileSync(join(process.cwd(),"app/dashboard/v4/workspace.module.css"),"utf8");
   const bot=readFileSync(join(process.cwd(),"app/builder/NativeDerivBuilder.tsx"),"utf8");
+  const originalBots=readFileSync(join(process.cwd(),"app/bot-library/FifteenOriginalBotCatalog.tsx"),"utf8");
   assert.match(workspace,/useState<WorkspaceModule>\('Dashboard'\)/);
   assert.match(workspace,/window\.location\.assign\('\/builder'\)/);
   assert.match(workspace,/styles\.waveTwo/);
@@ -48,4 +49,6 @@ test("the animated outer workspace stays intact and Deriv DBot opens as its own 
   assert.match(bot,/native_deriv=1#bot_builder/);
   assert.match(bot,/strategyId/);
   assert.match(bot,/sandbox="allow-scripts allow-downloads allow-same-origin"/);
+  assert.match(workspace,/FifteenOriginalBotCatalog/);
+  assert.match(originalBots,/Open in Deriv DBot/);
 });

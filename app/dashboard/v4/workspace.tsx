@@ -5,6 +5,7 @@ import {useState} from 'react';
 import type {CSSProperties} from 'react';
 import QuantumLiveCharts from './QuantumLiveCharts';
 import QuantumBotCatalog from './QuantumBotCatalog';
+import FifteenOriginalBotCatalog from '@/app/bot-library/FifteenOriginalBotCatalog';
 import LiveCandleChart from '@/app/components/LiveCandleChart';
 import {modules,moduleTargets,type WorkspaceModule} from './registry';
 import styles from './workspace.module.css';
@@ -98,9 +99,9 @@ export default function MasterWorkspace(){
           <iframe title="Official Deriv Blockly Bot Builder" src="/native-deriv/index.html#bot_builder" sandbox="allow-scripts allow-downloads" referrerPolicy="no-referrer" className={styles.builderFrame}/>
         </>}
 
-        {(tab==='Premium AI Bots'||tab==='Free Bots')&&<QuantumBotCatalog/>}
+        {(tab==='Premium AI Bots'||tab==='Free Bots')&&<><QuantumBotCatalog/><FifteenOriginalBotCatalog/></>}
 
-        {tab==='Automated'&&<><QuantumBotCatalog/><QuantumLiveCharts/></>}
+        {tab==='Automated'&&<><QuantumBotCatalog/><FifteenOriginalBotCatalog/><QuantumLiveCharts/></>}
         {tab==='Charts'&&<><div className={styles.chartFrame}><LiveCandleChart embedded/></div><QuantumLiveCharts/></>}
         {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&tab!=='Premium AI Bots'&&tab!=='Free Bots'&&<ToolLaunch module={tab}/>}
       </section>
