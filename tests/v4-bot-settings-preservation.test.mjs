@@ -9,7 +9,7 @@ const read = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8'
 test('yesterday current 4.0 strategy definitions cannot be silently rewritten', () => {
   const source = read('lib/quantum/strategy-catalog.mjs');
   const gitBlobSha = createHash('sha1')
-    .update('blob ' + Buffer.byteLength(source) + '\\0')
+    .update('blob ' + Buffer.byteLength(source) + String.fromCharCode(0))
     .update(source)
     .digest('hex');
   assert.equal(gitBlobSha, 'f030c5182318ef075884ec088e99d052c5684158',
