@@ -5,6 +5,7 @@ import {useState} from 'react';
 import type {CSSProperties} from 'react';
 import QuantumLiveCharts from './QuantumLiveCharts';
 import QuantumBotCatalog from './QuantumBotCatalog';
+import DBotToolWorkspace from './DBotToolWorkspace';
 import LiveCandleChart from '@/app/components/LiveCandleChart';
 import {modules,moduleTargets,type WorkspaceModule} from './registry';
 import styles from './workspace.module.css';
@@ -98,11 +99,12 @@ export default function MasterWorkspace(){
           <iframe title="Official Deriv Blockly Bot Builder" src="/native-deriv/index.html#bot_builder" sandbox="allow-scripts allow-downloads" referrerPolicy="no-referrer" className={styles.builderFrame}/>
         </>}
 
-        {(tab==='Premium AI Bots'||tab==='Free Bots')&&<QuantumBotCatalog/>}
+        {(tab==='Bulk Trader'||tab==='Premium AI Bots'||tab==='Speedbot'||tab==='Manual Trader')&&<DBotToolWorkspace module={tab}/>}
+        {tab==='Free Bots'&&<QuantumBotCatalog/>}
 
         {tab==='Automated'&&<><QuantumBotCatalog/><QuantumLiveCharts/></>}
         {tab==='Charts'&&<><div className={styles.chartFrame}><LiveCandleChart embedded/></div><QuantumLiveCharts/></>}
-        {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&tab!=='Premium AI Bots'&&tab!=='Free Bots'&&<ToolLaunch module={tab}/>}
+        {tab!=='Dashboard'&&tab!=='Bot Builder'&&tab!=='Automated'&&tab!=='Charts'&&tab!=='Premium AI Bots'&&tab!=='Free Bots'&&tab!=='Bulk Trader'&&tab!=='Speedbot'&&tab!=='Manual Trader'&&<ToolLaunch module={tab}/>}
       </section>
       <aside className={styles.side}>
         <h3>Session</h3><p>Current 4.0 strategy references are available in the bot library and Deriv Blockly. Demo execution remains separate.</p>
