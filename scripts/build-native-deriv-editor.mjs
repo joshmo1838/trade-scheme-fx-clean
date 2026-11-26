@@ -75,7 +75,25 @@ const localStorageShim = `<script>
 
 const safetyShim = `<script>
 (() => {
+  const syncWorkspaceGuidance = () => {
+    const header = document.querySelector(".app-header");
+    if (!header) return;
+    const guestActions = [...header.querySelectorAll(".auth-actions")].find(actions =>
+      /\b(?:Log in|Sign up)\b/i.test(actions.textContent || "")
+    );
+    if (!guestActions) return;
+    guestActions.style.setProperty("display", "none", "important");
+    guestActions.setAttribute("aria-hidden", "true");
+    if (header.querySelector("[data-tsfx-editor-guidance]")) return;
+    const note = document.createElement("div");
+    note.dataset.tsfxEditorGuidance = "true";
+    note.setAttribute("role", "status");
+    note.textContent = "Preview only · Demo controls are in Trade Scheme FX";
+    note.style.cssText = "margin-left:auto;padding:8px 12px;color:#334155;font:600 12px system-ui,sans-serif;white-space:nowrap";
+    header.appendChild(note);
+  };
   const apply = () => {
+    syncWorkspaceGuidance();
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
       const runLabel = "Run is disabled until SENFX strategy mapping is validated";
