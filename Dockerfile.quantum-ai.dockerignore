@@ -4,3 +4,8 @@
 !worker/quantum-ai/**
 !tests/
 !tests/quantum-ai5.mjs
+
+!tests/live-4bot-feed.test.mjs
+!lib/
+!lib/quantum/
+!lib/quantum/strategy-catalog.mjs
