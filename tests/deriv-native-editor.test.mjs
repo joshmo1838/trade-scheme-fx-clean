@@ -82,7 +82,10 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /attachTouchEditorFallback/);
   assert.match(script, /addEventListener\("pointerup", activateNumber, true\)/);
   assert.match(script, /addEventListener\("touchend", activateNumber, true\)/);
-  assert.match(script, /field\.showEditor\(event\)/);
+  assert.match(script, /openNumberPicker\(field\)/);
+  assert.match(script, /value <= 1000/);
+  assert.match(script, /Select a value from 0 to 1000/);
+  assert.match(script, /field\.setValue\(select\.value\)/);
 });
 
 test("builder is no longer redirected into the empty bot-library page", async () => {
