@@ -49,7 +49,7 @@ try {
   const entry = await readFile(path.join(jsDirectory, entryName), "utf8");
   const hasStartupFallback = entry.includes("TSFX_BLOCKLY_STARTUP_FALLBACK_V1") || await containsFileText(jsDirectory, "TSFX_BLOCKLY_STARTUP_FALLBACK_V1");
   const workspaceSource = await readFile(path.join(source, "src/external/bot-skeleton/scratch/dbot.js"), "utf8");
-  const hasFreshWorkspaceReset = workspaceSource.includes("TSFX_FRESH_DERIV_WORKSPACE_V1");
+  const hasFreshWorkspaceReset = workspaceSource.includes("TSFX_FRESH_DERIV_WORKSPACE_V2");
   // Never ship the vendor's development bundle: it injects React Refresh and
   // HMR clients that cannot run in the isolated production iframe.
   rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback || !hasFreshWorkspaceReset;
@@ -133,17 +133,8 @@ const patchVendorStartup = async () => {
   const dbotPath = path.join(source, "src/external/bot-skeleton/scratch/dbot.js");
   let dbot = await readFile(dbotPath, "utf8");
   const savedWorkspaceAnchor = "        const recent_files = await getSavedWorkspaces();";
-  const savedWorkspaceReplacement = `        // TSFX_FRESH_DERIV_WORKSPACE_V1: clean the selected bot's starter canvas once per tab while retaining saved projects.
-        const strategyId = new URLSearchParams(window.location.search).get('senfx_strategy') || 'default';
-        const resetKey = 'tsfx_deriv_fresh_workspace_v1:' + strategyId;
-        let startFreshWorkspace = false;
-        try {
-            startFreshWorkspace = new URLSearchParams(window.location.search).get('tsfx_fresh') === '1' &&
-                window.sessionStorage.getItem(resetKey) !== '1';
-            if (startFreshWorkspace) window.sessionStorage.setItem(resetKey, '1');
-        } catch {
-            startFreshWorkspace = new URLSearchParams(window.location.search).get('tsfx_fresh') === '1';
-        }
+  const savedWorkspaceReplacement = `        // TSFX_FRESH_DERIV_WORKSPACE_V2: selected bots always start from the official clean DBot template.
+        const startFreshWorkspace = new URLSearchParams(window.location.search).get('tsfx_fresh') === '1';
         const recent_files = startFreshWorkspace ? [] : await getSavedWorkspaces();`;
   if (!dbot.includes(savedWorkspaceReplacement)) {
     if (!dbot.includes(savedWorkspaceAnchor)) throw new Error("Deriv saved-workspace initialization anchor changed; update the fresh Blockly reset patch.");
