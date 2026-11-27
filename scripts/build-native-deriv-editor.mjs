@@ -119,6 +119,7 @@ const safetyShim = `<script>
     if (!strategyId || !runState.canRun && !runState.running) {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
+      postToParent("PLAN_ERROR", { code: !strategyId ? "SELECT_CURRENT_BOT_FIRST" : runState.message || "DEMO_RUN_NOT_READY" });
       return;
     }
     if (event.cancelable) event.preventDefault();
@@ -176,11 +177,13 @@ const safetyShim = `<script>
     if (run) {
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
       const runTitle = runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.";
-      run.disabled = !(runState.running || runState.canRun);
+      const canUseRunButton = Boolean(strategyId) && (runState.running || runState.canRun);
+      run.disabled = !canUseRunButton;
       if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
-      if (run.title !== runTitle) run.title = runTitle;
+      const accessibleTitle = strategyId ? runTitle : "Open a current bot from Trade Scheme FX to connect its strategy to Blockly.";
+      if (run.title !== accessibleTitle) run.title = accessibleTitle;
       const text = run.querySelector("span");
-      const label = runState.running ? "Stop Demo" : runState.canRun ? "Run Demo" : "Demo unavailable";
+      const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : runState.canRun ? "Run Demo" : "Demo unavailable";
       if (text && text.textContent !== label) text.textContent = label;
       if (run.dataset.tsfxRunBridge !== "true") {
         run.dataset.tsfxRunBridge = "true";
