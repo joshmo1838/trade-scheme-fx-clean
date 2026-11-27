@@ -149,3 +149,15 @@ test("selected bot restores a supported Multiplier Blockly plan before enabling 
   assert.match(editor, /isSupportedPlan/);
   assert.match(editor, /Preparing Blocks/);
 });
+
+test("Blockly Run UI calculates supported plan before using it", async () => {
+  const script = await read("../scripts/build-native-deriv-editor.mjs");
+  const applyStart = script.indexOf("const apply = () => {");
+  const runStart = script.indexOf('const run = document.querySelector("#db-animation__run-button")', applyStart);
+  const runEnd = script.indexOf("document.querySelectorAll", runStart);
+  assert.ok(applyStart >= 0 && runStart > applyStart && runEnd > runStart);
+  const runUi = script.slice(runStart, runEnd);
+  const supportedPlanAt = runUi.indexOf("const supportedPlan = isSupportedPlan();");
+  const runTitleAt = runUi.indexOf("const runTitle = supportedPlan ?");
+  assert.ok(supportedPlanAt >= 0 && runTitleAt > supportedPlanAt);
+});
