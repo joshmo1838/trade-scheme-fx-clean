@@ -161,3 +161,15 @@ test("Blockly Run UI calculates supported plan before using it", async () => {
   const runTitleAt = runUi.indexOf("const runTitle = supportedPlan ?");
   assert.ok(supportedPlanAt >= 0 && runTitleAt > supportedPlanAt);
 });
+
+test("Blockly trade option currency is synchronized across every option block", async () => {
+  const script = await read("../scripts/build-native-deriv-editor.mjs");
+  assert.match(script, /optionBlocks\s*=\s*workspace\?\.getAllBlocks\?\.\(false\)\?\.filter\(block => block\.type === "trade_definition_multiplier"\)/);
+  assert.match(script, /if \(field && field\.getValue\?\.\(\) !== runState\.currency\) field\.setValue\(runState\.currency\)/);
+});
+
+test("Blockly Run stays disabled until a verified Demo currency is available", async () => {
+  const component = await read("../app/builder/NativeDerivBuilder.tsx");
+  assert.match(component, /!!verifiedCurrency&&d\.controlsEnabled/);
+  assert.match(component, /Connect a verified Deriv Demo account to sync its currency/);
+});
