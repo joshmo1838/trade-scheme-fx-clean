@@ -18,23 +18,14 @@ test("builder route mounts the pinned official Blockly bundle in a sandbox", asy
   assert.match(registry, /da24196175b5a11088d8b982dd4abe83a13a198c/);
 });
 
-test("selected bot workspace opens the server-verified RUN AI BOT controls", async () => {
-  const [builder,controls] = await Promise.all([
-    read("../app/builder/NativeDerivBuilder.tsx"),
-    read("../app/dashboard/v4/QuantumDemoRunControl.tsx"),
-  ]);
-  assert.match(builder, /aria-label={`RUN AI BOT for \$\{strategy\.name\}`}/);
-  assert.match(builder, /inset:"44px 0 0"/);
-  assert.match(builder, /height:"calc\(100dvh - 44px\)"/);
-  assert.match(builder, /inset:"92px 0 0"/);
-  assert.match(builder, /setControlsOpen\(true\)/);
-  assert.match(builder, /minHeight:44/);
-  assert.match(builder, /minWidth:64,minHeight:44/);
-  assert.match(controls, /aria-label={`RUN AI BOT for \$\{botName\}`}/);
-  assert.match(controls, /disabled=\{!canRun\}/);
-  assert.match(controls, /minHeight:48/);
-  assert.match(controls, /minWidth:26,minHeight:26/);
-  assert.match(controls, /small boxes in the Blockly preview do not control this Demo run/);
+test("selected bot workspace uses Blockly Run as its Demo control", async () => {
+  const builder=await read("../app/builder/NativeDerivBuilder.tsx");
+  assert.match(builder, /inset:'44px 0 0'/);
+  assert.match(builder, /height:'calc\(100dvh - 44px\)'/);
+  assert.match(builder, /event\.source!==frame\.current\?\.contentWindow/);
+  assert.match(builder, /tradePlan:d\.plan/);
+  assert.match(builder, /type:'RUN_STATE'/);
+  assert.match(builder, /confirmVirtualDemoAutomation:true/);
 });
 
 test("native editor frame denies broker networking and form submissions", async () => {
@@ -67,12 +58,13 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /createHash\("sha256"\)/);
   assert.match(script, /Deriv editor entry script is missing/);
   assert.match(script, /html\.replaceAll\(entryMatch\[2\], newEntryName\)/);
-  assert.match(script, /run\.disabled = true/);
-  assert.match(script, /text\.textContent !== "Run disabled"/);
+  assert.match(script, /run\.disabled = !\(runState\.running \|\| runState\.canRun\)/);
+  assert.match(script, /text\.textContent !== label/);
+  assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
   assert.match(script, /data-tsfx-editor-guidance/);
   assert.match(script, /\.app-header \.auth-actions\{display:none!important;visibility:hidden!important\}/);
-  assert.match(script, /Preview only.*Demo controls are in Trade Scheme FX/);
+  assert.match(script, /Virtual Demo only.*Run uses these Blockly settings/);
   assert.match(script, /touchNumberFieldsShim/);
   assert.match(script, /pointer: coarse/);
   assert.match(script, /rect\[data-tsfx-touch-hit\]/);
