@@ -183,6 +183,14 @@ const safetyShim = `<script>
     note.style.cssText = "margin-left:auto;padding:8px 12px;color:#334155;font:600 12px system-ui,sans-serif;white-space:nowrap";
     header.appendChild(note);
   };
+  const dismissFirstRunBuilderGuide = () => {
+    if (!strategyId) return;
+    const dialog = document.querySelector(".dc-dialog.tour-dialog");
+    const title = dialog?.querySelector(".dc-dialog__content__header")?.textContent?.trim() || "";
+    if (!dialog || !/bot builder guide/i.test(title)) return;
+    const skip = [...dialog.querySelectorAll("button")].find(button => button.textContent?.trim() === "Skip");
+    skip?.click();
+  };
   const apply = () => {
     if (!document.getElementById("tsfx-preview-auth-style")) {
       const style = document.createElement("style");
@@ -191,6 +199,7 @@ const safetyShim = `<script>
       (document.head || document.documentElement).appendChild(style);
     }
     syncWorkspaceGuidance();
+    dismissFirstRunBuilderGuide();
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
