@@ -33,7 +33,7 @@ function money(value:unknown){
  const amount=Number(value);return Number.isFinite(amount)&&amount>0&&Number.isSafeInteger(Math.round(amount*100))?amount:null;
 }
 
-export async function GET(){
+export async function GET(request:NextRequest){
  try{
   const {userId,db}=await serverContext();if(!userId||!db)return denied('SIGNED_IN_DEMO_PILOT_REQUIRED',401);
   const {data,error}=await db.from('quantum_demo_bot_control').select('account_id,mode,observed_state,control_version,heartbeat_at,lease_expires_at,bot_id,stake,session_stop_loss,session_take_profit,market_category,market_symbol,contract_family,multiplier,per_trade_stop_loss,per_trade_take_profit,last_error,stopped_at,updated_at').eq('user_id',userId).maybeSingle();
@@ -43,6 +43,10 @@ export async function GET(){
   const version=data?.mode==='stopped'?Number(data.control_version)-1:Number(data?.control_version);
   const orders=data?.bot_id?await db.from('quantum_demo_bot_orders').select('status,profit,buy_requested_at,contract_id').eq('user_id',userId).eq('control_version',version).eq('bot_id',data.bot_id).order('created_at',{ascending:false}).limit(200):null;
   if(orders?.error)return denied('QUANTUM_DEMO_ORDER_STATUS_UNAVAILABLE',503);
+  let demoCurrency:string|null=null;
+  if(request.nextUrl.searchParams.get('includeDemoCurrency')==='1'){
+   try{const verified=await getDerivDemoContext();if(verified.user.id===userId&&verified.account.account_type==='demo'&&['USD','AUD'].includes(verified.account.currency))demoCurrency=verified.account.currency;}catch{}
+  }
   const rows=orders?.data||[];
   const completed=rows.filter(x=>['won','lost','sold'].includes(x.status));
   const progress={
@@ -55,7 +59,7 @@ export async function GET(){
   };
   return NextResponse.json({ok:true,mode:'virtual-deriv-demo-only',botCount:STRATEGIES.length,
    run:data?{desiredState:data.mode,observedState:workerConnected?'running':'stopped-or-disconnected',version:Number(data.control_version),accountId:data.account_id,botId:data.bot_id,stake:Number(data.stake),sessionStopLoss:Number(data.session_stop_loss),sessionTakeProfit:Number(data.session_take_profit),marketCategory:data.market_category,marketSymbol:data.market_symbol,contractFamily:data.contract_family,multiplier:Number(data.multiplier),perTradeStopLoss:Number(data.per_trade_stop_loss),perTradeTakeProfit:Number(data.per_trade_take_profit),workerConnected,progress,lastError:data.last_error,restartCooldownSeconds:data.mode==='stopped'&&data.stopped_at?Math.max(0,Math.ceil((new Date(data.stopped_at).getTime()+30_000-now)/1000)):0,updatedAt:data.updated_at}:null,
-   controlsEnabled:flagsOn(),realMoneySupported:false,
+   controlsEnabled:flagsOn(),realMoneySupported:false,demoCurrency,
    message:workerConnected?'Current 4.0 Demo worker lease is fresh; contract IDs and settlements are read from the server order ledger.':'No current 4.0 Demo worker lease is attached.'
   },{headers:noStore});
  }catch{return denied('QUANTUM_DEMO_STATUS_UNAVAILABLE',503);}

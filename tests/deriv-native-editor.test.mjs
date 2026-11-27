@@ -120,3 +120,17 @@ test("builder is no longer redirected into the empty bot-library page", async ()
   const proxy = await read("../proxy.ts");
   assert.doesNotMatch(proxy, /redirect\(new URL\("\/bot-library"/);
 });
+
+test("verified Demo currency is reflected in the Blockly stake block", async () => {
+  const [route, builder, script] = await Promise.all([
+    read("../app/api/deriv/demo/v4/bots/control/route.ts"),
+    read("../app/builder/NativeDerivBuilder.tsx"),
+    read("../scripts/build-native-deriv-editor.mjs"),
+  ]);
+  assert.match(route, /includeDemoCurrency/);
+  assert.match(route, /demoCurrency/);
+  assert.match(builder, /includeDemoCurrency=1/);
+  assert.match(builder, /currency:demoCurrency/);
+  assert.match(script, /syncVerifiedCurrency/);
+  assert.match(script, /field\.setValue\(runState\.currency\)/);
+});

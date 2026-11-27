@@ -182,7 +182,7 @@ const safetyShim = `<script>
     style.textContent = "@media(max-width:768px){.bot{--bot-content-height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 140px));--tab-content-height-mobile:max(400px,calc(var(--tsfx-mobile-vh,100dvh) - 126px))}.main{height:calc(var(--tsfx-mobile-vh,100dvh) - 60px)}.bot-builder{height:max(400px,calc(var(--tsfx-mobile-vh,100dvh) - 126px))}#scratch_div{height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 140px))!important}.bot-builder .injectionDiv{height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 164px))!important}}";
     (document.head || document.documentElement).appendChild(style);
   }
-  let runState = { canRun: false, running: false, message: "Checking the Trade Scheme FX Demo connection…" };
+  let runState = { canRun: false, running: false, currency: null, message: "Checking the Trade Scheme FX Demo connection…" };
   const postToParent = (type, payload = {}) => {
     if (!window.parent || window.parent === window) return;
     window.parent.postMessage({ source: "TSFX_BLOCKLY", type, ...payload }, "*");
@@ -268,6 +268,7 @@ const safetyShim = `<script>
     runState = {
       canRun: event.data.canRun === true,
       running: event.data.running === true,
+      currency: ["USD", "AUD"].includes(event.data.currency) ? event.data.currency : null,
       message: String(event.data.message || ""),
     };
     apply();
@@ -302,7 +303,15 @@ const safetyShim = `<script>
       skip.click();
     }
   };
+  const syncVerifiedCurrency = () => {
+    if (!["USD", "AUD"].includes(runState.currency)) return;
+    const workspace = window.Blockly?.derivWorkspace;
+    const options = workspace?.getAllBlocks?.(false)?.find(block => block.type === "trade_definition_multiplier");
+    const field = options?.getField?.("CURRENCY_LIST");
+    if (field && field.getValue?.() !== runState.currency) field.setValue(runState.currency);
+  };
   const apply = () => {
+    syncVerifiedCurrency();
     if (!document.getElementById("tsfx-preview-auth-style")) {
       const style = document.createElement("style");
       style.id = "tsfx-preview-auth-style";

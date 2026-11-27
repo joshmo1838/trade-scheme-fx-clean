@@ -5,7 +5,7 @@ import {STRATEGIES} from "@/lib/quantum/strategies";
 
 const editorOrigin="https://trade-scheme-fx-clean.vercel.app";
 const trustedEditorOrigins=new Set([editorOrigin,"https://tradesche.com","https://www.tradesche.com"]);
-type RunState={ok?:boolean;controlsEnabled?:boolean;run?:{desiredState:string;observedState:string;version:number;botId:string;workerConnected:boolean;lastError:string|null;restartCooldownSeconds:number}|null;code?:string};
+type RunState={ok?:boolean;controlsEnabled?:boolean;demoCurrency?:"USD"|"AUD"|null;run?:{desiredState:string;observedState:string;version:number;botId:string;workerConnected:boolean;lastError:string|null;restartCooldownSeconds:number}|null;code?:string};
 const api='/api/deriv/demo/v4/bots/control';
 
 export default function NativeDerivBuilder() {
@@ -15,6 +15,7 @@ export default function NativeDerivBuilder() {
  const [status,setStatus]=useState<RunState|null>(null);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState('Checking signed-in Demo access…');
+ const [demoCurrency,setDemoCurrency]=useState<"USD"|"AUD"|null>(null);
  const running=status?.run?.desiredState==='running';
  const refresh=useCallback(async()=>{
   try {const r=await fetch(api,{credentials:'same-origin',cache:'no-store'});const d:RunState=await r.json();setStatus(d);const active=d.run?.desiredState==='running';const current=active&&d.run?.botId===strategy?.id&&d.run?.workerConnected;const lastError=d.run?.lastError;
@@ -22,10 +23,11 @@ export default function NativeDerivBuilder() {
    setMessage(message);
    // The Vercel alias can redirect the iframe onto the production domain. The
    // target origin must therefore not be pinned to the pre-redirect alias.
-   frame.current?.contentWindow?.postMessage({source:'TSFX_TRADE_SCHEME_PARENT',type:'RUN_STATE',canRun:r.ok&&!!strategy?.id&&d.controlsEnabled&&!active&&!busy&&Number(d.run?.restartCooldownSeconds||0)===0,running:!!current,message},'*');
+   frame.current?.contentWindow?.postMessage({source:'TSFX_TRADE_SCHEME_PARENT',type:'RUN_STATE',currency:demoCurrency,canRun:r.ok&&!!strategy?.id&&d.controlsEnabled&&!active&&!busy&&Number(d.run?.restartCooldownSeconds||0)===0,running:!!current,message},'*');
   } catch {setStatus(null);setMessage('Could not verify Demo access.');}
- },[strategy,running,busy]);
+ },[strategy,running,busy,demoCurrency]);
  useEffect(()=>{const selectedId=new URL(window.location.href).searchParams.get('strategyId');const selected=STRATEGIES.find(item=>item.id===selectedId);if(selected){setStrategy(selected);setSrc(`${editorOrigin}/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected.id)}#bot_builder`);}},[]);
+ useEffect(()=>{let live=true;void fetch(`${api}?includeDemoCurrency=1`,{credentials:'same-origin',cache:'no-store'}).then(async response=>({ok:response.ok,data:await response.json()})).then(({ok,data})=>{if(live&&ok&&(data.demoCurrency==='USD'||data.demoCurrency==='AUD'))setDemoCurrency(data.demoCurrency);}).catch(()=>{});return()=>{live=false;};},[]);
  useEffect(()=>{void refresh();const timer=setInterval(()=>void refresh(),4000);return()=>clearInterval(timer);},[refresh]);
  useEffect(()=>{const onMessage=(event:MessageEvent)=>{if(!trustedEditorOrigins.has(event.origin)||event.source!==frame.current?.contentWindow||event.data?.source!=='TSFX_BLOCKLY')return;const d=event.data;if(d.type==='PLAN_ERROR'){setMessage(String(d.code||'Invalid Blockly settings.'));return;}if(d.type!=='RUN'&&d.type!=='STOP')return;void(async()=>{setBusy(true);const action=d.type==='RUN'?'start':'stop';setMessage(action==='start'?'Submitting Blockly Demo run…':'Submitting Demo stop…');try{const response=await fetch(api,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(action==='start'?{action,botId:d.plan?.strategyId,stake:d.plan?.stake,sessionStopLoss:d.plan?.sessionStopLoss,sessionTakeProfit:d.plan?.sessionTakeProfit,tradePlan:d.plan,expectedVersion:status?.run?.version??0,confirmVirtualDemoAutomation:true}:{action,expectedVersion:status?.run?.version??0})});const result=await response.json().catch(()=>({code:'INVALID_SERVER_RESPONSE'}));setMessage(response.ok?(action==='start'?'Demo run request accepted; waiting for the worker.':'Stop request accepted.'):String(result.code||'Run rejected'));await refresh();}catch{setMessage('Could not confirm the Demo command; check run status before retrying.');}finally{setBusy(false);}})();};window.addEventListener('message',onMessage);return()=>window.removeEventListener('message',onMessage);},[status,refresh]);
  return <main style={{position:'fixed',inset:'44px 0 0',width:'100vw',height:'calc(100dvh - 44px)',overflow:'hidden',background:'#fff',display:'grid',gridTemplateRows:'48px minmax(0,1fr)'}}>
