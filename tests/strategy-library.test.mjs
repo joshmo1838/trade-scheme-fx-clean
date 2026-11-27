@@ -6,9 +6,10 @@ import {STRATEGY_LIBRARY,STRATEGY_LIBRARY_COUNT,STRATEGY_LIBRARY_POLICY} from '.
 test('the added research library contains exactly 100 distinct, fully specified candidates',()=>{
   assert.equal(STRATEGY_LIBRARY_COUNT,100);
   assert.equal(STRATEGY_LIBRARY.length,100);
-  for(const key of ['id','name','category','entryRule']){
+  for(const key of ['id','name','entryRule']){
     assert.equal(new Set(STRATEGY_LIBRARY.map(x=>x[key])).size,100, key+' values must be unique');
   }
+  assert.equal(new Set(STRATEGY_LIBRARY.map(x=>x.category)).size,5);
   assert.ok(STRATEGY_LIBRARY.every(x=>
     x.supportedMarkets.length===5&&x.durationTicks>0&&x.contractType&&x.exitRule&&
     x.invalidationRule&&x.requiredInputs.length>0&&x.evidence&&x.status==='RESEARCH_ONLY'&&
