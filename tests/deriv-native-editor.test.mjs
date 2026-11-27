@@ -26,6 +26,16 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   assert.match(builder, /tradePlan:d\.plan/);
   assert.match(builder, /type:'RUN_STATE'/);
   assert.match(builder, /confirmVirtualDemoAutomation:true/);
+  assert.match(builder, /canRun:r\.ok&&!!strategy\?\.id/);
+  assert.match(builder, /Another bot is already running/);
+});
+
+test("premium workspace sends bot starts through its selected Blockly workspace", async () => {
+  const premium = await read("../app/dashboard/v4/PremiumBotWorkspace.tsx");
+  assert.match(premium, /BLOCKLY CONTROL/);
+  assert.match(premium, /builder\?strategyId=/);
+  assert.doesNotMatch(premium, /QuantumDemoRunControl/);
+  assert.match(premium, /A Demo order is sent only when the strategy and safety checks allow one/);
 });
 
 test("native editor frame denies broker networking and form submissions", async () => {
@@ -58,7 +68,9 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /createHash\("sha256"\)/);
   assert.match(script, /Deriv editor entry script is missing/);
   assert.match(script, /html\.replaceAll\(entryMatch\[2\], newEntryName\)/);
-  assert.match(script, /run\.disabled = !\(runState\.running \|\| runState\.canRun\)/);
+  assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| runState\.canRun\)/);
+  assert.match(script, /Choose a bot/);
+  assert.match(script, /SELECT_CURRENT_BOT_FIRST/);
   assert.match(script, /text\.textContent !== label/);
   assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
