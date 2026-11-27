@@ -330,17 +330,17 @@ const safetyShim = `<script>
       skip.click();
     }
   };
-  const syncVerifiedCurrency = () => {
+  const syncStakeCurrency = () => {
     if (!["USD", "AUD"].includes(runState.currency)) return;
     const workspace = window.Blockly?.derivWorkspace;
     const optionBlocks = workspace?.getAllBlocks?.(false)?.filter(block => block.type === "trade_definition_multiplier") || [];
     for (const options of optionBlocks) {
       const field = options?.getField?.("CURRENCY_LIST");
-      if (field && field.getValue?.() !== runState.currency) field.setValue(runState.currency);
+      if (field && field.getValue?.() !== "USD") field.setValue("USD");
     }
   };
   const apply = () => {
-    syncVerifiedCurrency();
+    syncStakeCurrency();
     if (!document.getElementById("tsfx-preview-auth-style")) {
       const style = document.createElement("style");
       style.id = "tsfx-preview-auth-style";
