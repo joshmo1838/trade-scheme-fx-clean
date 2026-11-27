@@ -1,7 +1,6 @@
 'use client';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {createBrowserClient} from '@supabase/ssr';
-import QuantumDemoRunControl from './QuantumDemoRunControl';
 import styles from './premium-bot-workspace.module.css';
 
 type Strategy={id:string;name:string;model:string;color:string;rule:string};
@@ -113,8 +112,14 @@ export default function PremiumBotWorkspace({strategy,onBack}:{strategy:Strategy
         {!scanAll&&<label className={styles.marketSelect}>Market<select value={market} onChange={event=>setMarket(event.target.value)}>{MARKETS.map(symbol=><option key={symbol} value={symbol}>Volatility {symbol.slice(2)}</option>)}</select></label>}
 
         <div className={styles.contractNote}><strong>Contract duration</strong><span>1 tick · server-validated for Demo</span></div>
-        <div className={styles.demoHeading}><span>DERIV DEMO CONTROLS</span><small>Virtual USD only</small></div>
-        <div className={styles.demoControls}><QuantumDemoRunControl botId={strategy.id} botName={strategy.name}/></div>
+        <div className={styles.demoHeading}><span>DERIV DEMO · BLOCKLY CONTROL</span><small>Virtual funds only</small></div>
+        <div className={styles.demoControls}>
+          <p>Set the market, stake, and limits in this bot’s Blockly blocks. Run from that workspace to start this strategy.</p>
+          <button type="button" onClick={()=>window.location.assign(`/builder?strategyId=${encodeURIComponent(strategy.id)}`)} style={{minHeight:48,width:'100%',padding:'12px 16px',fontSize:15,fontWeight:700,touchAction:'manipulation'}}>
+            Open {strategy.name} Blockly workspace
+          </button>
+          <small>Starting the bot begins signal monitoring. A Demo order is sent only when the strategy and safety checks allow one.</small>
+        </div>
       </section>
 
       <section className={styles.scanner} aria-label="Live market scan">
