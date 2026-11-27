@@ -220,6 +220,18 @@ const safetyShim = `<script>
       sessionTakeProfit: numberInput(takeProfit, "AMOUNT"),
     };
   };
+  const isSupportedPlan = () => {
+    const plan = currentPlan();
+    return plan.strategyId === strategyId &&
+      ["multiplier", "multipliers"].includes(String(plan.tradeTypeCategory || "").toLowerCase()) &&
+      ["multiplier", "multipliers"].includes(String(plan.tradeType || "").toLowerCase()) &&
+      String(plan.contractType || "").toLowerCase() === "both" &&
+      ["USD", "AUD"].includes(String(plan.currency || "")) &&
+      Number.isSafeInteger(plan.multiplier) && plan.multiplier > 0 &&
+      Number.isFinite(plan.stake) && plan.stake > 0 &&
+      Number.isFinite(plan.sessionStopLoss) && plan.sessionStopLoss >= plan.stake &&
+      Number.isFinite(plan.sessionTakeProfit) && plan.sessionTakeProfit > 0;
+  };
   let lastRunActivationAt = 0;
   const handleRun = event => {
     const touchActivation = event.type === "touchend" || (event.type === "pointerup" && event.pointerType === "touch");
@@ -244,6 +256,12 @@ const safetyShim = `<script>
     event.stopImmediatePropagation();
     if (runState.running) {
       postToParent("STOP");
+      return;
+    }
+    if (!isSupportedPlan()) {
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      postToParent("PLAN_ERROR", { code: "BLOCKLY_SETTINGS_NOT_READY" });
       return;
     }
     const plan = currentPlan();
@@ -326,14 +344,15 @@ const safetyShim = `<script>
       run.style.setProperty("min-height", "56px", "important");
       run.style.setProperty("-webkit-tap-highlight-color", "transparent", "important");
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
-      const runTitle = runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.";
-      const canUseRunButton = Boolean(strategyId) && (runState.running || runState.canRun);
+      const runTitle = supportedPlan ? (runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.") : "Preparing the selected bot's strategy and Multiplier trade blocks.";
+      const supportedPlan = isSupportedPlan();
+      const canUseRunButton = Boolean(strategyId) && (runState.running || (runState.canRun && supportedPlan));
       run.disabled = !canUseRunButton;
       if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
       const accessibleTitle = strategyId ? runTitle : "Open a current bot from Trade Scheme FX to connect its strategy to Blockly.";
       if (run.title !== accessibleTitle) run.title = accessibleTitle;
       const text = run.querySelector("span");
-      const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : runState.canRun ? "Run Demo" : "Demo unavailable";
+      const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : runState.canRun ? (supportedPlan ? "Run Demo" : "Preparing Blocks") : "Demo unavailable";
       if (text && text.textContent !== label) text.textContent = label;
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
