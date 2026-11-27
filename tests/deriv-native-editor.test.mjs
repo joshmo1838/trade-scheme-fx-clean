@@ -105,6 +105,12 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /value <= 1000/);
   assert.match(script, /Select a value from 0 to 1000/);
   assert.match(script, /field\.setValue\(select\.value\)/);
+  assert.match(script, /containsFileText/);
+  assert.match(script, /patchVendorStartup/);
+  assert.match(script, /TSFX_BLOCKLY_STARTUP_FALLBACK_V1/);
+  assert.match(script, /}, 8000\)/);
+  assert.match(script, /keeping Blockly available/);
+  assert.match(script, /finally \{[\s\S]*blockly_store\.setLoading\(false\)/);
 });
 
 test("builder is no longer redirected into the empty bot-library page", async () => {
