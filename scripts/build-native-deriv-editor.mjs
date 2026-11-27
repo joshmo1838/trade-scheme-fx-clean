@@ -114,7 +114,17 @@ const safetyShim = `<script>
       sessionTakeProfit: numberInput(takeProfit, "AMOUNT"),
     };
   };
+  let lastRunActivationAt = 0;
   const handleRun = event => {
+    const touchActivation = event.type === "touchend" || (event.type === "pointerup" && event.pointerType === "touch");
+    if (!touchActivation && event.type !== "click") return;
+    const now = Date.now();
+    if (now - lastRunActivationAt < 700) {
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    lastRunActivationAt = now;
     const run = event.currentTarget;
     if (!strategyId || !runState.canRun && !runState.running) {
       if (event.cancelable) event.preventDefault();
@@ -188,6 +198,8 @@ const safetyShim = `<script>
       if (run.dataset.tsfxRunBridge !== "true") {
         run.dataset.tsfxRunBridge = "true";
         run.addEventListener("click", handleRun, true);
+        run.addEventListener("pointerup", handleRun, true);
+        run.addEventListener("touchend", handleRun, true);
       }
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
