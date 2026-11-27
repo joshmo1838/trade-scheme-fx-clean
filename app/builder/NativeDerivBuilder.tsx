@@ -18,14 +18,14 @@ export default function NativeDerivBuilder() {
  const [demoCurrency,setDemoCurrency]=useState<"USD"|"AUD"|null>(null);
  const running=status?.run?.desiredState==='running';
  const refresh=useCallback(async()=>{
-  try {const r=await fetch(api,{credentials:'same-origin',cache:'no-store'});const d:RunState=await r.json();setStatus(d);const verifiedCurrency=d.demoCurrency==='USD'||d.demoCurrency==='AUD'?d.demoCurrency:null;setDemoCurrency(verifiedCurrency);const active=d.run?.desiredState==='running';const current=active&&d.run?.botId===strategy?.id&&d.run?.workerConnected;const lastError=d.run?.lastError;
+  try {const r=await fetch(api,{credentials:'same-origin',cache:'no-store'});const d:RunState=await r.json();setStatus(d);const serverCurrency=d.demoCurrency==='USD'||d.demoCurrency==='AUD'?d.demoCurrency:null;if(serverCurrency)setDemoCurrency(serverCurrency);const verifiedCurrency=serverCurrency||demoCurrency;const active=d.run?.desiredState==='running';const current=active&&d.run?.botId===strategy?.id&&d.run?.workerConnected;const lastError=d.run?.lastError;
    const message=!r.ok?(d.code||'Demo unavailable'):!strategy?'Choose a bot from the workspace first.':!d.controlsEnabled?'Demo execution is not enabled on the server.':!verifiedCurrency?'Connect a verified Deriv Demo account to sync its currency.':active?(current?'Demo worker connected.':d.run?.botId===strategy.id?'Waiting for Demo worker connection.':'Another bot is already running; stop it first.'):lastError||'Ready checks passed; use the Blockly Run button.';
    setMessage(message);
    // The Vercel alias can redirect the iframe onto the production domain. The
    // target origin must therefore not be pinned to the pre-redirect alias.
    frame.current?.contentWindow?.postMessage({source:'TSFX_TRADE_SCHEME_PARENT',type:'RUN_STATE',currency:verifiedCurrency,canRun:r.ok&&!!strategy?.id&&!!verifiedCurrency&&d.controlsEnabled&&!active&&!busy&&Number(d.run?.restartCooldownSeconds||0)===0,running:!!current,message},'*');
   } catch {setStatus(null);setMessage('Could not verify Demo access.');}
- },[strategy,running,busy]);
+ },[strategy,running,busy,demoCurrency]);
  useEffect(()=>{const selectedId=new URL(window.location.href).searchParams.get('strategyId');const selected=STRATEGIES.find(item=>item.id===selectedId);if(selected){setStrategy(selected);setSrc(`${editorOrigin}/?native_deriv=1&senfx_strategy=${encodeURIComponent(selected.id)}#bot_builder`);}},[]);
  useEffect(()=>{let live=true;const loadCurrency=async()=>{try{const response=await fetch(`${api}?includeDemoCurrency=1`,{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(live&&response.ok)setDemoCurrency(data.demoCurrency==='USD'||data.demoCurrency==='AUD'?data.demoCurrency:null);}catch{if(live)setDemoCurrency(null);}};void loadCurrency();const timer=setInterval(()=>void loadCurrency(),30000);return()=>{live=false;clearInterval(timer);};},[]);
  useEffect(()=>{void refresh();const timer=setInterval(()=>void refresh(),4000);return()=>clearInterval(timer);},[refresh]);
