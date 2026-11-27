@@ -28,6 +28,12 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   assert.match(builder, /confirmVirtualDemoAutomation:true/);
   assert.match(builder, /canRun:r\.ok&&!!strategy\?\.id/);
   assert.match(builder, /Another bot is already running/);
+  assert.match(builder, /trustedEditorOrigins\.has\(event\.origin\)/);
+  assert.match(builder, /postMessage\(\{source:'TSFX_TRADE_SCHEME_PARENT'/);
+  assert.match(builder, /Submitting Blockly Demo run/);
+  const controlRoute = await read("../app/api/deriv/demo/v4/bots/control/route.ts");
+  assert.match(controlRoute, /\[quantum-demo-control\] command received/);
+  assert.match(controlRoute, /\[quantum-demo-control\] run accepted/);
 });
 
 test("premium workspace sends bot starts through its selected Blockly workspace", async () => {
@@ -71,6 +77,9 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| runState\.canRun\)/);
   assert.match(script, /Choose a bot/);
   assert.match(script, /SELECT_CURRENT_BOT_FIRST/);
+  assert.match(script, /addEventListener\("pointerup", handleRun, true\)/);
+  assert.match(script, /addEventListener\("touchend", handleRun, true\)/);
+  assert.match(script, /now - lastRunActivationAt < 700/);
   assert.match(script, /text\.textContent !== label/);
   assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
