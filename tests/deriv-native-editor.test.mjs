@@ -77,8 +77,10 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| runState\.canRun\)/);
   assert.match(script, /Choose a bot/);
   assert.match(script, /SELECT_CURRENT_BOT_FIRST/);
-  assert.match(script, /addEventListener\("pointerup", handleRun, true\)/);
-  assert.match(script, /addEventListener\("touchend", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("pointerup", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("touchend", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("click", handleRun, true\)/);
+  assert.match(script, /target\?\.closest\?\.\("#db-animation__run-button"\)/);
   assert.match(script, /now - lastRunActivationAt < 700/);
   assert.match(script, /text\.textContent !== label/);
   assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
