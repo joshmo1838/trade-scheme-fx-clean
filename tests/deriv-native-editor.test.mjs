@@ -171,6 +171,8 @@ test("Blockly trade option currency is synchronized across every option block", 
 test("Blockly Run stays disabled until a verified Demo currency is available", async () => {
   const component = await read("../app/builder/NativeDerivBuilder.tsx");
   assert.match(component, /!!verifiedCurrency&&d\.controlsEnabled/);
+  assert.match(component, /serverCurrency\|\|demoCurrency/);
+  assert.match(component, /if\(serverCurrency\)setDemoCurrency\(serverCurrency\)/);
   assert.match(component, /Connect a verified Deriv Demo account to sync its currency/);
 });
 
