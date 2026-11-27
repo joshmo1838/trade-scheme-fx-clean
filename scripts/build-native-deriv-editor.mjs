@@ -125,7 +125,9 @@ const safetyShim = `<script>
       return;
     }
     lastRunActivationAt = now;
-    const run = event.currentTarget;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const run = target?.closest?.("#db-animation__run-button");
+    if (!run) return;
     if (!strategyId || !runState.canRun && !runState.running) {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
@@ -145,6 +147,12 @@ const safetyShim = `<script>
     }
     postToParent("RUN", { plan });
   };
+  // Capture on document before the vendor's React handler. The vendor handler
+  // opens its own login dialog when its isolated Deriv client is unauthenticated;
+  // Trade Scheme's signed-in Demo bridge owns this Run action instead.
+  document.addEventListener("pointerup", handleRun, true);
+  document.addEventListener("touchend", handleRun, true);
+  document.addEventListener("click", handleRun, true);
   window.addEventListener("message", event => {
     if (event.source !== window.parent || event.data?.source !== "TSFX_TRADE_SCHEME_PARENT") return;
     let host = "";
@@ -195,12 +203,6 @@ const safetyShim = `<script>
       const text = run.querySelector("span");
       const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : runState.canRun ? "Run Demo" : "Demo unavailable";
       if (text && text.textContent !== label) text.textContent = label;
-      if (run.dataset.tsfxRunBridge !== "true") {
-        run.dataset.tsfxRunBridge = "true";
-        run.addEventListener("click", handleRun, true);
-        run.addEventListener("pointerup", handleRun, true);
-        run.addEventListener("touchend", handleRun, true);
-      }
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
       link.addEventListener("click", event => event.preventDefault(), { once: true });
