@@ -79,7 +79,7 @@ export async function POST(request:NextRequest){
   if(body.tradePlan!==undefined){
    if(!body.tradePlan||typeof body.tradePlan!=='object')return denied('BLOCKLY_PLAN_AND_DEMO_CONSENT_REQUIRED',400);
    const normalized=normalizeBlocklyExecutionPlan(body.tradePlan);
-   if(!normalized.ok)return denied(normalized.code,400);
+   if(!('plan' in normalized))return denied(normalized.code,400);
    if(body.botId!==normalized.plan.strategyId)return denied('BLOCKLY_STRATEGY_MISMATCH',400);
    plan=normalized.plan;
   }else if(typeof body.botId!=='string'||!STRATEGIES.some(x=>x.id===body.botId))return denied('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
