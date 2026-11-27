@@ -181,3 +181,11 @@ test("Deriv Demo context repairs account type from the verified Deriv account li
   assert.match(source, /if \(account\.account_type !== "demo"\)/);
   assert.match(source, /DEMO_ACCOUNT_SELECTION_SYNC_FAILED/);
 });
+
+test("Deriv reconnect saves only an active verified Demo account selection", async () => {
+  const callback = await read("../app/api/deriv/callback/route.ts");
+  assert.match(callback, /trading\/v1\/options\/accounts/);
+  assert.match(callback, /account\.account_type === "demo"/);
+  assert.match(callback, /active_account_id: selectedDemo\?\.account_id/);
+  assert.match(callback, /active_account_type: selectedDemo \? "demo" : null/);
+});
