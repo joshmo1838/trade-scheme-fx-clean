@@ -44,6 +44,7 @@ export default function StrategyLibrary(){
             <dl style={{lineHeight:1.55}}>
               <dt>Supported markets</dt><dd>{item.supportedMarkets.join(', ')} (verify each with Deriv active symbols before research)</dd>
               <dt>Research contract</dt><dd>{item.contractType}; {item.durationTicks} tick(s)</dd>
+              <dt>Required data</dt><dd>{item.requiredInputs.join(', ')}</dd>
               <dt>Exit rule</dt><dd>{item.exitRule}</dd>
               <dt>Invalidation</dt><dd>{item.invalidationRule}</dd>
               <dt>Evidence</dt><dd>{item.evidence}</dd>
