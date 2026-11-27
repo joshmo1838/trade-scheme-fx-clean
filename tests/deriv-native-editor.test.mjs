@@ -170,6 +170,9 @@ test("Blockly trade option currency is synchronized across every option block", 
   const script = await read("../scripts/build-native-deriv-editor.mjs");
   assert.match(script, /optionBlocks\s*=\s*workspace\?\.getAllBlocks\?\.\(false\)\?\.filter\(block => block\.type === "trade_definition_multiplier"\)/);
   assert.match(script, /if \(field && field\.getValue\?\.\(\) !== runState\.currency\) field\.setValue\(runState\.currency\)/);
+  assert.match(script, /plan\.currency === runState\.currency/);
+  assert.match(script, /BLOCKLY_CURRENCY_SYNC_REQUIRED/);
+  assert.match(builder, /d\.plan\?\.currency!==demoCurrency/);
 });
 
 test("Blockly Run stays disabled until a verified Demo currency is available", async () => {
