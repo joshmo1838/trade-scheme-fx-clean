@@ -26,6 +26,7 @@ async function serverContext():Promise<{userId:string|null;db:SupabaseClient|nul
  return {userId:user.id,db};
 }
 function denied(code:string,status=403){return NextResponse.json({ok:false,code,brokerOrderPlaced:false},{status,headers:noStore});}
+function rejectControl(code:string,status=400){console.warn('[quantum-demo-control] command rejected',{code});return denied(code,status);}
 function money(value:unknown){
  if(typeof value!=='number'&&typeof value!=='string')return null;
  if(typeof value==='string'&&(value.length>32||!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?$/.test(value)))return null;
@@ -62,43 +63,43 @@ export async function GET(){
 
 export async function POST(request:NextRequest){
  try{
-  if(request.headers.get('origin')!==request.nextUrl.origin)return denied('SAME_ORIGIN_REQUIRED');
-  const raw=await request.text();if(raw.length>2048)return denied('CONTROL_REQUEST_TOO_LARGE',400);
-  let body:Record<string,unknown>;try{body=JSON.parse(raw);}catch{return denied('INVALID_JSON',400);}
-  if(!body||typeof body!=='object'||Array.isArray(body)||!['start','stop'].includes(String(body.action)))return denied('UNKNOWN_CONTROL_ACTION',400);
+  if(request.headers.get('origin')!==request.nextUrl.origin)return rejectControl('SAME_ORIGIN_REQUIRED');
+  const raw=await request.text();if(raw.length>2048)return rejectControl('CONTROL_REQUEST_TOO_LARGE',400);
+  let body:Record<string,unknown>;try{body=JSON.parse(raw);}catch{return rejectControl('INVALID_JSON',400);}
+  if(!body||typeof body!=='object'||Array.isArray(body)||!['start','stop'].includes(String(body.action)))return rejectControl('UNKNOWN_CONTROL_ACTION',400);
   console.info('[quantum-demo-control] command received',{action:String(body.action),hasBlocklyPlan:body.tradePlan!==undefined});
-  const {userId,db}=await serverContext();if(!userId||!db){console.warn('[quantum-demo-control] command rejected',{action:String(body.action),reason:'AUTH_OR_PILOT_CONTEXT_UNAVAILABLE'});return denied('SIGNED_IN_DEMO_PILOT_REQUIRED',401);}
+  const {userId,db}=await serverContext();if(!userId||!db)return rejectControl('SIGNED_IN_DEMO_PILOT_REQUIRED',401);
   const {data:current,error:readError}=await db.from('quantum_demo_bot_control').select('account_id,control_version').eq('user_id',userId).maybeSingle();
-  if(readError)return denied('QUANTUM_DEMO_SCHEMA_NOT_RELEASED',503);
+  if(readError)return rejectControl('QUANTUM_DEMO_SCHEMA_NOT_RELEASED',503);
   if(body.action==='stop'){
    const {data,error}=await db.rpc('quantum_demo_control',{p_user_id:userId,p_account_id:current?.account_id||'',p_action:'stop',p_expected_version:null,p_bot_id:null,p_stake:null,p_stop_loss:null,p_take_profit:null});
-   if(error||data?.ok!==true)return denied('STOP_NOT_CONFIRMED',503);
+   if(error||data?.ok!==true)return rejectControl('STOP_NOT_CONFIRMED',503);
    return NextResponse.json({ok:true,desiredState:'stopped',version:data.version,brokerOrderPlaced:false,warning:'Stop blocks new purchases. An already submitted or uncertain Deriv contract must still be reconciled.'},{headers:noStore});
   }
-  if(!flagsOn())return denied('QUANTUM_DEMO_EXECUTION_NOT_RELEASED',503);
-  if(body.confirmVirtualDemoAutomation!==true||!Number.isSafeInteger(body.expectedVersion)||Number(body.expectedVersion)<0)return denied('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
+  if(!flagsOn())return rejectControl('QUANTUM_DEMO_EXECUTION_NOT_RELEASED',503);
+  if(body.confirmVirtualDemoAutomation!==true||!Number.isSafeInteger(body.expectedVersion)||Number(body.expectedVersion)<0)return rejectControl('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
   let plan:BlocklyPlan|null=null;
   if(body.tradePlan!==undefined){
-   if(!body.tradePlan||typeof body.tradePlan!=='object')return denied('BLOCKLY_PLAN_AND_DEMO_CONSENT_REQUIRED',400);
+   if(!body.tradePlan||typeof body.tradePlan!=='object')return rejectControl('BLOCKLY_PLAN_AND_DEMO_CONSENT_REQUIRED',400);
    const normalized:{ok:boolean;code?:string;plan?:BlocklyPlan}=normalizeBlocklyExecutionPlan(body.tradePlan);
-   if(!normalized.ok||!normalized.plan)return denied(normalized.code||'INVALID_BLOCKLY_PLAN',400);
-   if(body.botId!==normalized.plan.strategyId)return denied('BLOCKLY_STRATEGY_MISMATCH',400);
+   if(!normalized.ok||!normalized.plan)return rejectControl(normalized.code||'INVALID_BLOCKLY_PLAN',400);
+   if(body.botId!==normalized.plan.strategyId)return rejectControl('BLOCKLY_STRATEGY_MISMATCH',400);
    plan=normalized.plan;
-  }else if(typeof body.botId!=='string'||!STRATEGIES.some(x=>x.id===body.botId))return denied('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
+  }else if(typeof body.botId!=='string'||!STRATEGIES.some(x=>x.id===body.botId))return rejectControl('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
   const stake=money(body.stake),stopLoss=money(body.sessionStopLoss),takeProfit=money(body.sessionTakeProfit);
-  if(stake===null||stopLoss===null||takeProfit===null||stake>stopLoss)return denied('POSITIVE_STAKE_AND_SESSION_LIMITS_REQUIRED',400);
+  if(stake===null||stopLoss===null||takeProfit===null||stake>stopLoss)return rejectControl('POSITIVE_STAKE_AND_SESSION_LIMITS_REQUIRED',400);
   const context=await getDerivDemoContext();
   const requiredCurrency=plan?.currency||'USD';
-  if(context.user.id!==userId||context.account.account_type!=='demo'||context.account.currency!==requiredCurrency||!Number.isFinite(Number(context.account.balance))||Number(context.account.balance)<stake||Number(context.account.balance)<stopLoss||Number(context.account.balance)<takeProfit)return denied('VERIFIED_DEMO_BALANCE_AND_BLOCK_CURRENCY_REQUIRED',403);
-  if(current&&Number(current.control_version)!==body.expectedVersion)return denied('VERSION_OR_ACCOUNT_MISMATCH',409);
+  if(context.user.id!==userId||context.account.account_type!=='demo'||context.account.currency!==requiredCurrency||!Number.isFinite(Number(context.account.balance))||Number(context.account.balance)<stake||Number(context.account.balance)<stopLoss||Number(context.account.balance)<takeProfit)return rejectControl('VERIFIED_DEMO_BALANCE_AND_BLOCK_CURRENCY_REQUIRED',403);
+  if(current&&Number(current.control_version)!==body.expectedVersion)return rejectControl('VERSION_OR_ACCOUNT_MISMATCH',409);
   let result;
   if(plan){
-   if(stake!==plan.stake||stopLoss!==plan.sessionStopLoss||takeProfit!==plan.sessionTakeProfit)return denied('BLOCKLY_RISK_SETTINGS_MISMATCH',400);
+   if(stake!==plan.stake||stopLoss!==plan.sessionStopLoss||takeProfit!==plan.sessionTakeProfit)return rejectControl('BLOCKLY_RISK_SETTINGS_MISMATCH',400);
    result=await db.rpc('quantum_demo_start_blockly',{p_user_id:userId,p_account_id:context.account.account_id,p_expected_version:body.expectedVersion,p_plan:plan});
   }else result=await db.rpc('quantum_demo_control',{p_user_id:userId,p_account_id:context.account.account_id,p_action:'start',p_expected_version:body.expectedVersion,p_bot_id:body.botId,p_stake:stake,p_stop_loss:stopLoss,p_take_profit:takeProfit});
   const {data,error}=result;
-  if(error||data?.ok!==true){const code=String(data?.code||'DEMO_RUN_REJECTED');console.warn('[quantum-demo-control] command rejected',{action:'start',code});return denied(code,409);}
+  if(error||data?.ok!==true)return rejectControl(String(data?.code||'DEMO_RUN_REJECTED'),409);
   console.info('[quantum-demo-control] run accepted',{botId:data.botId,version:data.version});
   return NextResponse.json({ok:true,desiredState:'running',version:data.version,botId:data.botId,brokerOrderPlaced:false,workerConnected:false,realMoneyEnabled:false,message:'Run requested. Broker execution is not confirmed until the server worker lease, Deriv contract ID, and settlement are recorded.'},{headers:noStore});
- }catch(error){const safe=safeDemoError(error);return NextResponse.json({ok:false,code:safe.code,error:safe.error,brokerOrderPlaced:false},{status:safe.status,headers:noStore});}
+ }catch(error){const safe=safeDemoError(error);console.warn('[quantum-demo-control] command rejected',{code:safe.code,status:safe.status});return NextResponse.json({ok:false,code:safe.code,error:safe.error,brokerOrderPlaced:false},{status:safe.status,headers:noStore});}
 }
