@@ -57,7 +57,7 @@ async function stopRun(reason) {
   try { await rpc('quantum_demo_control', { p_user_id: USER, p_account_id: control?.account_id || '', p_action: 'stop', p_expected_version: null, p_bot_id: null, p_stake: null, p_stop_loss: null, p_take_profit: null }); } catch { /* DB lease expires fail-closed if stop acknowledgement is unavailable. */ }
   closeFeed(); closeTrading(); log('Run paused fail-closed', reason);
 }
-async function readDemoAccount(stake) {
+async function readDemoAccount(stake, currency = 'USD') {
   const { data: row, error } = await db.from('deriv_connections').select('encrypted_token,token_iv,token_tag,expires_at,status,active_account_id,active_account_type').eq('user_id', USER).maybeSingle();
   if (error || !row || row.status !== 'connected' || row.active_account_type !== 'demo' || !row.active_account_id || new Date(row.expires_at).getTime() <= Date.now()) throw Error('Selected Deriv Demo account is not active.');
   const decipher = createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), Buffer.from(row.token_iv, 'base64'));
@@ -67,7 +67,7 @@ async function readDemoAccount(stake) {
   if (!response.ok) throw Error('Deriv Demo account verification failed.');
   const payload = await response.json();
   const account = Array.isArray(payload?.data) ? payload.data.find(x => x?.account_id === row.active_account_id) : null;
-  if (!isVerifiedDemoAccount(account, row.active_account_id, stake)) throw Error('Deriv did not verify the selected virtual USD Demo account or balance.');
+  if (!isVerifiedDemoAccount(account, row.active_account_id, stake, currency)) throw Error('Deriv did not verify the selected virtual Demo account, currency, or balance.');
   return { token, account };
 }
 async function openDemoSession(token, accountId) {
@@ -101,7 +101,7 @@ async function settleContract(session, orderId, purchase, contract, stake) {
   const started = Date.now();
   while (Date.now() - started < SETTLE_MAX_MS) {
     const reply = await session.request('proposal_open_contract', { proposal_open_contract: 1, contract_id: Number(purchase.contractId) }, 10_000);
-    const final = verifiedFinalContract(reply?.proposal_open_contract, { contractId: purchase.contractId, market: control?.market_symbol || 'R_100', contractType: contract.contract_type, stake, accountId: control?.account_id, buyTransactionId: purchase.buyTransactionId, ...(contract.barrier !== undefined ? { barrier: contract.barrier } : {}), ...(contract.multiplier !== undefined ? { multiplier: contract.multiplier } : {}) });
+    const final = verifiedFinalContract(reply?.proposal_open_contract, { contractId: purchase.contractId, market: control?.market_symbol || 'R_100', contractType: contract.contract_type, stake, currency: control?.currency || 'USD', accountId: control?.account_id, buyTransactionId: purchase.buyTransactionId, ...(contract.barrier !== undefined ? { barrier: contract.barrier } : {}), ...(contract.multiplier !== undefined ? { multiplier: contract.multiplier } : {}) });
     if (final) {
       const result = await rpc('quantum_demo_settle', { p_user_id: USER, p_order_id: orderId, p_contract_id: final.contractId, p_tx_id: purchase.buyTransactionId, p_status: final.finalStatus, p_buy: final.buyPrice, p_sell: final.sellPrice });
       if (result?.settled !== true) throw Error('Deriv settlement could not be recorded; purchases remain blocked.');
@@ -122,7 +122,7 @@ async function reconcilePendingOrders() {
   try {
     for (const order of rows) {
       if (order.account_id !== control?.account_id) throw Error('Uncertain order belongs to a different Demo account.');
-      const { token, account } = await readDemoAccount(0.01);
+      const { token, account } = await readDemoAccount(0.01, order.currency || 'USD');
       if (account.account_id !== order.account_id) throw Error('Selected Demo account changed; uncertain order remains blocked.');
       const session = await openDemoSession(token, account.account_id);
       try {
@@ -141,7 +141,7 @@ async function reconcilePendingOrders() {
             const contract = reply?.proposal_open_contract;
             const buyPrice = Number(contract?.buy_price);
             if (String(contract?.contract_id) !== String(candidate.contract_id) || String(contract?.account_id) !== String(order.account_id) ||
-              contract?.underlying_symbol !== order.market_symbol || contract?.contract_type !== order.contract_type || contract?.currency !== 'USD' ||
+              contract?.underlying_symbol !== order.market_symbol || contract?.contract_type !== order.contract_type || contract?.currency !== (order.currency || 'USD') ||
               String(contract?.transaction_ids?.buy) !== String(candidate.transaction_id) ||
               Math.abs(Math.abs(Number(candidate.amount)) - buyPrice) > 0.011 || buyPrice > Number(order.stake) ||
               (order.barrier !== null && String(contract?.barrier ?? '') !== String(order.barrier)) ||
@@ -153,7 +153,7 @@ async function reconcilePendingOrders() {
           transaction = verified[0].purchase;
           const opened = await db.from('quantum_demo_bot_orders').update({ status: 'open', contract_id: transaction.contractId, buy_transaction_id: transaction.buyTransactionId, buy_price: transaction.buyPrice, opened_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', order.id).eq('status', 'buy_unknown').select('id').maybeSingle();
           if (opened.error || !opened.data) throw Error('Matched Deriv purchase could not be reconciled into the order ledger.');
-          const final = verifiedFinalContract(verified[0].reply?.proposal_open_contract, { contractId: transaction.contractId, market: order.market_symbol, contractType: order.contract_type, stake: Number(order.stake), accountId: order.account_id, buyTransactionId: transaction.buyTransactionId, ...(order.barrier !== null ? { barrier: order.barrier } : {}), ...(order.multiplier !== null ? { multiplier: Number(order.multiplier) } : {}) });
+          const final = verifiedFinalContract(verified[0].reply?.proposal_open_contract, { contractId: transaction.contractId, market: order.market_symbol, contractType: order.contract_type, stake: Number(order.stake), currency: order.currency || 'USD', accountId: order.account_id, buyTransactionId: transaction.buyTransactionId, ...(order.barrier !== null ? { barrier: order.barrier } : {}), ...(order.multiplier !== null ? { multiplier: Number(order.multiplier) } : {}) });
           if (final) {
             const result = await rpc('quantum_demo_settle', { p_user_id: USER, p_order_id: order.id, p_contract_id: final.contractId, p_tx_id: transaction.buyTransactionId, p_status: final.finalStatus, p_buy: final.buyPrice, p_sell: final.sellPrice });
             if (result?.settled !== true) throw Error('Recovered contract settlement was rejected by the Demo ledger.');
@@ -162,7 +162,7 @@ async function reconcilePendingOrders() {
         } else {
           transaction = { contractId: String(order.contract_id), buyTransactionId: String(order.buy_transaction_id), buyPrice: Number(order.buy_price) };
           const reply = await session.request('proposal_open_contract', { proposal_open_contract: 1, contract_id: Number(transaction.contractId) }, 10_000);
-          const final = verifiedFinalContract(reply?.proposal_open_contract, { contractId: transaction.contractId, market: order.market_symbol, contractType: order.contract_type, stake: Number(order.stake), accountId: order.account_id, buyTransactionId: transaction.buyTransactionId, ...(order.barrier !== null ? { barrier: order.barrier } : {}), ...(order.multiplier !== null ? { multiplier: Number(order.multiplier) } : {}) });
+          const final = verifiedFinalContract(reply?.proposal_open_contract, { contractId: transaction.contractId, market: order.market_symbol, contractType: order.contract_type, stake: Number(order.stake), currency: order.currency || 'USD', accountId: order.account_id, buyTransactionId: transaction.buyTransactionId, ...(order.barrier !== null ? { barrier: order.barrier } : {}), ...(order.multiplier !== null ? { multiplier: Number(order.multiplier) } : {}) });
           if (final) {
             const result = await rpc('quantum_demo_settle', { p_user_id: USER, p_order_id: order.id, p_contract_id: final.contractId, p_tx_id: transaction.buyTransactionId, p_status: final.finalStatus, p_buy: final.buyPrice, p_sell: final.sellPrice });
             if (result?.settled !== true) throw Error('Recovered contract settlement was rejected by the Demo ledger.');
@@ -180,33 +180,34 @@ async function executeCandidate(row, candidate, signal) {
     const latest = await readControl();
     if (!latest || latest.mode !== 'running' || latest.control_version !== row.control_version || latest.bot_id !== candidate.botId || latest.account_id !== row.account_id || !await acquireLease(row)) throw Error('Run stopped or worker lease changed before quote.');
     if (Date.now() - Number(candidate.tickEpoch) * 1000 > 10_000) throw Error('Signal tick became stale before quote.');
-    const { token, account } = await readDemoAccount(Number(row.stake));
+    const currency = row.currency || 'USD';
+    const { token, account } = await readDemoAccount(Number(row.stake), currency);
     if (account.account_id !== row.account_id) throw Error('Selected Demo account changed while the run was active.');
     trading = await openDemoSession(token, account.account_id);
     const market = row.market_symbol || 'R_100';
     const availability = await trading.request('contracts_for', { contracts_for: market });
     const unsupported = contractAvailabilityReason(availability?.contracts_for?.available, candidate.contract, row.market_category);
     if (unsupported) { await recordProblem(unsupported); log('Skipped unsupported contract', unsupported); return; }
-    const proposalRequest = { proposal: 1, amount: Number(row.stake), basis: 'stake', currency: 'USD', underlying_symbol: market,
+    const proposalRequest = { proposal: 1, amount: Number(row.stake), basis: 'stake', currency, underlying_symbol: market,
       ...(row.contract_family === 'MULTIPLIER' ? { contract_type: candidate.contract.contract_type, multiplier: candidate.contract.multiplier,
         limit_order: { stop_loss: Number(row.per_trade_stop_loss), take_profit: Number(row.per_trade_take_profit) } } : candidate.contract) };
     const quoteReply = await trading.request('proposal', proposalRequest);
     const quoteAt = Date.now(); const quote = quoteReply?.proposal;
-    const quoteIdentity = { market, contractType: candidate.contract.contract_type,
+    const quoteIdentity = { market, currency, contractType: candidate.contract.contract_type,
       ...(candidate.contract.multiplier !== undefined ? { multiplier: candidate.contract.multiplier, stopLoss: Number(row.per_trade_stop_loss), takeProfit: Number(row.per_trade_take_profit) } : {}) };
     if (!validBrokerProposal(quote, Number(row.stake), quoteIdentity)) { await recordProblem('Deriv quote failed price or selected contract identity checks.'); return; }
     const stillCurrent = signals(history)[STRATEGIES.findIndex(x => x.id === row.bot_id)];
     if (stillCurrent.kind !== signal.kind || (stillCurrent.barrier ?? null) !== (signal.barrier ?? null)) { await recordProblem('Signal changed while the Demo quote was being prepared.'); return; }
     const currentControl = await readControl();
     if (!currentControl || currentControl.mode !== 'running' || currentControl.control_version !== row.control_version || !await acquireLease(row)) throw Error('Stop or lease change before reservation.');
-    const checks = tenXChecks({ account, flags: { authorized: USER === process.env.DERIV_DEMO_PILOT_USER_ID, realMoneyDisabled: account.account_type === 'demo' }, control: { mode: 'running', control_version: row.control_version }, leaseOwned: true, stake: Number(row.stake), bot: { id: candidate.botId, market, minTicks: HISTORY_SIZE }, signal: { ...signal, prediction: signal.kind }, marketHistory: history, now: Date.now(), quote, proposal: proposalRequest, recovery, unresolvedCount: await unresolvedCount(), previousBuyAt: lastBuyAt });
+    const checks = tenXChecks({ account, flags: { authorized: USER === process.env.DERIV_DEMO_PILOT_USER_ID, realMoneyDisabled: account.account_type === 'demo' }, control: { mode: 'running', control_version: row.control_version, currency }, leaseOwned: true, stake: Number(row.stake), bot: { id: candidate.botId, market, minTicks: HISTORY_SIZE }, signal: { ...signal, prediction: signal.kind }, marketHistory: history, now: Date.now(), quote, proposal: proposalRequest, recovery, unresolvedCount: await unresolvedCount(), previousBuyAt: lastBuyAt });
     if (!checks.passed) { await recordProblem('Golden Rule / 10X skipped this signal: ' + checks.failed.join(', ')); return; }
-    const { data: created, error } = await db.from('quantum_demo_bot_orders').insert({ request_id: randomUUID(), user_id: USER, account_id: account.account_id, control_version: row.control_version, bot_id: candidate.botId, market_symbol: market, signal_kind: signal.kind, contract_type: candidate.contract.contract_type, contract_family: row.contract_family || 'OPTIONS', multiplier: row.contract_family === 'MULTIPLIER' ? candidate.contract.multiplier : null, barrier: candidate.contract.barrier ?? null, duration: row.contract_family === 'MULTIPLIER' ? null : 1, duration_unit: row.contract_family === 'MULTIPLIER' ? null : 't', tick_epoch: candidate.tickEpoch, currency: 'USD', stake: Number(row.stake), ask_price: Number(quote.ask_price), payout: Number(quote.payout), proposal_id: quote.id, quote_expires_at: new Date(quoteAt + 12_000).toISOString(), status: 'quoted' }).select('id').single();
+    const { data: created, error } = await db.from('quantum_demo_bot_orders').insert({ request_id: randomUUID(), user_id: USER, account_id: account.account_id, control_version: row.control_version, bot_id: candidate.botId, market_symbol: market, signal_kind: signal.kind, contract_type: candidate.contract.contract_type, contract_family: row.contract_family || 'OPTIONS', multiplier: row.contract_family === 'MULTIPLIER' ? candidate.contract.multiplier : null, barrier: candidate.contract.barrier ?? null, duration: row.contract_family === 'MULTIPLIER' ? null : 1, duration_unit: row.contract_family === 'MULTIPLIER' ? null : 't', tick_epoch: candidate.tickEpoch, currency, stake: Number(row.stake), ask_price: Number(quote.ask_price), payout: Number(quote.payout), proposal_id: quote.id, quote_expires_at: new Date(quoteAt + 12_000).toISOString(), status: 'quoted' }).select('id').single();
     if (error || !created?.id) throw Error('Could not persist Demo proposal reservation.'); orderId = created.id;
     const reserve = await rpc('quantum_demo_reserve', { p_user_id: USER, p_order_id: orderId, p_version: row.control_version });
     if (reserve?.allowed !== true) { orderId = null; await recordProblem('Order reservation refused: ' + String(reserve?.code || 'UNKNOWN')); return; }
     const owned = await acquireLease(row); const unresolved = await unresolvedCount();
-    const allowed = safeToPurchase({ operatorAllowed: true, globalBuyFlag: process.env.DERIV_DEMO_BROKER_BUY_ENABLED === 'true', workerAuthorized: process.env.SENFX_QUANTUM_DEMO_BROKER_EXECUTION_ENABLED === 'true', runVersion: row.control_version, controlVersion: currentControl.control_version, leaseValid: owned, accountVerified: isVerifiedDemoAccount(account, account.account_id, Number(row.stake)), proposalVerified: validBrokerProposal(quote, Number(row.stake), quoteIdentity) && quoteAt + 12_000 > Date.now(), unresolvedOrders: unresolved });
+    const allowed = safeToPurchase({ operatorAllowed: true, globalBuyFlag: process.env.DERIV_DEMO_BROKER_BUY_ENABLED === 'true', workerAuthorized: process.env.SENFX_QUANTUM_DEMO_BROKER_EXECUTION_ENABLED === 'true', runVersion: row.control_version, controlVersion: currentControl.control_version, leaseValid: owned, accountVerified: isVerifiedDemoAccount(account, account.account_id, Number(row.stake), currency), proposalVerified: validBrokerProposal(quote, Number(row.stake), quoteIdentity) && quoteAt + 12_000 > Date.now(), unresolvedOrders: unresolved });
     if (!allowed || Date.now() - quoteAt > 12_000) throw Error('Final Demo purchase gate failed or quote expired.');
     const marker = await rpc('quantum_demo_mark_attempt', { p_user_id: USER, p_order_id: orderId, p_version: row.control_version });
     if (marker?.allowed !== true) throw Error('Attempt marker refused; no purchase sent.'); marked = true;
@@ -263,12 +264,12 @@ async function poll() {
   if (stopped || busy) return;
   try {
     let row = await readControl();
-    if (row && row.user_id === USER && row.currency === 'USD' && row.mode === 'running' && !await acquireLease(row)) throw Error('Another worker owns the current run lease.');
+    if (row && row.user_id === USER && ['USD','AUD'].includes(row.currency) && row.mode === 'running' && !await acquireLease(row)) throw Error('Another worker owns the current run lease.');
     control = row;
     await reconcilePendingOrders();
     row = await readControl();
     if (!row || row.mode !== 'running') { control = null; closeFeed(); return; }
-    if (row.user_id !== USER || !row.account_id || row.currency !== 'USD' || !/^[A-Za-z0-9_]{2,30}$/.test(row.market_symbol || '')) throw Error('Run control is not tied to a verified Demo account and selected market.');
+    if (row.user_id !== USER || !row.account_id || !['USD','AUD'].includes(row.currency) || !/^[A-Za-z0-9_]{2,30}$/.test(row.market_symbol || '')) throw Error('Run control is not tied to a verified Demo account and selected market/currency.');
     if (!await acquireLease(row)) throw Error('Another worker owns the current run lease.');
     if (control && control.control_version !== row.control_version) closeFeed();
     control = row;

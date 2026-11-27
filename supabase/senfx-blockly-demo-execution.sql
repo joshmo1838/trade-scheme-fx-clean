@@ -13,6 +13,9 @@ alter table public.quantum_demo_bot_control
   add column if not exists per_trade_stop_loss numeric not null default 1 check (per_trade_stop_loss > 0 and scale(per_trade_stop_loss) <= 2),
   add column if not exists per_trade_take_profit numeric not null default 1 check (per_trade_take_profit > 0 and scale(per_trade_take_profit) <= 2);
 
+alter table public.quantum_demo_bot_control drop constraint if exists quantum_demo_bot_control_currency_check;
+alter table public.quantum_demo_bot_control add constraint quantum_demo_bot_control_currency_check check (currency in ('USD','AUD'));
+
 alter table public.quantum_demo_bot_orders drop constraint if exists quantum_demo_bot_orders_market_symbol_check;
 alter table public.quantum_demo_bot_orders drop constraint if exists quantum_demo_bot_orders_contract_type_check;
 alter table public.quantum_demo_bot_orders drop constraint if exists quantum_demo_bot_orders_duration_check;
@@ -21,6 +24,8 @@ alter table public.quantum_demo_bot_orders
   add column if not exists contract_family text not null default 'OPTIONS'
     check (contract_family in ('OPTIONS','MULTIPLIER')),
   add column if not exists multiplier integer check (multiplier is null or multiplier between 1 and 1000);
+alter table public.quantum_demo_bot_orders drop constraint if exists quantum_demo_bot_orders_currency_check;
+alter table public.quantum_demo_bot_orders add constraint quantum_demo_bot_orders_currency_check check (currency in ('USD','AUD'));
 alter table public.quantum_demo_bot_orders
   drop constraint if exists quantum_demo_orders_market_symbol_check,
   drop constraint if exists quantum_demo_orders_contract_type_check,
@@ -38,18 +43,18 @@ create or replace function public.quantum_demo_start_blockly(
  p_user_id uuid,p_account_id text,p_expected_version bigint,p_plan jsonb
 ) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
 declare c public.deriv_connections%rowtype; r public.quantum_demo_bot_control%rowtype;
-  v_bot text; v_market text; v_category text; v_stake numeric; v_sl numeric; v_tp numeric; v_mult integer;
+  v_bot text; v_market text; v_category text; v_currency text; v_stake numeric; v_sl numeric; v_tp numeric; v_mult integer;
 begin
  if p_user_id is null or p_account_id is null or p_expected_version is null or jsonb_typeof(p_plan)<>'object' then
    return jsonb_build_object('ok',false,'code','INVALID_BLOCKLY_DEMO_PLAN');
  end if;
- v_bot:=p_plan->>'strategyId'; v_market:=p_plan->>'marketSymbol'; v_category:=p_plan->>'marketCategory';
+ v_bot:=p_plan->>'strategyId'; v_market:=p_plan->>'marketSymbol'; v_category:=p_plan->>'marketCategory'; v_currency:=p_plan->>'currency';
  v_stake:=(p_plan->>'stake')::numeric; v_sl:=(p_plan->>'sessionStopLoss')::numeric;
  v_tp:=(p_plan->>'sessionTakeProfit')::numeric; v_mult:=(p_plan->>'multiplier')::integer;
  if v_bot is null or v_market is null or v_category is null or v_mult is null or v_stake is null or v_sl is null or v_tp is null or
     (p_plan->>'perTradeStopLoss') is null or (p_plan->>'perTradeTakeProfit') is null or
     v_bot not in ('nexus-flow','volt-sprint','apex-signal','prism-range','straddle-shift','pulse-rhythm','quantum-edge-ai','sterling-edge','meridian-pivot','atlas-range','windsor-continuity','marlow-flow','monarch-echo') or
-    v_category not in ('synthetic_index','cryptocurrency') or v_market !~ '^[A-Za-z0-9_]{2,30}$' or
+    v_category not in ('synthetic_index','cryptocurrency') or v_market !~ '^[A-Za-z0-9_]{2,30}$' or v_currency not in ('USD','AUD') or
     p_plan->>'contractFamily'<>'MULTIPLIER' or v_mult not between 1 and 1000 or
     v_stake<=0 or v_stake>1000 or scale(v_stake)>2 or v_sl<v_stake or v_sl>1000 or scale(v_sl)>2 or v_tp<=0 or v_tp>1000 or scale(v_tp)>2 or
     (p_plan->>'perTradeStopLoss')::numeric<=0 or (p_plan->>'perTradeStopLoss')::numeric>1000 or scale((p_plan->>'perTradeStopLoss')::numeric)>2 or
@@ -70,7 +75,7 @@ begin
  select * into r from public.quantum_demo_bot_control where user_id=p_user_id for update;
  if r.mode='running' then return jsonb_build_object('ok',false,'code','ALREADY_RUNNING'); end if;
  if r.control_version<>p_expected_version then return jsonb_build_object('ok',false,'code','VERSION_OR_ACCOUNT_MISMATCH'); end if;
- update public.quantum_demo_bot_control set account_id=p_account_id,bot_id=v_bot,stake=v_stake,
+ update public.quantum_demo_bot_control set account_id=p_account_id,bot_id=v_bot,stake=v_stake,currency=v_currency,
    session_stop_loss=v_sl,session_take_profit=v_tp,market_category=v_category,market_symbol=v_market,
    contract_family='MULTIPLIER',multiplier=v_mult,
    per_trade_stop_loss=(p_plan->>'perTradeStopLoss')::numeric,

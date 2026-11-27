@@ -128,8 +128,8 @@ const safetyShim = `<script>
       return;
     }
     const plan = currentPlan();
-    if (plan.currency !== "USD") {
-      postToParent("PLAN_ERROR", { code: "DEMO_CURRENCY_MUST_BE_USD" });
+    if (!["USD", "AUD"].includes(plan.currency)) {
+      postToParent("PLAN_ERROR", { code: "UNSUPPORTED_BLOCKLY_CURRENCY" });
       return;
     }
     postToParent("RUN", { plan });

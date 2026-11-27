@@ -10,7 +10,7 @@ export const dynamic='force-dynamic';
 export const runtime='nodejs';
 export const maxDuration=25;
 const noStore={'Cache-Control':'no-store, max-age=0'};
-type BlocklyPlan={strategyId:string;marketCategory:'synthetic_index'|'cryptocurrency';marketSymbol:string;contractFamily:'MULTIPLIER';multiplier:number;stake:number;perTradeStopLoss:number;perTradeTakeProfit:number;sessionStopLoss:number;sessionTakeProfit:number};
+type BlocklyPlan={strategyId:string;marketCategory:'synthetic_index'|'cryptocurrency';marketSymbol:string;currency:'USD'|'AUD';contractFamily:'MULTIPLIER';multiplier:number;stake:number;perTradeStopLoss:number;perTradeTakeProfit:number;sessionStopLoss:number;sessionTakeProfit:number};
 const flagsOn=()=>process.env.DERIV_DEMO_TRADING_ENABLED==='true'&&
  process.env.DERIV_DEMO_BROKER_BUY_ENABLED==='true'&&
  process.env.SENFX_QUANTUM_DEMO_CONTROL_ENABLED==='true'&&
@@ -87,7 +87,8 @@ export async function POST(request:NextRequest){
   const stake=money(body.stake),stopLoss=money(body.sessionStopLoss),takeProfit=money(body.sessionTakeProfit);
   if(stake===null||stopLoss===null||takeProfit===null||stake>stopLoss)return denied('POSITIVE_STAKE_AND_SESSION_LIMITS_REQUIRED',400);
   const context=await getDerivDemoContext();
-  if(context.user.id!==userId||context.account.account_type!=='demo'||context.account.currency!=='USD'||!Number.isFinite(Number(context.account.balance))||Number(context.account.balance)<stake||Number(context.account.balance)<stopLoss||Number(context.account.balance)<takeProfit)return denied('VERIFIED_DEMO_USD_BALANCE_REQUIRED',403);
+  const requiredCurrency=plan?.currency||'USD';
+  if(context.user.id!==userId||context.account.account_type!=='demo'||context.account.currency!==requiredCurrency||!Number.isFinite(Number(context.account.balance))||Number(context.account.balance)<stake||Number(context.account.balance)<stopLoss||Number(context.account.balance)<takeProfit)return denied('VERIFIED_DEMO_BALANCE_AND_BLOCK_CURRENCY_REQUIRED',403);
   if(current&&Number(current.control_version)!==body.expectedVersion)return denied('VERSION_OR_ACCOUNT_MISMATCH',409);
   let result;
   if(plan){

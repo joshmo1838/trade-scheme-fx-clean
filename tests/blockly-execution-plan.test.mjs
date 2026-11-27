@@ -12,9 +12,16 @@ test('normalizes a valid Blockly Multiplier plan for Demo execution',()=>{
  assert.equal(result.plan.multiplier,100);
 });
 
+test('preserves AUD from the Blockly currency block',()=>{
+ const result=normalizeBlocklyExecutionPlan(plan({currency:'AUD'}));
+ assert.equal(result.ok,true);
+ assert.equal(result.plan.currency,'AUD');
+});
+
 test('rejects unsupported Blockly choices and malformed risk settings',()=>{
  assert.equal(normalizeBlocklyExecutionPlan(plan({marketSymbol:'BTC/USD'})).code,'INVALID_BLOCKLY_SYMBOL');
  assert.equal(normalizeBlocklyExecutionPlan(plan({marketCategory:'forex'})).code,'UNSUPPORTED_BLOCKLY_MARKET');
+ assert.equal(normalizeBlocklyExecutionPlan(plan({currency:'EUR'})).code,'UNSUPPORTED_BLOCKLY_CURRENCY');
  assert.equal(normalizeBlocklyExecutionPlan(plan({tradeType:'callput'})).code,'UNSUPPORTED_BLOCKLY_CONTRACT');
  assert.equal(normalizeBlocklyExecutionPlan(plan({multiplier:1001})).code,'INVALID_BLOCKLY_MULTIPLIER');
  assert.equal(normalizeBlocklyExecutionPlan(plan({stake:20,sessionStopLoss:10})).code,'SESSION_STOP_LOSS_BELOW_STAKE');
