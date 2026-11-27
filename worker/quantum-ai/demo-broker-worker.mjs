@@ -4,6 +4,7 @@ import { STRATEGIES } from '../../lib/quantum/strategy-catalog.mjs';
 import { signals } from '../../lib/quantum/research.ts';
 import { mapQuantumDemoSignal } from '../../lib/quantum/demo-contracts.mjs';
 import { contractAvailabilityReason } from '../../lib/quantum/contract-availability.mjs';
+import { demoExecutionReadiness, demoQuoteExpectedValue } from '../../lib/quantum/demo-execution-eligibility.mjs';
 import { newRecoveryState, settleRecovery, tenXChecks } from '../../lib/quantum/demo-ten-x-checks.mjs';
 import { isVerifiedDemoAccount, isFreshPublicTick, validBrokerProposal, verifiedBuyResponse, verifiedFinalContract, safeToPurchase } from '../../lib/quantum/demo-worker-safety.mjs';
 
@@ -36,6 +37,8 @@ let stopped = false;
 let lastTickEpoch = 0;
 let lastBuyAt = 0;
 let lastError = '';
+let lastNoEntryCode = '';
+let lastNoEntryAt = 0;
 let recovery = newRecoveryState();
 
 function log(message, detail = '') { console.log('[quantum-demo] ' + message + (detail ? ' · ' + String(detail).slice(0, 120) : '')); }
@@ -97,6 +100,13 @@ async function unresolvedCount() {
   return quantum.count + demo.count + legacy.count;
 }
 async function recordProblem(reason) { lastError = reason; await db.from('quantum_demo_bot_control').update({ last_error: reason.slice(0,180), updated_at: new Date().toISOString() }).eq('user_id', USER); }
+async function recordNoEntry(code) {
+  const now = Date.now();
+  if (code === lastNoEntryCode && now - lastNoEntryAt < 60_000) return;
+  lastNoEntryCode = code; lastNoEntryAt = now;
+  await recordProblem('No entry: ' + code);
+  log('No entry', code);
+}
 async function settleContract(session, orderId, purchase, contract, stake) {
   const started = Date.now();
   while (Date.now() - started < SETTLE_MAX_MS) {
@@ -181,10 +191,22 @@ async function executeCandidate(row, candidate, signal) {
     if (!latest || latest.mode !== 'running' || latest.control_version !== row.control_version || latest.bot_id !== candidate.botId || latest.account_id !== row.account_id || !await acquireLease(row)) throw Error('Run stopped or worker lease changed before quote.');
     if (Date.now() - Number(candidate.tickEpoch) * 1000 > 10_000) throw Error('Signal tick became stale before quote.');
     const currency = row.currency || 'USD';
+    const market = row.market_symbol || 'R_100';
+    const strategy = STRATEGIES.find(item => item.id === candidate.botId);
+    const contractFamily = row.contract_family || 'OPTIONS';
+    const configuration = {
+      marketSymbol: market, currency, contractFamily,
+      contractType: candidate.contract.contract_type,
+      duration: contractFamily === 'MULTIPLIER' ? null : Number(candidate.contract.duration ?? 1),
+      durationUnit: contractFamily === 'MULTIPLIER' ? null : String(candidate.contract.duration_unit || 't'),
+      barrier: candidate.contract.barrier ?? null,
+      multiplier: contractFamily === 'MULTIPLIER' ? Number(candidate.contract.multiplier ?? row.multiplier) : null,
+    };
+    const readiness = demoExecutionReadiness(strategy, configuration);
+    if (!readiness.allowed) { await recordNoEntry(readiness.code); return; }
     const { token, account } = await readDemoAccount(Number(row.stake), currency);
     if (account.account_id !== row.account_id) throw Error('Selected Demo account changed while the run was active.');
     trading = await openDemoSession(token, account.account_id);
-    const market = row.market_symbol || 'R_100';
     const availability = await trading.request('contracts_for', { contracts_for: market });
     const unsupported = contractAvailabilityReason(availability?.contracts_for?.available, candidate.contract, row.market_category);
     if (unsupported) { await recordProblem(unsupported); log('Skipped unsupported contract', unsupported); return; }
@@ -196,6 +218,8 @@ async function executeCandidate(row, candidate, signal) {
     const quoteIdentity = { market, currency, contractType: candidate.contract.contract_type,
       ...(candidate.contract.multiplier !== undefined ? { multiplier: candidate.contract.multiplier, stopLoss: Number(row.per_trade_stop_loss), takeProfit: Number(row.per_trade_take_profit) } : {}) };
     if (!validBrokerProposal(quote, Number(row.stake), quoteIdentity)) { await recordProblem('Deriv quote failed price or selected contract identity checks.'); return; }
+    const economics = demoQuoteExpectedValue(readiness, quote);
+    if (!economics.allowed) { await recordNoEntry(economics.code); return; }
     const stillCurrent = signals(history)[STRATEGIES.findIndex(x => x.id === row.bot_id)];
     if (stillCurrent.kind !== signal.kind || (stillCurrent.barrier ?? null) !== (signal.barrier ?? null)) { await recordProblem('Signal changed while the Demo quote was being prepared.'); return; }
     const currentControl = await readControl();
