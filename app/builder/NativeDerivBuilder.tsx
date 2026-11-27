@@ -21,10 +21,10 @@ export default function NativeDerivBuilder() {
 
   return (
     <main style={{position:"fixed",inset:"44px 0 0",width:"100vw",height:"calc(100dvh - 44px)",overflow:"hidden",background:"#fff",display:"grid",gridTemplateRows:"48px minmax(0,1fr)"}}>
-      <header style={{display:"flex",alignItems:"center",gap:16,padding:"0 14px",background:"#081525",color:"#eaf2ff",borderBottom:"1px solid #263b54",fontFamily:"system-ui,sans-serif",zIndex:20}}>
-        <a href="/dashboard" style={{color:"#8deaff",textDecoration:"none",fontSize:13,fontWeight:700}}>← Workspace</a>
-        <strong style={{fontSize:14}}>{strategy?strategy.name+" · Deriv DBot":"Deriv DBot Builder"}</strong>
-        {strategy&&<button type="button" aria-label={`RUN AI BOT for ${strategy.name}`} onClick={()=>setControlsOpen(true)} style={{marginLeft:"auto",border:"1px solid #3d647a",borderRadius:8,padding:"7px 11px",background:"#22d3ee",color:"#081525",fontSize:11,fontWeight:800,cursor:"pointer"}}>RUN AI BOT</button>}
+      <header style={{display:"flex",alignItems:"center",gap:"clamp(6px,2vw,16px)",padding:"0 10px",background:"#081525",color:"#eaf2ff",borderBottom:"1px solid #263b54",fontFamily:"system-ui,sans-serif",zIndex:20}}>
+        <a href="/dashboard" style={{color:"#8deaff",textDecoration:"none",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}>← Workspace</a>
+        <strong style={{minWidth:0,maxWidth:"calc(100vw - 210px)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:13}}>{strategy?strategy.name+" · Deriv DBot":"Deriv DBot Builder"}</strong>
+        {strategy&&<button type="button" aria-label={`RUN AI BOT for ${strategy.name}`} onClick={()=>setControlsOpen(true)} style={{marginLeft:"auto",minHeight:44,border:"1px solid #3d647a",borderRadius:8,padding:"10px 12px",background:"#22d3ee",color:"#081525",fontSize:12,fontWeight:800,cursor:"pointer",touchAction:"manipulation",whiteSpace:"nowrap"}}>RUN AI BOT</button>}
       </header>
       <div style={{minHeight:0,position:"relative"}}>
         <iframe
@@ -36,8 +36,8 @@ export default function NativeDerivBuilder() {
         />
         {strategy&&controlsOpen&&<div role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setControlsOpen(false);}} style={{position:"fixed",inset:"92px 0 0",zIndex:30,display:"grid",placeItems:"center",padding:14,background:"rgba(1,8,20,.58)"}}>
           <section role="dialog" aria-modal="true" aria-label={strategy.name+" virtual Demo controls"} style={{width:"min(100%, 980px)",maxHeight:"100%",overflowY:"auto",border:"1px solid #38506c",borderRadius:14,background:"#07111f",boxShadow:"0 24px 80px rgba(0,0,0,.45)"}}>
-            <div style={{display:"flex",justifyContent:"flex-end",padding:"10px 12px 0"}}>
-              <button type="button" onClick={()=>setControlsOpen(false)} style={{border:0,background:"transparent",color:"#dbeafe",fontSize:13,cursor:"pointer"}}>Close</button>
+            <div style={{display:"flex",justifyContent:"flex-end",padding:"6px 8px 0"}}>
+              <button type="button" onClick={()=>setControlsOpen(false)} style={{minWidth:64,minHeight:44,padding:"10px 12px",border:0,borderRadius:8,background:"transparent",color:"#dbeafe",fontSize:14,cursor:"pointer",touchAction:"manipulation"}}>Close</button>
             </div>
             <div style={{padding:"0 12px 12px"}}>
               <QuantumDemoRunControl botId={strategy.id} botName={strategy.name}/>
