@@ -35,6 +35,10 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   assert.match(controlRoute, /\[quantum-demo-control\] command received/);
   assert.match(controlRoute, /\[quantum-demo-control\] run accepted/);
   assert.match(controlRoute, /function rejectControl\(code:string,status=400\)/);
+  assert.match(controlRoute, /DEMO_CURRENCY_MISMATCH/);
+  assert.match(controlRoute, /DEMO_BALANCE_BELOW_SESSION_LIMITS/);
+  assert.match(builder, /Blockly currency does not match your selected Deriv Demo account/);
+  assert.match(builder, /Your Demo balance is below the stake or a session limit/);
 });
 
 test("premium workspace sends bot starts through its selected Blockly workspace", async () => {
