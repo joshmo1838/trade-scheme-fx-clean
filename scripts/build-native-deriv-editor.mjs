@@ -21,6 +21,18 @@ const run = (command, args) => {
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);
 };
 
+const containsFileText = async (directory, pattern) => {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (await containsFileText(target, pattern)) return true;
+    } else if (entry.isFile() && /\.js$/.test(entry.name)) {
+      if ((await readFile(target, "utf8")).includes(pattern)) return true;
+    }
+  }
+  return false;
+};
+
 try {
   await readFile(path.join(source, "package-lock.json"));
   await readFile(path.join(source, ".git"));
@@ -35,14 +47,90 @@ try {
   const entryName = (await readdir(jsDirectory)).find(name => /^index(?:\.[\w-]+)?\.js$/.test(name));
   if (!entryName) throw new Error("Deriv entry bundle is missing");
   const entry = await readFile(path.join(jsDirectory, entryName), "utf8");
+  const hasStartupFallback = entry.includes("TSFX_BLOCKLY_STARTUP_FALLBACK_V1") || await containsFileText(jsDirectory, "TSFX_BLOCKLY_STARTUP_FALLBACK_V1");
   // Never ship the vendor's development bundle: it injects React Refresh and
   // HMR clients that cannot run in the isolated production iframe.
-  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot");
+  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback;
 } catch {
   rebuild = true;
 }
 
+const patchVendorStartup = async () => {
+  const appContentPath = path.join(source, "src/app/app-content.jsx");
+  let appContent = await readFile(appContentPath, "utf8");
+  if (!appContent.includes("TSFX_BLOCKLY_STARTUP_FALLBACK_V1")) {
+    const stateAnchor = "    const [is_loading, setIsLoading] = React.useState(true);";
+    if (!appContent.includes(stateAnchor)) throw new Error("Deriv app startup state changed; update the Blockly startup patch.");
+    appContent = appContent.replace(stateAnchor, `${stateAnchor}\n    const has_initialized_app = React.useRef(false);`);
+
+    const mountAnchor = "    const changeActiveSymbolLoadingState = () => {\n        init();";
+    const mountReplacement = `    const initializeStoresOnce = () => {
+        if (has_initialized_app.current) return;
+        has_initialized_app.current = true;
+        init();
+    };
+
+    // TSFX_BLOCKLY_STARTUP_FALLBACK_V1: mount the local Blockly editor even if
+    // the isolated Deriv socket cannot connect. Demo runs remain server gated.
+    React.useEffect(() => {
+        const fallback = window.setTimeout(() => {
+            initializeStoresOnce();
+            setIsLoading(false);
+        }, 8000);
+        return () => window.clearTimeout(fallback);
+    }, []);
+
+    const changeActiveSymbolLoadingState = () => {
+        initializeStoresOnce();`;
+    if (!appContent.includes(mountAnchor)) throw new Error("Deriv app initialization anchor changed; update the Blockly startup patch.");
+    appContent = appContent.replace(mountAnchor, mountReplacement);
+
+    const socketAnchor = "        if (is_api_initialized) {\n            init();";
+    if (!appContent.includes(socketAnchor)) throw new Error("Deriv socket initialization anchor changed; update the Blockly startup patch.");
+    appContent = appContent.replace(socketAnchor, "        if (is_api_initialized) {\n            initializeStoresOnce();");
+
+    const symbolsAnchor = `            active_symbols.retrieveActiveSymbols(true).then(() => {
+                setIsLoading(false);
+            });`;
+    const symbolsReplacement = `            active_symbols.retrieveActiveSymbols(true)
+                .catch(error => console.warn("Deriv active-symbol refresh failed; keeping Blockly available.", error))
+                .finally(() => setIsLoading(false));`;
+    if (!appContent.includes(symbolsAnchor)) throw new Error("Deriv active-symbol initialization anchor changed; update the Blockly startup patch.");
+    appContent = appContent.replace(symbolsAnchor, symbolsReplacement);
+  }
+  const fallbackLog = 'console.info("TSFX_BLOCKLY_STARTUP_FALLBACK_V1: mounting Blockly without the isolated Deriv feed.");';
+  if (!appContent.includes(fallbackLog)) {
+    const fallbackAnchor = "        const fallback = window.setTimeout(() => {\n            initializeStoresOnce();";
+    if (!appContent.includes(fallbackAnchor)) throw new Error("Deriv Blockly startup fallback anchor changed; update the startup patch.");
+    appContent = appContent.replace(fallbackAnchor, `        const fallback = window.setTimeout(() => {\n            ${fallbackLog}\n            initializeStoresOnce();`);
+  }
+  await writeFile(appContentPath, appContent);
+
+  const appStorePath = path.join(source, "src/stores/app-store.ts");
+  let appStore = await readFile(appStorePath, "utf8");
+  const workspaceAnchor = `        blockly_store.setLoading(true);
+        await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
+
+        blockly_store.setContainerSize();
+        blockly_store.setLoading(false);`;
+  const workspaceReplacement = `        blockly_store.setLoading(true);
+        try {
+            await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
+            blockly_store.setContainerSize();
+        } catch (error) {
+            console.error('Blockly workspace initialization failed:', error);
+        } finally {
+            blockly_store.setLoading(false);
+        }`;
+  if (!appStore.includes(workspaceReplacement)) {
+    if (!appStore.includes(workspaceAnchor)) throw new Error("Deriv Blockly workspace initialization anchor changed; update the startup recovery patch.");
+    appStore = appStore.replace(workspaceAnchor, workspaceReplacement);
+    await writeFile(appStorePath, appStore);
+  }
+};
+
 if (rebuild) {
+  await patchVendorStartup();
   run("npm", ["ci", "--include=dev", "--ignore-scripts"]);
   run("npm", ["run", "generate:brand-css"]);
   await rm(dist, { recursive: true, force: true });
