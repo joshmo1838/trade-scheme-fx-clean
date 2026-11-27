@@ -10,6 +10,7 @@ export const dynamic='force-dynamic';
 export const runtime='nodejs';
 export const maxDuration=25;
 const noStore={'Cache-Control':'no-store, max-age=0'};
+type BlocklyPlan={strategyId:string;marketCategory:'synthetic_index'|'cryptocurrency';marketSymbol:string;contractFamily:'MULTIPLIER';multiplier:number;stake:number;perTradeStopLoss:number;perTradeTakeProfit:number;sessionStopLoss:number;sessionTakeProfit:number};
 const flagsOn=()=>process.env.DERIV_DEMO_TRADING_ENABLED==='true'&&
  process.env.DERIV_DEMO_BROKER_BUY_ENABLED==='true'&&
  process.env.SENFX_QUANTUM_DEMO_CONTROL_ENABLED==='true'&&
@@ -75,11 +76,11 @@ export async function POST(request:NextRequest){
   }
   if(!flagsOn())return denied('QUANTUM_DEMO_EXECUTION_NOT_RELEASED',503);
   if(body.confirmVirtualDemoAutomation!==true||!Number.isSafeInteger(body.expectedVersion)||Number(body.expectedVersion)<0)return denied('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
-  let plan:null|ReturnType<typeof normalizeBlocklyExecutionPlan>['plan']=null;
+  let plan:BlocklyPlan|null=null;
   if(body.tradePlan!==undefined){
    if(!body.tradePlan||typeof body.tradePlan!=='object')return denied('BLOCKLY_PLAN_AND_DEMO_CONSENT_REQUIRED',400);
-   const normalized=normalizeBlocklyExecutionPlan(body.tradePlan);
-   if(!('plan' in normalized))return denied(normalized.code,400);
+   const normalized:{ok:boolean;code?:string;plan?:BlocklyPlan}=normalizeBlocklyExecutionPlan(body.tradePlan);
+   if(!normalized.ok||!normalized.plan)return denied(normalized.code||'INVALID_BLOCKLY_PLAN',400);
    if(body.botId!==normalized.plan.strategyId)return denied('BLOCKLY_STRATEGY_MISMATCH',400);
    plan=normalized.plan;
   }else if(typeof body.botId!=='string'||!STRATEGIES.some(x=>x.id===body.botId))return denied('EXPLICIT_CURRENT_BOT_AND_DEMO_CONSENT_REQUIRED',400);
