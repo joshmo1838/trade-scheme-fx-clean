@@ -121,13 +121,65 @@ const safetyShim = `<script>
 const touchNumberFieldsShim = `<script>
 (() => {
   const svgNamespace = "http://www.w3.org/2000/svg";
+  const fieldByGroup = new WeakMap();
+  let workspaceRef = null;
+  let attachedSvg = null;
   let scheduled = false;
+  let lastActivation = null;
+  const getWorkspace = () => workspaceRef || (workspaceRef = window.Blockly?.derivWorkspace || null);
+  const cacheFields = workspace => {
+    for (const block of workspace.getAllBlocks?.(false) || []) {
+      for (const input of block.inputList || []) {
+        for (const field of input.fieldRow || []) {
+          const group = field.getSvgRoot?.();
+          if (group) fieldByGroup.set(group, field);
+        }
+      }
+    }
+  };
+  const findField = (workspace, group) => {
+    const cached = fieldByGroup.get(group);
+    if (cached) return cached;
+    cacheFields(workspace);
+    return fieldByGroup.get(group);
+  };
+  const editorIsOpen = () => {
+    const widget = document.querySelector(".blocklyWidgetDiv");
+    const input = widget?.querySelector("input.blocklyHtmlInput, input");
+    return !!input && input.getClientRects().length > 0 && getComputedStyle(widget).display !== "none";
+  };
+  const attachTouchEditorFallback = (workspace, svg) => {
+    if (attachedSvg === svg) return;
+    attachedSvg = svg;
+    const activateNumber = event => {
+      if (event.type === "pointerup" && event.pointerType !== "touch") return;
+      const group = event.target?.closest?.("g.blocklyEditableText");
+      if (!group?.querySelector("rect[data-tsfx-touch-hit]")) return;
+      const field = findField(workspace, group);
+      if (!field || (field.isCurrentlyEditable && !field.isCurrentlyEditable()) || typeof field.showEditor !== "function") return;
+      if (editorIsOpen()) return;
+      const now = Date.now();
+      if (lastActivation?.group === group && now - lastActivation.at < 700) return;
+      lastActivation = { group, at: now };
+      try {
+        // Open the normal Blockly editor synchronously in the trusted touch event so iOS can focus it and show its keyboard.
+        if (event.cancelable) event.preventDefault();
+        field.showEditor(event);
+      } catch {
+        lastActivation = null;
+      }
+    };
+    svg.addEventListener("pointerup", activateNumber, true);
+    svg.addEventListener("touchend", activateNumber, true);
+  };
   const enhanceNumberFields = () => {
     scheduled = false;
     if (!window.matchMedia?.("(pointer: coarse)").matches && window.innerWidth > 768) return;
-    const workspace = window.Blockly?.derivWorkspace;
+    const workspace = getWorkspace();
     const svg = workspace?.getParentSvg?.();
     if (!svg) return;
+    cacheFields(workspace);
+    attachTouchEditorFallback(workspace, svg);
 
     svg.querySelectorAll("g.blocklyEditableText").forEach(group => {
       const text = group.querySelector("text.blocklyText");
@@ -170,7 +222,7 @@ const touchNumberFieldsShim = `<script>
     requestAnimationFrame(enhanceNumberFields);
   };
   const observe = () => {
-    const workspace = window.Blockly?.derivWorkspace;
+    const workspace = getWorkspace();
     const svg = workspace?.getParentSvg?.();
     if (!svg) return false;
     new MutationObserver(schedule).observe(svg, { childList: true, subtree: true });
