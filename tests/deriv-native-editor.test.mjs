@@ -134,3 +134,18 @@ test("verified Demo currency is reflected in the Blockly stake block", async () 
   assert.match(script, /syncVerifiedCurrency/);
   assert.match(script, /field\.setValue\(runState\.currency\)/);
 });
+
+test("selected bot restores a supported Multiplier Blockly plan before enabling Run", async () => {
+  const [bootstrap, builder, editor] = await Promise.all([
+    read("../lib/quantum/strategy-builder-reference.mjs"),
+    read("../app/builder/NativeDerivBuilder.tsx"),
+    read("../scripts/build-native-deriv-editor.mjs"),
+  ]);
+  assert.match(bootstrap, /TRADETYPECAT_LIST/);
+  assert.match(bootstrap, /trade_definition_multiplier/);
+  assert.match(bootstrap, /preservedStake/);
+  assert.match(bootstrap, /strategy\.id/);
+  assert.match(builder, /d\.plan\?\.strategyId!==strategy\.id/);
+  assert.match(editor, /isSupportedPlan/);
+  assert.match(editor, /Preparing Blocks/);
+});
