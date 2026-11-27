@@ -66,6 +66,7 @@ export async function POST(request:NextRequest){
   const raw=await request.text();if(raw.length>2048)return denied('CONTROL_REQUEST_TOO_LARGE',400);
   let body:Record<string,unknown>;try{body=JSON.parse(raw);}catch{return denied('INVALID_JSON',400);}
   if(!body||typeof body!=='object'||Array.isArray(body)||!['start','stop'].includes(String(body.action)))return denied('UNKNOWN_CONTROL_ACTION',400);
+  console.info('[quantum-demo-control] command received',{action:String(body.action),hasBlocklyPlan:body.tradePlan!==undefined});
   const {userId,db}=await serverContext();if(!userId||!db)return denied('SIGNED_IN_DEMO_PILOT_REQUIRED',401);
   const {data:current,error:readError}=await db.from('quantum_demo_bot_control').select('account_id,control_version').eq('user_id',userId).maybeSingle();
   if(readError)return denied('QUANTUM_DEMO_SCHEMA_NOT_RELEASED',503);
@@ -96,7 +97,8 @@ export async function POST(request:NextRequest){
    result=await db.rpc('quantum_demo_start_blockly',{p_user_id:userId,p_account_id:context.account.account_id,p_expected_version:body.expectedVersion,p_plan:plan});
   }else result=await db.rpc('quantum_demo_control',{p_user_id:userId,p_account_id:context.account.account_id,p_action:'start',p_expected_version:body.expectedVersion,p_bot_id:body.botId,p_stake:stake,p_stop_loss:stopLoss,p_take_profit:takeProfit});
   const {data,error}=result;
-  if(error||data?.ok!==true)return denied(String(data?.code||'DEMO_RUN_REJECTED'),409);
+  if(error||data?.ok!==true){const code=String(data?.code||'DEMO_RUN_REJECTED');console.warn('[quantum-demo-control] command rejected',{action:'start',code});return denied(code,409);}
+  console.info('[quantum-demo-control] run accepted',{botId:data.botId,version:data.version});
   return NextResponse.json({ok:true,desiredState:'running',version:data.version,botId:data.botId,brokerOrderPlaced:false,workerConnected:false,realMoneyEnabled:false,message:'Run requested. Broker execution is not confirmed until the server worker lease, Deriv contract ID, and settlement are recorded.'},{headers:noStore});
  }catch(error){const safe=safeDemoError(error);return NextResponse.json({ok:false,code:safe.code,error:safe.error,brokerOrderPlaced:false},{status:safe.status,headers:noStore});}
 }
