@@ -49,10 +49,9 @@ try {
   const workspaceSource = await readFile(path.join(source, "src/external/bot-skeleton/scratch/dbot.js"), "utf8");
   const hasFreshWorkspaceReset = workspaceSource.includes("TSFX_FRESH_DERIV_WORKSPACE_V2");
   const hasEmptyBotWorkspace = entry.includes("TSFX_EMPTY_BOT_WORKSPACE_V1");
-  const hasParityTemplate = entry.includes("TSFX_MANUAL_PARITY_TEMPLATE_V1");
   // Never ship the vendor's development bundle: it injects React Refresh and
   // HMR clients that cannot run in the isolated production iframe.
-  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback || !hasFreshWorkspaceReset || !hasEmptyBotWorkspace || !hasParityTemplate;
+  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback || !hasFreshWorkspaceReset || !hasEmptyBotWorkspace;
 } catch {
   rebuild = true;
 }
@@ -120,12 +119,8 @@ const patchVendorStartup = async () => {
             await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
             // TSFX_EMPTY_BOT_WORKSPACE_V1: selected bots open on a clean canvas.
             if (new URLSearchParams(window.location.search).get('tsfx_fresh') === '1') {
-                const strategy = new URLSearchParams(window.location.search).get('senfx_strategy');
-                // TSFX_MANUAL_PARITY_TEMPLATE_V1: retain the official Deriv starter blocks for the dedicated parity workspace.
-                if (strategy !== 'regent-parity') {
-                    window.Blockly?.derivWorkspace?.clear();
-                    console.info('TSFX_EMPTY_BOT_WORKSPACE_V1: cleared the obsolete DBot starter blocks.');
-                }
+                window.Blockly?.derivWorkspace?.clear();
+                console.info('TSFX_EMPTY_BOT_WORKSPACE_V1: cleared the obsolete DBot starter blocks.');
             }
             blockly_store.setContainerSize();
         } catch (error) {
@@ -181,101 +176,6 @@ const localStorageShim = `<script>
     try { window[name].setItem("__tsfx_check", "1"); window[name].removeItem("__tsfx_check"); }
     catch { Object.defineProperty(window, name, { configurable: false, value: memoryStorage() }); }
   }
-})();
-</script>`;
-
-const manualParityBootstrap = `<script>
-(() => {
-  const strategyId = new URLSearchParams(window.location.search).get("senfx_strategy");
-  if (strategyId !== "regent-parity") return;
-  const marker = "TSFX_MANUAL_PARITY_WORKSPACE_V1";
-  let attempts = 0;
-  const optionValues = field => (field?.getOptions?.(false) || []).map(option => option[1]);
-  const setWhenAvailable = (block, fieldName, value) => {
-    const field = block?.getField?.(fieldName);
-    if (!field || !optionValues(field).includes(value)) return false;
-    if (field.getValue() !== value) field.setValue(value);
-    return true;
-  };
-  const addInitialization = (workspace, root, options) => {
-    const input = root.getInput("INITIALIZATION");
-    if (!input?.connection || input.connection.targetBlock()) return;
-    const entries = [
-      ["Stake", "number", "0.5"],
-      ["Martingale", "number", "2"],
-      ["Take Profit", "number", "10"],
-      ["Stop Loss", "number", "50"],
-      ["Runs", "number", "0"],
-      ["Entry Signal", "boolean", "FALSE"],
-    ];
-    let previous = null;
-    const variables = new Map();
-    for (const [name, kind, value] of entries) {
-      const variable = workspace.getVariableMap().getVariable(name) || workspace.createVariable(name);
-      variables.set(name, variable);
-      const setter = workspace.newBlock("variables_set");
-      setter.setFieldValue(variable.getId(), "VAR");
-      const initial = workspace.newBlock(kind === "boolean" ? "logic_boolean" : "math_number_positive");
-      if (kind === "boolean") initial.setFieldValue(value, "BOOL");
-      else initial.setFieldValue(value, "NUM");
-      setter.getInput("VALUE")?.connection?.connect(initial.outputConnection);
-      setter.initSvg(); initial.initSvg();
-      setter.render(); initial.render();
-      if (previous) previous.nextConnection?.connect(setter.previousConnection);
-      else input.connection.connect(setter.previousConnection);
-      previous = setter;
-    }
-    const amountInput = options.getInput("AMOUNT");
-    const existingAmount = amountInput?.connection?.targetBlock();
-    if (existingAmount) existingAmount.dispose(false);
-    const stakeGetter = workspace.newBlock("variables_get");
-    stakeGetter.setFieldValue(variables.get("Stake").getId(), "VAR");
-    stakeGetter.initSvg(); stakeGetter.render();
-    amountInput?.connection?.connect(stakeGetter.outputConnection);
-    stakeGetter.render();
-  };
-  const configure = () => {
-    const workspace = window.Blockly?.derivWorkspace;
-    if (!workspace) return false;
-    if (workspace.__tsfxManualParityV1) return true;
-    const blocks = workspace.getAllBlocks?.(false) || [];
-    const root = blocks.find(block => block.type === "trade_definition");
-    const market = blocks.find(block => block.type === "trade_definition_market");
-    const tradeType = blocks.find(block => block.type === "trade_definition_tradetype");
-    const contract = blocks.find(block => block.type === "trade_definition_contracttype");
-    const duration = blocks.find(block => block.type === "trade_definition_candleinterval");
-    const options = blocks.find(block => block.type === "trade_definition_tradeoptions");
-    const purchase = blocks.find(block => block.type === "purchase");
-    if (!root || !market || !tradeType || !contract || !duration || !options) return false;
-    const fieldsReady = setWhenAvailable(market, "MARKET_LIST", "synthetic_index") &&
-      setWhenAvailable(market, "SUBMARKET_LIST", "random_index") &&
-      setWhenAvailable(market, "SYMBOL_LIST", "R_25");
-    if (!fieldsReady) return false;
-    const tradeReady = setWhenAvailable(tradeType, "TRADETYPECAT_LIST", "digits") &&
-      setWhenAvailable(tradeType, "TRADETYPE_LIST", "evenodd");
-    if (!tradeReady) return false;
-    setWhenAvailable(contract, "TYPE_LIST", "both");
-    setWhenAvailable(duration, "CANDLEINTERVAL_LIST", "60");
-    setWhenAvailable(options, "DURATIONTYPE_LIST", "t");
-    const stake = options.getInputTargetBlock?.("AMOUNT");
-    const ticks = options.getInputTargetBlock?.("DURATION");
-    if (stake?.getField?.("NUM")) stake.setFieldValue("0.5", "NUM");
-    if (ticks?.getField?.("NUM")) ticks.setFieldValue("1", "NUM");
-    if (purchase && optionValues(purchase.getField?.("PURCHASE_LIST")).includes("DIGITEVEN")) {
-      purchase.setFieldValue("DIGITEVEN", "PURCHASE_LIST");
-    }
-    addInitialization(workspace, root, options);
-    workspace.__tsfxManualParityV1 = true;
-    workspace.render?.();
-    window.Blockly.svgResize?.(workspace);
-    console.info(marker + ": configured official Deriv Digits Even/Odd blocks for R_25.");
-    return true;
-  };
-  const mount = () => {
-    if (configure() || ++attempts >= 120) return;
-    window.setTimeout(mount, 250);
-  };
-  mount();
 })();
 </script>`;
 
@@ -692,7 +592,7 @@ const rewriteReferences = async directory => {
       }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
-          .replace("</body>", `${manualParityBootstrap}${safetyShim}${touchNumberFieldsShim}</body>`)
+          .replace("</body>", `${safetyShim}${touchNumberFieldsShim}</body>`)
           .replace("<title>Automate Your Trades | Deriv Bot</title>", "<title>Deriv Blockly Editor | Trade Scheme FX</title>");
       }
       if (output !== input) await writeFile(target, output);
