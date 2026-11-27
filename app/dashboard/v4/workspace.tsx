@@ -108,6 +108,7 @@ export default function MasterWorkspace(){
       <aside className={styles.side}>
         <h3>Session</h3><p>Current 4.0 strategy references are available in the bot library and Deriv Blockly. Demo execution remains separate.</p>
         <Link href="/bot-library">Open current 4.0 bot library</Link>
+        <Link href="/strategy-library">Open 100 Strategy Research Library</Link>
         <p className={styles.sideSafety}>Real-money trading is disabled. Research tools do not place orders.</p>
       </aside>
     </div>
