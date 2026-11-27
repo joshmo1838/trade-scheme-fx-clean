@@ -48,9 +48,10 @@ try {
   const hasStartupFallback = entry.includes("TSFX_BLOCKLY_STARTUP_FALLBACK_V1") || await containsFileText(jsDirectory, "TSFX_BLOCKLY_STARTUP_FALLBACK_V1");
   const workspaceSource = await readFile(path.join(source, "src/external/bot-skeleton/scratch/dbot.js"), "utf8");
   const hasFreshWorkspaceReset = workspaceSource.includes("TSFX_FRESH_DERIV_WORKSPACE_V2");
+  const hasEmptyBotWorkspace = entry.includes("TSFX_EMPTY_BOT_WORKSPACE_V1");
   // Never ship the vendor's development bundle: it injects React Refresh and
   // HMR clients that cannot run in the isolated production iframe.
-  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback || !hasFreshWorkspaceReset;
+  rebuild = entry.includes("reactRefreshEntry") || entry.includes("module.hot") || !hasStartupFallback || !hasFreshWorkspaceReset || !hasEmptyBotWorkspace;
 } catch {
   rebuild = true;
 }
@@ -116,6 +117,11 @@ const patchVendorStartup = async () => {
   const workspaceReplacement = `        blockly_store.setLoading(true);
         try {
             await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
+            // TSFX_EMPTY_BOT_WORKSPACE_V1: selected bots open on a clean canvas.
+            if (new URLSearchParams(window.location.search).get('tsfx_fresh') === '1') {
+                window.Blockly?.derivWorkspace?.clear();
+                console.info('TSFX_EMPTY_BOT_WORKSPACE_V1: cleared the obsolete DBot starter blocks.');
+            }
             blockly_store.setContainerSize();
         } catch (error) {
             console.error('Blockly workspace initialization failed:', error);
@@ -367,14 +373,15 @@ const safetyShim = `<script>
       run.style.setProperty("-webkit-tap-highlight-color", "transparent", "important");
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
       const supportedPlan = isSupportedPlan();
-      const runTitle = supportedPlan ? (runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.") : "Preparing the selected bot's strategy and Multiplier trade blocks.";
+      const emptyWorkspace = !(window.Blockly?.derivWorkspace?.getAllBlocks?.(false)?.length);
+      const runTitle = emptyWorkspace ? "Add Blockly blocks before running this bot." : supportedPlan ? (runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.") : "Preparing the selected bot's strategy and Multiplier trade blocks.";
       const canUseRunButton = Boolean(strategyId) && (runState.running || (runState.canRun && supportedPlan));
       run.disabled = !canUseRunButton;
       if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
       const accessibleTitle = strategyId ? runTitle : "Open a current bot from Trade Scheme FX to connect its strategy to Blockly.";
       if (run.title !== accessibleTitle) run.title = accessibleTitle;
       const text = run.querySelector("span");
-      const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : runState.canRun ? (supportedPlan ? "Run Demo" : "Preparing Blocks") : "Demo unavailable";
+      const label = !strategyId ? "Choose a bot" : runState.running ? "Stop Demo" : emptyWorkspace ? "Add blocks" : runState.canRun ? (supportedPlan ? "Run Demo" : "Preparing Blocks") : "Demo unavailable";
       if (text && text.textContent !== label) text.textContent = label;
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
