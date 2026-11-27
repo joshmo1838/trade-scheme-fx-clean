@@ -37,19 +37,31 @@ test('every 4.0 strategy keeps its rule visible on the native trade parameters b
     let commentVisible=false;
     const tradeParameters={
       type:'trade_definition',
+      getInput:()=>({connection:{connect:()=>{}}}),
+      getBlocksInStatement:()=>[],
       setCommentText:value=>{comment=value;},
       getIcon:type=>type==='comment'?{setBubbleVisible:value=>{commentVisible=value;}}:null,
     };
+    const strategyBlock={
+      type:'tsfx_strategy_rule',
+      previousConnection:{isConnected:()=>false,connect:()=>{}},
+      setFieldValue:value=>{strategyBlock.value=value;},
+      getFieldValue:()=>strategyBlock.value,
+      setCommentText:()=>{},initSvg:()=>{},render:()=>{},
+    };
     const workspace={
       getTopBlocks:()=>[tradeParameters],
+      getAllBlocks:()=>[],
+      newBlock:()=>strategyBlock,
+      addChangeListener:()=>{},
       render:()=>rendered++,
     };
     const window={
       location:{search:new URLSearchParams({senfx_strategy:strategy.id}).toString()},
-      Blockly:{derivWorkspace:workspace},
+      Blockly:{derivWorkspace:workspace,FieldDropdown:function(){},Blocks:{},JavaScript:{javascriptGenerator:{forBlock:{}}},Events:{BLOCK_CHANGE:'change'}},
     };
     runInNewContext(source,{window,URLSearchParams});
-    assert.equal(comment,`${strategy.name} — research strategy\n${strategy.rule}\nResearch preview only; trade execution remains disabled.`);
+    assert.equal(comment,`${strategy.name} — strategy rule\n${strategy.rule}\nThis rule runs through the Trade Scheme FX Demo worker.`);
     assert.equal(commentVisible,true);
     assert.equal(rendered,1);
   }

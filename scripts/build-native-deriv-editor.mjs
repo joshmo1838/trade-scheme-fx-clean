@@ -75,6 +75,78 @@ const localStorageShim = `<script>
 
 const safetyShim = `<script>
 (() => {
+  const strategyId = new URLSearchParams(window.location.search).get("senfx_strategy");
+  let runState = { canRun: false, running: false, message: "Checking the Trade Scheme FX Demo connection…" };
+  const postToParent = (type, payload = {}) => {
+    if (!window.parent || window.parent === window) return;
+    window.parent.postMessage({ source: "TSFX_BLOCKLY", type, ...payload }, "*");
+  };
+  const numberInput = (block, name) => {
+    const target = block?.getInputTargetBlock?.(name);
+    if (!target || !["math_number", "math_number_positive"].includes(target.type)) return null;
+    const value = Number(target.getFieldValue("NUM"));
+    return Number.isFinite(value) ? value : null;
+  };
+  const currentPlan = () => {
+    const workspace = window.Blockly?.derivWorkspace;
+    const blocks = workspace?.getAllBlocks?.(false) || [];
+    const rule = blocks.find(block => block.type === "tsfx_strategy_rule");
+    const market = blocks.find(block => block.type === "trade_definition_market");
+    const tradeType = blocks.find(block => block.type === "trade_definition_tradetype");
+    const contractType = blocks.find(block => block.type === "trade_definition_contracttype");
+    const options = blocks.find(block => block.type === "trade_definition_multiplier");
+    const stopLoss = options?.getChildByType?.("multiplier_stop_loss");
+    const takeProfit = options?.getChildByType?.("multiplier_take_profit");
+    const currency = options?.getFieldValue?.("CURRENCY_LIST");
+    return {
+      strategyId: rule?.getFieldValue?.("STRATEGY"),
+      marketCategory: market?.getFieldValue?.("MARKET_LIST"),
+      marketSymbol: market?.getFieldValue?.("SYMBOL_LIST"),
+      tradeTypeCategory: tradeType?.getFieldValue?.("TRADETYPECAT_LIST"),
+      tradeType: tradeType?.getFieldValue?.("TRADETYPE_LIST"),
+      contractType: contractType?.getFieldValue?.("TYPE_LIST"),
+      currency,
+      multiplier: Number(options?.getFieldValue?.("MULTIPLIERTYPE_LIST")),
+      stake: numberInput(options, "AMOUNT"),
+      perTradeStopLoss: numberInput(stopLoss, "AMOUNT"),
+      perTradeTakeProfit: numberInput(takeProfit, "AMOUNT"),
+      sessionStopLoss: numberInput(stopLoss, "AMOUNT"),
+      sessionTakeProfit: numberInput(takeProfit, "AMOUNT"),
+    };
+  };
+  const handleRun = event => {
+    const run = event.currentTarget;
+    if (!strategyId || !runState.canRun && !runState.running) {
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (event.cancelable) event.preventDefault();
+    event.stopImmediatePropagation();
+    if (runState.running) {
+      postToParent("STOP");
+      return;
+    }
+    const plan = currentPlan();
+    if (plan.currency !== "USD") {
+      postToParent("PLAN_ERROR", { code: "DEMO_CURRENCY_MUST_BE_USD" });
+      return;
+    }
+    postToParent("RUN", { plan });
+  };
+  window.addEventListener("message", event => {
+    if (event.source !== window.parent || event.data?.source !== "TSFX_TRADE_SCHEME_PARENT") return;
+    let host = "";
+    try { host = new URL(event.origin).hostname; } catch { return; }
+    if (host !== "tradesche.com" && host !== "www.tradesche.com" && !host.endsWith(".vercel.app")) return;
+    if (event.data.type !== "RUN_STATE") return;
+    runState = {
+      canRun: event.data.canRun === true,
+      running: event.data.running === true,
+      message: String(event.data.message || ""),
+    };
+    apply();
+  });
   const syncWorkspaceGuidance = () => {
     const header = document.querySelector(".app-header");
     if (!header) return;
@@ -88,7 +160,7 @@ const safetyShim = `<script>
     const note = document.createElement("div");
     note.dataset.tsfxEditorGuidance = "true";
     note.setAttribute("role", "status");
-    note.textContent = "Preview only · Demo controls are in Trade Scheme FX";
+    note.textContent = "Virtual Demo only · Run uses these Blockly settings";
     note.style.cssText = "margin-left:auto;padding:8px 12px;color:#334155;font:600 12px system-ui,sans-serif;white-space:nowrap";
     header.appendChild(note);
   };
@@ -102,13 +174,18 @@ const safetyShim = `<script>
     syncWorkspaceGuidance();
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
-      const runLabel = "Run is disabled until SENFX strategy mapping is validated";
-      const runTitle = "Editing preview only. Use the existing SENFX Demo controls after strategy validation.";
-      if (!run.disabled) run.disabled = true;
+      const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
+      const runTitle = runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.";
+      run.disabled = !(runState.running || runState.canRun);
       if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
       if (run.title !== runTitle) run.title = runTitle;
       const text = run.querySelector("span");
-      if (text && text.textContent !== "Run disabled") text.textContent = "Run disabled";
+      const label = runState.running ? "Stop Demo" : runState.canRun ? "Run Demo" : "Demo unavailable";
+      if (text && text.textContent !== label) text.textContent = label;
+      if (run.dataset.tsfxRunBridge !== "true") {
+        run.dataset.tsfxRunBridge = "true";
+        run.addEventListener("click", handleRun, true);
+      }
     }
     document.querySelectorAll('a[href*="oauth"], a[href*="authorize"]').forEach(link => {
       link.addEventListener("click", event => event.preventDefault(), { once: true });

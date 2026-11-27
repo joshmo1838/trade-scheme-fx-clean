@@ -27,6 +27,15 @@ test('availability accepts one tick only when Deriv confirms type and bounds', (
   assert.match(contractAvailabilityReason([{...supported('CALL')[0],max_contract_duration:'0'}], {contract_type:'CALL',duration:1,duration_unit:'t'}), /duration/);
 });
 
+test('multiplier contracts require Deriv to confirm the type and selected multiplier range', () => {
+  const offered=[{contract_type:'MULTUP',multiplier_range:[1,100,250,500]}];
+  assert.equal(contractAvailabilityReason(offered,{contract_family:'MULTIPLIER',contract_type:'MULTUP',multiplier:100}), '');
+  assert.match(contractAvailabilityReason(offered,{contract_family:'MULTIPLIER',contract_type:'MULTUP',multiplier:1000}), /outside Deriv/);
+  assert.match(contractAvailabilityReason([{contract_type:'MULTUP',multiplier_range:[1,500]}],{contract_family:'MULTIPLIER',contract_type:'MULTUP',multiplier:100}), /outside Deriv/);
+  assert.match(contractAvailabilityReason(offered,{contract_family:'MULTIPLIER',contract_type:'MULTDOWN',multiplier:100}), /does not currently offer/);
+  assert.match(contractAvailabilityReason([{contract_type:'MULTUP',multiplier_range:[]}],{contract_family:'MULTIPLIER',contract_type:'MULTUP',multiplier:100}), /usable multiplier range/);
+});
+
 test('digit contracts skip when Deriv has not confirmed the exact barrier or range', () => {
   for (let digit=0;digit<=9;digit++) {
     assert.equal(contractAvailabilityReason(supported('DIGITMATCH'), {contract_type:'DIGITMATCH',duration:1,duration_unit:'t',barrier:String(digit)}), '');
@@ -39,16 +48,26 @@ test('digit contracts skip when Deriv has not confirmed the exact barrier or ran
 test('worker, route and database migration bind Demo account, version, bot, stake, and session limits', () => {
   const worker=readFileSync(new URL('../worker/quantum-ai/demo-broker-worker.mjs',import.meta.url),'utf8');
   const route=readFileSync(new URL('../app/api/deriv/demo/v4/bots/control/route.ts',import.meta.url),'utf8');
+  const builder=readFileSync(new URL('../app/builder/NativeDerivBuilder.tsx',import.meta.url),'utf8');
   const migration=readFileSync(new URL('../supabase/senfx-quantum-demo-4-0.sql',import.meta.url),'utf8');
+  const blocklyMigration=readFileSync(new URL('../supabase/senfx-blockly-demo-execution.sql',import.meta.url),'utf8');
   assert.match(worker,/signals\(history\)\[index\]/);
   assert.match(worker,/contracts_for/);
   assert.match(worker,/quantum_demo_reserve/);
   assert.match(worker,/quantum_demo_mark_attempt/);
   assert.match(worker,/proposal_open_contract/);
+  assert.match(worker,/const market = row\.market_symbol/);
+  assert.match(worker,/contract_type: candidate\.contract\.contract_type, multiplier: candidate\.contract\.multiplier/);
+  assert.match(worker,/limit_order: \{ stop_loss: Number\(row\.per_trade_stop_loss\), take_profit: Number\(row\.per_trade_take_profit\) \}/);
   assert.match(worker,/neverRetryUnknown|reconcile/i);
   assert.match(route,/context\.account\.account_type!=='demo'/);
   assert.match(route,/sessionStopLoss/);
   assert.match(route,/sessionTakeProfit/);
+  assert.match(builder,/tradePlan:d\.plan/);
+  assert.match(route,/p_plan:plan/);
+  assert.match(route,/quantum_demo_start_blockly/);
+  assert.match(blocklyMigration,/create or replace function public\.quantum_demo_start_blockly/);
+  assert.match(blocklyMigration,/contract_family='MULTIPLIER'/);
   for (const id of STRATEGIES.map(x=>x.id)) assert.ok(migration.includes(`'${id}'`),`SQL catalog missing ${id}`);
   assert.match(migration,/pnl-o\.stake<=-r\.session_stop_loss/);
   assert.match(migration,/pnl>=r\.session_take_profit/);
