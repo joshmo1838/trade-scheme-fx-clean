@@ -163,6 +163,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    stage = "account_lookup";
+
+    // Verify an active Demo account from Deriv before saving the connection.
+    const accountsResponse = await fetch(
+      "https://api.derivws.com/trading/v1/options/accounts",
+      {
+        headers: {
+          Authorization: "Bearer " + tokenData.access_token,
+          Accept: "application/json"
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+
+    if (!accountsResponse.ok) {
+      console.error("Deriv account verification failed:", {
+        httpStatus: accountsResponse.status
+      });
+      return clearCookies(
+        redirectToDashboard("connection_failed")
+      );
+    }
+
+    const accountsPayload = await accountsResponse.json();
+    if (!Array.isArray(accountsPayload?.data)) {
+      console.error("Deriv account response was invalid.");
+      return clearCookies(
+        redirectToDashboard("connection_failed")
+      );
+    }
+
+    const demoAccounts = accountsPayload.data.filter(
+      (account: Record<string, unknown>) =>
+        account &&
+        account.account_type === "demo" &&
+        account.status === "active" &&
+        typeof account.account_id === "string" &&
+        /^[A-Za-z0-9]+$/.test(account.account_id) &&
+        typeof account.balance === "number" &&
+        Number.isFinite(account.balance) &&
+        typeof account.currency === "string" &&
+        ["USD", "AUD"].includes(account.currency)
+    );
+
     stage = "encryption";
 
     // Encrypt the access token before database storage.
@@ -181,7 +226,18 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Save the encrypted Deriv connection.
+    // Preserve the user's previously chosen Demo account when it is
+    // still available; otherwise choose the first verified supported Demo.
+    const { data: previousSelection } = await admin
+      .from("deriv_connections")
+      .select("active_account_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const selectedDemo = demoAccounts.find(
+      (account: Record<string, unknown>) => account.account_id === previousSelection?.active_account_id
+    ) || demoAccounts[0] || null;
+
+    // Save the encrypted Deriv connection and verified Demo selection.
     const { error: saveError } = await admin
       .from("deriv_connections")
       .upsert(
@@ -195,7 +251,9 @@ export async function GET(request: NextRequest) {
             Number(tokenData.expires_in || 0) * 1000
           ).toISOString(),
           connected_at: new Date().toISOString(),
-          status: "connected"
+          status: "connected",
+          active_account_id: selectedDemo?.account_id ?? null,
+          active_account_type: selectedDemo ? "demo" : null
         },
         {
           onConflict: "user_id"
