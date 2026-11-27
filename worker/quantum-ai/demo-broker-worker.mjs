@@ -102,7 +102,7 @@ async function unresolvedCount() {
 async function recordProblem(reason) { lastError = reason; await db.from('quantum_demo_bot_control').update({ last_error: reason.slice(0,180), updated_at: new Date().toISOString() }).eq('user_id', USER); }
 async function recordNoEntry(code) {
   const now = Date.now();
-  if (code === lastNoEntryCode && now - lastNoEntryAt < 60_000) return;
+  if (code === lastNoEntryCode && now - lastNoEntryAt < 60_000 && lastError === 'No entry: ' + code) return;
   lastNoEntryCode = code; lastNoEntryAt = now;
   await recordProblem('No entry: ' + code);
   log('No entry', code);
