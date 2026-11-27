@@ -224,6 +224,9 @@ const safetyShim = `<script>
   const handleRun = event => {
     const touchActivation = event.type === "touchend" || (event.type === "pointerup" && event.pointerType === "touch");
     if (!touchActivation && event.type !== "click") return;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const run = target?.closest?.("#db-animation__run-button");
+    if (!run) return;
     const now = Date.now();
     if (now - lastRunActivationAt < 700) {
       if (event.cancelable) event.preventDefault();
@@ -231,9 +234,6 @@ const safetyShim = `<script>
       return;
     }
     lastRunActivationAt = now;
-    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
-    const run = target?.closest?.("#db-animation__run-button");
-    if (!run) return;
     if (!strategyId || !runState.canRun && !runState.running) {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
@@ -313,6 +313,9 @@ const safetyShim = `<script>
     dismissFirstRunBuilderGuide();
     const run = document.querySelector("#db-animation__run-button");
     if (run) {
+      run.style.setProperty("touch-action", "manipulation", "important");
+      run.style.setProperty("min-height", "56px", "important");
+      run.style.setProperty("-webkit-tap-highlight-color", "transparent", "important");
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
       const runTitle = runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.";
       const canUseRunButton = Boolean(strategyId) && (runState.running || runState.canRun);
