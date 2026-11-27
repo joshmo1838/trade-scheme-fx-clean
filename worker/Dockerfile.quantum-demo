@@ -14,6 +14,7 @@ COPY lib/quantum/demo-contracts.mjs ./lib/quantum/demo-contracts.mjs
 COPY lib/quantum/contract-availability.mjs ./lib/quantum/contract-availability.mjs
 COPY lib/quantum/demo-ten-x-checks.mjs ./lib/quantum/demo-ten-x-checks.mjs
 COPY lib/quantum/demo-worker-safety.mjs ./lib/quantum/demo-worker-safety.mjs
+COPY lib/quantum/demo-execution-eligibility.mjs ./lib/quantum/demo-execution-eligibility.mjs
 USER node
 WORKDIR /opt/senfx/worker
 CMD ["node", "--experimental-strip-types", "quantum-ai/demo-broker-worker.mjs"]
