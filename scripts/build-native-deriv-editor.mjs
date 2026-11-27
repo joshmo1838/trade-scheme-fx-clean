@@ -118,6 +118,74 @@ const safetyShim = `<script>
   document.addEventListener("DOMContentLoaded", apply, { once: true });
 })();
 </script>`;
+const touchNumberFieldsShim = `<script>
+(() => {
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  let scheduled = false;
+  const enhanceNumberFields = () => {
+    scheduled = false;
+    if (!window.matchMedia?.("(pointer: coarse)").matches && window.innerWidth > 768) return;
+    const workspace = window.Blockly?.derivWorkspace;
+    const svg = workspace?.getParentSvg?.();
+    if (!svg) return;
+
+    svg.querySelectorAll("g.blocklyEditableText").forEach(group => {
+      const text = group.querySelector("text.blocklyText");
+      const label = text?.textContent?.trim();
+      if (!text || !/^-?\\d+(?:\\.\\d+)?$/.test(label || "") || group.querySelector(".blocklyDropdownRect")) return;
+      try {
+        const box = text.getBBox();
+        const matrix = group.getScreenCTM();
+        if (!matrix) return;
+        const scaleX = Math.hypot(matrix.a, matrix.b) || 1;
+        const scaleY = Math.hypot(matrix.c, matrix.d) || 1;
+        const width = Math.max(box.width, 44 / scaleX);
+        const height = Math.max(box.height, 44 / scaleY);
+        let hitArea = group.querySelector("rect[data-tsfx-touch-hit]");
+        if (!hitArea) {
+          hitArea = document.createElementNS(svgNamespace, "rect");
+          hitArea.dataset.tsfxTouchHit = "true";
+          hitArea.setAttribute("fill", "transparent");
+          hitArea.setAttribute("pointer-events", "all");
+          group.insertBefore(hitArea, group.firstChild);
+        }
+        const bounds = {
+          x: String(box.x - (width - box.width) / 2),
+          y: String(box.y - (height - box.height) / 2),
+          width: String(width),
+          height: String(height),
+        };
+        for (const [name, value] of Object.entries(bounds)) {
+          if (hitArea.getAttribute(name) !== value) hitArea.setAttribute(name, value);
+        }
+        if (group.style.touchAction !== "manipulation") group.style.touchAction = "manipulation";
+      } catch {
+        // Detached SVG fields can briefly reject getBBox while Blockly rerenders.
+      }
+    });
+  };
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(enhanceNumberFields);
+  };
+  const observe = () => {
+    const workspace = window.Blockly?.derivWorkspace;
+    const svg = workspace?.getParentSvg?.();
+    if (!svg) return false;
+    new MutationObserver(schedule).observe(svg, { childList: true, subtree: true });
+    workspace.addChangeListener?.(schedule);
+    schedule();
+    return true;
+  };
+  let attempts = 0;
+  const mount = () => {
+    if (observe() || ++attempts >= 120) return;
+    window.setTimeout(mount, 250);
+  };
+  mount();
+})();
+</script>`;
 const strategyBootstrap = createStrategyBootstrap(STRATEGIES);
 
 const rewriteReferences = async directory => {
@@ -158,7 +226,7 @@ const rewriteReferences = async directory => {
       }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
-          .replace("</body>", `${safetyShim}${strategyBootstrap}</body>`)
+          .replace("</body>", `${safetyShim}${touchNumberFieldsShim}${strategyBootstrap}</body>`)
           .replace("<title>Automate Your Trades | Deriv Bot</title>", "<title>Deriv Blockly Editor | Trade Scheme FX</title>");
       }
       if (output !== input) await writeFile(target, output);

@@ -73,6 +73,12 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /data-tsfx-editor-guidance/);
   assert.match(script, /\.app-header \.auth-actions\{display:none!important;visibility:hidden!important\}/);
   assert.match(script, /Preview only.*Demo controls are in Trade Scheme FX/);
+  assert.match(script, /touchNumberFieldsShim/);
+  assert.match(script, /pointer: coarse/);
+  assert.match(script, /rect\[data-tsfx-touch-hit\]/);
+  assert.match(script, /44 \/ scaleX/);
+  assert.match(script, /44 \/ scaleY/);
+  assert.match(script, /touchAction = "manipulation"/);
 });
 
 test("builder is no longer redirected into the empty bot-library page", async () => {
