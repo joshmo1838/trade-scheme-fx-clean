@@ -28,8 +28,13 @@ test("selected bot workspace opens the server-verified RUN AI BOT controls", asy
   assert.match(builder, /height:"calc\(100dvh - 44px\)"/);
   assert.match(builder, /inset:"92px 0 0"/);
   assert.match(builder, /setControlsOpen\(true\)/);
+  assert.match(builder, /minHeight:44/);
+  assert.match(builder, /minWidth:64,minHeight:44/);
   assert.match(controls, /aria-label={`RUN AI BOT for \$\{botName\}`}/);
   assert.match(controls, /disabled=\{!canRun\}/);
+  assert.match(controls, /minHeight:48/);
+  assert.match(controls, /minWidth:26,minHeight:26/);
+  assert.match(controls, /small boxes in the Blockly preview do not control this Demo run/);
 });
 
 test("native editor frame denies broker networking and form submissions", async () => {
