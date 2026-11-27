@@ -34,6 +34,7 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   const controlRoute = await read("../app/api/deriv/demo/v4/bots/control/route.ts");
   assert.match(controlRoute, /\[quantum-demo-control\] command received/);
   assert.match(controlRoute, /\[quantum-demo-control\] run accepted/);
+  assert.match(controlRoute, /function rejectControl\(code:string,status=400\)/);
 });
 
 test("premium workspace sends bot starts through its selected Blockly workspace", async () => {
