@@ -52,7 +52,7 @@ jobs:
       - name: Verify Quantum original 15 research distribution and 30-second minimum
         run: node --experimental-strip-types --test tests/quantum-original15-distributor.test.mjs
       - name: Verify current 4.0 Demo contract mapping and fail-closed execution gates
-        run: node --experimental-strip-types --test tests/quantum-demo-contracts.test.mjs tests/quantum-demo-candidate.test.mjs tests/quantum-demo-run.test.mjs tests/quantum-demo-production-readiness.test.mjs
+        run: node --experimental-strip-types --test tests/quantum-demo-contracts.test.mjs tests/quantum-demo-candidate.test.mjs tests/quantum-demo-run.test.mjs tests/quantum-demo-production-readiness.test.mjs tests/demo-execution-eligibility.test.mjs
       - name: Check Quantum worker syntax
         run: node --check worker/quantum-ai/run.mjs
       - name: Run deterministic bot strategy tests
