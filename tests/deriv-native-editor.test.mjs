@@ -23,7 +23,7 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   assert.match(builder, /inset:'44px 0 0'/);
   assert.match(builder, /height:'calc\(100dvh - 44px\)'/);
   assert.match(builder, /event\.source!==frame\.current\?\.contentWindow/);
-  assert.match(builder, /tradePlan:d\.plan/);
+  assert.match(builder, /tradePlan:\{\.\.\.d\.plan,strategyId:strategy\?\.id\}/);
   assert.match(builder, /type:'RUN_STATE'/);
   assert.match(builder, /confirmVirtualDemoAutomation:true/);
   assert.match(builder, /canRun:r\.ok&&!!strategy\?\.id/);
@@ -75,7 +75,7 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /createHash\("sha256"\)/);
   assert.match(script, /Deriv editor entry script is missing/);
   assert.match(script, /html\.replaceAll\(entryMatch\[2\], newEntryName\)/);
-  assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| runState\.canRun\)/);
+  assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| \(runState\.canRun && supportedPlan\)\)/);
   assert.match(script, /Choose a bot/);
   assert.match(script, /SELECT_CURRENT_BOT_FIRST/);
   assert.match(script, /document\.addEventListener\("pointerup", handleRun, true\)/);
@@ -133,4 +133,19 @@ test("verified Demo currency is reflected in the Blockly stake block", async () 
   assert.match(builder, /currency:demoCurrency/);
   assert.match(script, /syncVerifiedCurrency/);
   assert.match(script, /field\.setValue\(runState\.currency\)/);
+});
+
+test("selected bot restores a supported Multiplier Blockly plan before enabling Run", async () => {
+  const [bootstrap, builder, editor] = await Promise.all([
+    read("../lib/quantum/strategy-builder-reference.mjs"),
+    read("../app/builder/NativeDerivBuilder.tsx"),
+    read("../scripts/build-native-deriv-editor.mjs"),
+  ]);
+  assert.match(bootstrap, /TRADETYPECAT_LIST/);
+  assert.match(bootstrap, /trade_definition_multiplier/);
+  assert.match(bootstrap, /preservedStake/);
+  assert.match(bootstrap, /strategy\.id/);
+  assert.match(builder, /d\.plan\?\.strategyId!==strategy\.id/);
+  assert.match(editor, /isSupportedPlan/);
+  assert.match(editor, /Preparing Blocks/);
 });
