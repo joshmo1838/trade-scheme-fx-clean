@@ -37,6 +37,9 @@ let stopped = false;
 let lastTickEpoch = 0;
 let lastBuyAt = 0;
 let lastError = '';
+let feedRetryAttempt = 0;
+let feedRetryAt = 0;
+let feedConnectedAt = 0;
 let lastNoEntryCode = '';
 let lastNoEntryAt = 0;
 let recovery = newRecoveryState();
@@ -252,20 +255,44 @@ async function executeCandidate(row, candidate, signal) {
     await stopRun(marked || sentBuy ? 'Purchase outcome uncertain; reconcile Deriv contract before restarting.' : reason);
   } finally { closeTrading(); busy = false; }
 }
+function scheduleFeedRetry(ws, reason) {
+  if (stopped || (ws && publicSocket !== ws)) return;
+  publicSocket = null;
+  feedConnectedAt = 0;
+  const delay = Math.min(30_000, 1_000 * (2 ** Math.min(feedRetryAttempt, 5)));
+  feedRetryAttempt = Math.min(feedRetryAttempt + 1, 5);
+  feedRetryAt = Date.now() + delay;
+  log('Public market feed disconnected; retry scheduled', delay + 'ms');
+  void recordProblem(reason);
+  try { if (ws && ws.readyState !== WebSocket.CLOSED) ws.close(); } catch {}
+}
 function startFeed() {
-  if (publicSocket || stopped) return;
+  if (publicSocket || stopped || Date.now() < feedRetryAt) return;
   const subscribedMarket = control?.market_symbol || 'R_100';
-  const ws = new WebSocket(PUBLIC_WS); publicSocket = ws;
-  ws.onopen = () => { ws.send(JSON.stringify({ ticks: subscribedMarket, subscribe: 1 })); };
+  let ws;
+  try { ws = new WebSocket(PUBLIC_WS); publicSocket = ws; }
+  catch { scheduleFeedRetry(null, 'Selected market feed could not open; retry scheduled.'); return; }
+  ws.onopen = () => {
+    if (publicSocket !== ws || stopped) return;
+    feedConnectedAt = Date.now();
+    try { ws.send(JSON.stringify({ ticks: subscribedMarket, subscribe: 1 })); }
+    catch { scheduleFeedRetry(ws, 'Selected market feed subscription could not be sent; retry scheduled.'); }
+  };
   ws.onmessage = event => {
     if (publicSocket !== ws || stopped) return;
-    let msg; try { msg = JSON.parse(String(event.data)); } catch { void stopRun('Malformed public tick response.'); return; }
-    if (msg.error) { void stopRun('Deriv public feed rejected the selected market subscription.'); return; }
+    let msg; try { msg = JSON.parse(String(event.data)); } catch { scheduleFeedRetry(ws, 'Malformed public tick response; retry scheduled.'); return; }
+    if (msg.error) { scheduleFeedRetry(ws, 'Deriv public feed rejected the selected market subscription; retry scheduled.'); return; }
     if (msg.msg_type !== 'tick') return;
     const tick = msg.tick; const epoch = Number(tick?.epoch); const quote = Number(tick?.quote); const pip = Number(tick?.pip_size);
     const parsed = { symbol: tick?.symbol, epoch, quote, pip_size: pip, price: quote, digit: 0 };
     if (tick?.symbol !== subscribedMarket || !Number.isSafeInteger(epoch) || epoch <= lastTickEpoch || !Number.isFinite(quote) || quote <= 0 || !Number.isInteger(pip) || !isFreshPublicTick({ ...parsed, digit: Math.floor(Math.abs(quote * (10 ** pip)) + 1e-7) % 10 }, Date.now())) return;
+    if (Date.now() - feedConnectedAt >= 15_000) feedRetryAttempt = 0;
+    feedRetryAt = 0;
     lastTickEpoch = epoch; history.push({ symbol: subscribedMarket, epoch, quote, pip_size: pip }); if (history.length > HISTORY_SIZE) history.shift();
+    if (lastError) {
+      lastError = '';
+      void db.from('quantum_demo_bot_control').update({ last_error: null, updated_at: new Date().toISOString() }).eq('user_id', USER);
+    }
     if (history.length < HISTORY_SIZE || busy) return;
     void (async () => {
       const row = control;
@@ -281,8 +308,8 @@ function startFeed() {
       await executeCandidate(row, { botId: row.bot_id, tickEpoch: epoch, contract }, signal);
     })().catch(() => { void stopRun('Current 4.0 signal could not be evaluated safely.'); });
   };
-  ws.onerror = () => { if (publicSocket === ws) void stopRun('Selected market feed disconnected; restart after checking status.'); };
-  ws.onclose = () => { if (publicSocket === ws && !stopped) void stopRun('Selected market feed closed; restart after fresh ticks.'); };
+  ws.onerror = () => scheduleFeedRetry(ws, 'Selected market feed disconnected; retry scheduled.');
+  ws.onclose = () => scheduleFeedRetry(ws, 'Selected market feed closed; retry scheduled.');
 }
 async function poll() {
   if (stopped || busy) return;
@@ -301,7 +328,7 @@ async function poll() {
       await recordProblem('A Demo order is still unresolved; no new purchase will be permitted until reconciliation completes.');
       closeFeed(); return;
     }
-    if (!publicSocket) startFeed();
+    if (!publicSocket && Date.now() >= feedRetryAt) startFeed();
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Demo worker safety check failed.';
     if (control?.mode === 'running') await stopRun(message);
