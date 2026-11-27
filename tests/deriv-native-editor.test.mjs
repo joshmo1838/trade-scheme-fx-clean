@@ -87,6 +87,9 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
   assert.match(script, /Pinned Deriv Bot source is missing/);
   assert.match(script, /data-tsfx-editor-guidance/);
+  assert.match(script, /dismissFirstRunBuilderGuide/);
+  assert.match(script, /bot builder guide/i);
+  assert.match(script, /skip\?\.click\(\)/);
   assert.match(script, /\.app-header \.auth-actions\{display:none!important;visibility:hidden!important\}/);
   assert.match(script, /Virtual Demo only.*Run uses these Blockly settings/);
   assert.match(script, /touchNumberFieldsShim/);
