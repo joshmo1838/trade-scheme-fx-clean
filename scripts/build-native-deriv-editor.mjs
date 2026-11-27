@@ -164,6 +164,24 @@ const localStorageShim = `<script>
 const safetyShim = `<script>
 (() => {
   const strategyId = new URLSearchParams(window.location.search).get("senfx_strategy");
+  const updateMobileViewport = () => {
+    const height = window.visualViewport?.height || window.innerHeight;
+    document.documentElement.style.setProperty("--tsfx-mobile-vh", height + "px");
+    requestAnimationFrame(() => {
+      const workspace = window.Blockly?.derivWorkspace;
+      if (workspace) window.Blockly?.svgResize?.(workspace);
+    });
+  };
+  updateMobileViewport();
+  window.addEventListener("resize", updateMobileViewport, { passive: true });
+  window.visualViewport?.addEventListener("resize", updateMobileViewport, { passive: true });
+  window.visualViewport?.addEventListener("scroll", updateMobileViewport, { passive: true });
+  if (!document.getElementById("tsfx-mobile-blockly-layout")) {
+    const style = document.createElement("style");
+    style.id = "tsfx-mobile-blockly-layout";
+    style.textContent = "@media(max-width:768px){.bot{--bot-content-height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 140px));--tab-content-height-mobile:max(400px,calc(var(--tsfx-mobile-vh,100dvh) - 126px))}.main{height:calc(var(--tsfx-mobile-vh,100dvh) - 60px)}.bot-builder{height:max(400px,calc(var(--tsfx-mobile-vh,100dvh) - 126px))}#scratch_div{height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 140px))!important}.bot-builder .injectionDiv{height:max(360px,calc(var(--tsfx-mobile-vh,100dvh) - 164px))!important}}";
+    (document.head || document.documentElement).appendChild(style);
+  }
   let runState = { canRun: false, running: false, message: "Checking the Trade Scheme FX Demo connection…" };
   const postToParent = (type, payload = {}) => {
     if (!window.parent || window.parent === window) return;
@@ -276,8 +294,13 @@ const safetyShim = `<script>
     const dialog = document.querySelector(".dc-dialog.tour-dialog");
     const title = dialog?.querySelector(".dc-dialog__content__header")?.textContent?.trim() || "";
     if (!dialog || !/bot builder guide/i.test(title)) return;
-    const skip = [...dialog.querySelectorAll("button")].find(button => button.textContent?.trim() === "Skip");
-    skip?.click();
+    const skip = [...dialog.querySelectorAll("button, [role=button], .dc-dialog__button")].find(button =>
+      button.textContent?.trim() === "Skip"
+    );
+    if (skip && !skip.dataset.tsfxDismissRequested) {
+      skip.dataset.tsfxDismissRequested = "true";
+      skip.click();
+    }
   };
   const apply = () => {
     if (!document.getElementById("tsfx-preview-auth-style")) {
