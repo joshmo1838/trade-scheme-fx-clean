@@ -344,8 +344,8 @@ const safetyShim = `<script>
       run.style.setProperty("min-height", "56px", "important");
       run.style.setProperty("-webkit-tap-highlight-color", "transparent", "important");
       const runLabel = runState.running ? "Stop virtual Demo bot" : "Run virtual Demo bot from Blockly";
-      const runTitle = supportedPlan ? (runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.") : "Preparing the selected bot's strategy and Multiplier trade blocks.";
       const supportedPlan = isSupportedPlan();
+      const runTitle = supportedPlan ? (runState.message || "Run the selected Trade Scheme FX strategy with the settings in these Blockly blocks. Virtual Demo only.") : "Preparing the selected bot's strategy and Multiplier trade blocks.";
       const canUseRunButton = Boolean(strategyId) && (runState.running || (runState.canRun && supportedPlan));
       run.disabled = !canUseRunButton;
       if (run.getAttribute("aria-label") !== runLabel) run.setAttribute("aria-label", runLabel);
