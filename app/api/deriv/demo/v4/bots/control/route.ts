@@ -67,7 +67,7 @@ export async function POST(request:NextRequest){
   let body:Record<string,unknown>;try{body=JSON.parse(raw);}catch{return denied('INVALID_JSON',400);}
   if(!body||typeof body!=='object'||Array.isArray(body)||!['start','stop'].includes(String(body.action)))return denied('UNKNOWN_CONTROL_ACTION',400);
   console.info('[quantum-demo-control] command received',{action:String(body.action),hasBlocklyPlan:body.tradePlan!==undefined});
-  const {userId,db}=await serverContext();if(!userId||!db)return denied('SIGNED_IN_DEMO_PILOT_REQUIRED',401);
+  const {userId,db}=await serverContext();if(!userId||!db){console.warn('[quantum-demo-control] command rejected',{action:String(body.action),reason:'AUTH_OR_PILOT_CONTEXT_UNAVAILABLE'});return denied('SIGNED_IN_DEMO_PILOT_REQUIRED',401);}
   const {data:current,error:readError}=await db.from('quantum_demo_bot_control').select('account_id,control_version').eq('user_id',userId).maybeSingle();
   if(readError)return denied('QUANTUM_DEMO_SCHEMA_NOT_RELEASED',503);
   if(body.action==='stop'){
