@@ -34,6 +34,7 @@ test("selected bot workspace uses Blockly Run as its Demo control", async () => 
   const controlRoute = await read("../app/api/deriv/demo/v4/bots/control/route.ts");
   assert.match(controlRoute, /\[quantum-demo-control\] command received/);
   assert.match(controlRoute, /\[quantum-demo-control\] run accepted/);
+  assert.match(controlRoute, /function rejectControl\(code:string,status=400\)/);
 });
 
 test("premium workspace sends bot starts through its selected Blockly workspace", async () => {
@@ -77,8 +78,10 @@ test("native editor build guards Run and rewrites the upstream asset paths", asy
   assert.match(script, /const canUseRunButton = Boolean\(strategyId\) && \(runState\.running \|\| runState\.canRun\)/);
   assert.match(script, /Choose a bot/);
   assert.match(script, /SELECT_CURRENT_BOT_FIRST/);
-  assert.match(script, /addEventListener\("pointerup", handleRun, true\)/);
-  assert.match(script, /addEventListener\("touchend", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("pointerup", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("touchend", handleRun, true\)/);
+  assert.match(script, /document\.addEventListener\("click", handleRun, true\)/);
+  assert.match(script, /target\?\.closest\?\.\("#db-animation__run-button"\)/);
   assert.match(script, /now - lastRunActivationAt < 700/);
   assert.match(script, /text\.textContent !== label/);
   assert.match(script, /postToParent\("RUN", \{ plan \}\)/);
