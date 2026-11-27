@@ -84,7 +84,7 @@ export async function getDerivDemoContext(): Promise<DerivDemoContext> {
     throw new DemoApiError("Connect your Deriv account before using Demo execution.", 409, "DERIV_NOT_CONNECTED");
   }
 
-  if (!connection.active_account_id || connection.active_account_type !== "demo") {
+  if (!connection.active_account_id) {
     throw new DemoApiError("Select a Deriv Demo account first. Real accounts cannot be used by SENFX Demo execution.", 409, "DEMO_ACCOUNT_NOT_SELECTED");
   }
 
@@ -115,8 +115,26 @@ export async function getDerivDemoContext(): Promise<DerivDemoContext> {
     (item: DemoAccount) => item.account_id === connection.active_account_id,
   ) as DemoAccount | undefined;
 
-  if (!account || account.account_type !== "demo" || account.status !== "active") {
-    throw new DemoApiError("The selected account is not an active Deriv Demo account. Select a Demo account again.", 409, "DEMO_ACCOUNT_VERIFICATION_FAILED");
+  if (!account || !["demo", "real"].includes(account.account_type) || account.status !== "active") {
+    throw new DemoApiError("The selected account is not an active Deriv account. Select an active Demo account.", 409, "DEMO_ACCOUNT_VERIFICATION_FAILED");
+  }
+
+  // The Deriv account list is the authority for account type. Repair stale or
+  // missing saved metadata only after matching the saved ID against that list.
+  if (connection.active_account_type !== account.account_type) {
+    const { error: selectionSyncError } = await admin
+      .from("deriv_connections")
+      .update({ active_account_type: account.account_type })
+      .eq("user_id", user.id)
+      .eq("active_account_id", connection.active_account_id);
+    if (selectionSyncError) {
+      console.error("Verified Deriv account type sync failed:", selectionSyncError.code);
+      throw new DemoApiError("Could not save the verified Deriv account type. Refresh the account selection and retry.", 503, "DEMO_ACCOUNT_SELECTION_SYNC_FAILED");
+    }
+  }
+
+  if (account.account_type !== "demo") {
+    throw new DemoApiError("The selected account is a Real account. Choose a Demo account to use virtual trading.", 409, "DEMO_ACCOUNT_NOT_SELECTED");
   }
 
   return { user, admin, account, accessToken };

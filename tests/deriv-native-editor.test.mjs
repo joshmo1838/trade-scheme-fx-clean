@@ -173,3 +173,11 @@ test("Blockly Run stays disabled until a verified Demo currency is available", a
   assert.match(component, /!!verifiedCurrency&&d\.controlsEnabled/);
   assert.match(component, /Connect a verified Deriv Demo account to sync its currency/);
 });
+
+test("Deriv Demo context repairs account type from the verified Deriv account list", async () => {
+  const source = await read("../lib/deriv/demo-server.ts");
+  assert.match(source, /if \(!connection\.active_account_id\)/);
+  assert.match(source, /\.eq\("active_account_id", connection\.active_account_id\)/);
+  assert.match(source, /if \(account\.account_type !== "demo"\)/);
+  assert.match(source, /DEMO_ACCOUNT_SELECTION_SYNC_FAILED/);
+});
