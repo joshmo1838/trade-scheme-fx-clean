@@ -3,8 +3,6 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {STRATEGIES} from "../lib/quantum/strategy-catalog.mjs";
-import {createStrategyBootstrap} from "../lib/quantum/strategy-builder-reference.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "vendor/deriv-trading-bot");
@@ -210,7 +208,6 @@ const safetyShim = `<script>
   const currentPlan = () => {
     const workspace = window.Blockly?.derivWorkspace;
     const blocks = workspace?.getAllBlocks?.(false) || [];
-    const rule = blocks.find(block => block.type === "tsfx_strategy_rule");
     const market = blocks.find(block => block.type === "trade_definition_market");
     const tradeType = blocks.find(block => block.type === "trade_definition_tradetype");
     const contractType = blocks.find(block => block.type === "trade_definition_contracttype");
@@ -219,7 +216,7 @@ const safetyShim = `<script>
     const takeProfit = options?.getChildByType?.("multiplier_take_profit");
     const currency = options?.getFieldValue?.("CURRENCY_LIST");
     return {
-      strategyId: rule?.getFieldValue?.("STRATEGY"),
+      strategyId,
       marketCategory: market?.getFieldValue?.("MARKET_LIST"),
       marketSymbol: market?.getFieldValue?.("SYMBOL_LIST"),
       tradeTypeCategory: tradeType?.getFieldValue?.("TRADETYPECAT_LIST"),
@@ -549,8 +546,6 @@ const touchNumberFieldsShim = `<script>
   mount();
 })();
 </script>`;
-const strategyBootstrap = createStrategyBootstrap(STRATEGIES);
-
 const rewriteReferences = async directory => {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const target = path.join(directory, entry.name);
@@ -589,7 +584,7 @@ const rewriteReferences = async directory => {
       }
       if (target === path.join(destination, "index.html")) {
         output = output.replace("<head>", `<head>${localStorageShim}`)
-          .replace("</body>", `${safetyShim}${touchNumberFieldsShim}${strategyBootstrap}</body>`)
+          .replace("</body>", `${safetyShim}${touchNumberFieldsShim}</body>`)
           .replace("<title>Automate Your Trades | Deriv Bot</title>", "<title>Deriv Blockly Editor | Trade Scheme FX</title>");
       }
       if (output !== input) await writeFile(target, output);
