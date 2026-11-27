@@ -226,6 +226,7 @@ const safetyShim = `<script>
       ["multiplier", "multipliers"].includes(String(plan.tradeTypeCategory || "").toLowerCase()) &&
       ["multiplier", "multipliers"].includes(String(plan.tradeType || "").toLowerCase()) &&
       String(plan.contractType || "").toLowerCase() === "both" &&
+      Boolean(runState.currency) && plan.currency === runState.currency &&
       ["USD", "AUD"].includes(String(plan.currency || "")) &&
       Number.isSafeInteger(plan.multiplier) && plan.multiplier > 0 &&
       Number.isFinite(plan.stake) && plan.stake > 0 &&
@@ -261,10 +262,18 @@ const safetyShim = `<script>
     if (!isSupportedPlan()) {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
-      postToParent("PLAN_ERROR", { code: "BLOCKLY_SETTINGS_NOT_READY" });
+      const pendingPlan = currentPlan();
+      const code = runState.currency && pendingPlan.currency !== runState.currency
+        ? "BLOCKLY_CURRENCY_SYNC_REQUIRED"
+        : "BLOCKLY_SETTINGS_NOT_READY";
+      postToParent("PLAN_ERROR", { code });
       return;
     }
     const plan = currentPlan();
+    if (!runState.currency || plan.currency !== runState.currency) {
+      postToParent("PLAN_ERROR", { code: "BLOCKLY_CURRENCY_SYNC_REQUIRED" });
+      return;
+    }
     if (!["USD", "AUD"].includes(plan.currency)) {
       postToParent("PLAN_ERROR", { code: "UNSUPPORTED_BLOCKLY_CURRENCY" });
       return;
