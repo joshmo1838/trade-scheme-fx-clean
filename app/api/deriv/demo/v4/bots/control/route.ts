@@ -94,7 +94,11 @@ export async function POST(request:NextRequest){
   if(stake===null||stopLoss===null||takeProfit===null||stake>stopLoss)return rejectControl('POSITIVE_STAKE_AND_SESSION_LIMITS_REQUIRED',400);
   const context=await getDerivDemoContext();
   const requiredCurrency=plan?.currency||'USD';
-  if(context.user.id!==userId||context.account.account_type!=='demo'||context.account.currency!==requiredCurrency||!Number.isFinite(Number(context.account.balance))||Number(context.account.balance)<stake||Number(context.account.balance)<stopLoss||Number(context.account.balance)<takeProfit)return rejectControl('VERIFIED_DEMO_BALANCE_AND_BLOCK_CURRENCY_REQUIRED',403);
+  if(context.user.id!==userId||context.account.account_type!=='demo')return rejectControl('VERIFIED_DEMO_ACCOUNT_REQUIRED',403);
+  if(context.account.currency!==requiredCurrency)return rejectControl('DEMO_CURRENCY_MISMATCH',409);
+  const verifiedBalance=Number(context.account.balance);
+  if(!Number.isFinite(verifiedBalance))return rejectControl('VERIFIED_DEMO_BALANCE_UNAVAILABLE',503);
+  if(verifiedBalance<stake||verifiedBalance<stopLoss||verifiedBalance<takeProfit)return rejectControl('DEMO_BALANCE_BELOW_SESSION_LIMITS',400);
   if(current&&Number(current.control_version)!==body.expectedVersion)return rejectControl('VERSION_OR_ACCOUNT_MISMATCH',409);
   let result;
   if(plan){
