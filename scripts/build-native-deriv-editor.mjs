@@ -324,9 +324,11 @@ const safetyShim = `<script>
   const syncVerifiedCurrency = () => {
     if (!["USD", "AUD"].includes(runState.currency)) return;
     const workspace = window.Blockly?.derivWorkspace;
-    const options = workspace?.getAllBlocks?.(false)?.find(block => block.type === "trade_definition_multiplier");
-    const field = options?.getField?.("CURRENCY_LIST");
-    if (field && field.getValue?.() !== runState.currency) field.setValue(runState.currency);
+    const optionBlocks = workspace?.getAllBlocks?.(false)?.filter(block => block.type === "trade_definition_multiplier") || [];
+    for (const options of optionBlocks) {
+      const field = options?.getField?.("CURRENCY_LIST");
+      if (field && field.getValue?.() !== runState.currency) field.setValue(runState.currency);
+    }
   };
   const apply = () => {
     syncVerifiedCurrency();
