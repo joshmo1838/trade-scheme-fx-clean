@@ -126,6 +126,7 @@ const touchNumberFieldsShim = `<script>
   let attachedSvg = null;
   let scheduled = false;
   let lastActivation = null;
+  let activePicker = null;
   const getWorkspace = () => workspaceRef || (workspaceRef = window.Blockly?.derivWorkspace || null);
   const cacheFields = workspace => {
     for (const block of workspace.getAllBlocks?.(false) || []) {
@@ -143,10 +144,51 @@ const touchNumberFieldsShim = `<script>
     cacheFields(workspace);
     return fieldByGroup.get(group);
   };
-  const editorIsOpen = () => {
-    const widget = document.querySelector(".blocklyWidgetDiv");
-    const input = widget?.querySelector("input.blocklyHtmlInput, input");
-    return !!input && input.getClientRects().length > 0 && getComputedStyle(widget).display !== "none";
+  const openNumberPicker = field => {
+    activePicker?.remove();
+    const panel = document.createElement("section");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Choose a number from 0 to 1000");
+    panel.style.cssText = "position:fixed;z-index:2147483647;left:0;right:0;bottom:0;max-height:75dvh;overflow:auto;box-sizing:border-box;padding:18px 16px calc(18px + env(safe-area-inset-bottom));background:#fff;color:#102033;border-radius:16px 16px 0 0;box-shadow:0 -8px 36px rgba(0,0,0,.32);font:16px system-ui,sans-serif";
+    const title = document.createElement("strong");
+    title.textContent = "Select a value from 0 to 1000";
+    title.style.cssText = "display:block;margin:0 0 12px;font-size:18px";
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "Numeric value from 0 to 1000");
+    select.style.cssText = "display:block;width:100%;min-height:52px;margin:0 0 14px;padding:10px;font:16px system-ui,sans-serif;color:#102033;background:#fff;border:1px solid #64748b;border-radius:8px;touch-action:manipulation";
+    for (let value = 0; value <= 1000; value++) {
+      const option = document.createElement("option");
+      option.value = String(value);
+      option.textContent = String(value);
+      select.appendChild(option);
+    }
+    const currentValue = Number(field.getValue?.());
+    select.value = String(Number.isFinite(currentValue) ? Math.max(0, Math.min(1000, Math.round(currentValue))) : 0);
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex;gap:10px";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.textContent = "Apply";
+    for (const button of [cancel, apply]) {
+      button.style.cssText = "flex:1;min-height:48px;padding:12px;border:1px solid #64748b;border-radius:8px;background:#f1f5f9;color:#102033;font:700 16px system-ui,sans-serif;touch-action:manipulation";
+    }
+    const close = () => {
+      panel.remove();
+      if (activePicker === panel) activePicker = null;
+    };
+    cancel.addEventListener("click", close);
+    apply.addEventListener("click", () => {
+      field.setValue(select.value);
+      close();
+    });
+    panel.append(title, select, actions);
+    actions.append(cancel, apply);
+    document.body.appendChild(panel);
+    activePicker = panel;
   };
   const attachTouchEditorFallback = (workspace, svg) => {
     if (attachedSvg === svg) return;
@@ -156,15 +198,14 @@ const touchNumberFieldsShim = `<script>
       const group = event.target?.closest?.("g.blocklyEditableText");
       if (!group?.querySelector("rect[data-tsfx-touch-hit]")) return;
       const field = findField(workspace, group);
-      if (!field || (field.isCurrentlyEditable && !field.isCurrentlyEditable()) || typeof field.showEditor !== "function") return;
-      if (editorIsOpen()) return;
+      if (!field || (field.isCurrentlyEditable && !field.isCurrentlyEditable()) || typeof field.setValue !== "function") return;
       const now = Date.now();
       if (lastActivation?.group === group && now - lastActivation.at < 700) return;
       lastActivation = { group, at: now };
       try {
-        // Open the normal Blockly editor synchronously in the trusted touch event so iOS can focus it and show its keyboard.
+        // Open a real HTML select in the trusted touch event; this avoids relying on mobile keyboard focus in Blockly's SVG editor.
         if (event.cancelable) event.preventDefault();
-        field.showEditor(event);
+        openNumberPicker(field);
       } catch {
         lastActivation = null;
       }
